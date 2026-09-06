@@ -1,0 +1,63 @@
+.settings-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.settings-list div {
+  padding: 12px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.settings-list div:last-child {
+  border-bottom: 0;
+}
+
+.settings-list dt {
+  color: #98a2b3;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.settings-list dd {
+  margin: 5px 0 0;
+  color: #344054;
+  line-height: 1.5;
+}
+
+.technical-note,
+.security-copy {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.bridge-message {
+  padding: 11px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bridge-message--idle,
+.bridge-message--testing {
+  background: #f8fafc;
+  color: #475467;
+}
+
+.bridge-message--success {
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.bridge-message--error {
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
