@@ -47,11 +47,20 @@ export type KnowledgeEntry = {
 
 export type ProductSummary = {
   id: string
-  blingId?: string
+  blingId: string
   name: string
   sku: string
+  gtin?: string
   price: number
-  stock: number
+  stock: number | null
   active: boolean
   source: 'bling'
+}
+
+export type ProductCatalog = {
+  source: 'bling'
+  generatedAt: string | null
+  count: number
+  stockIncluded: boolean
+  items: ProductSummary[]
 }
