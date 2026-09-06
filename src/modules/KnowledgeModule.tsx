@@ -1,6 +1,6 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { KnowledgeCategory, KnowledgeEntry } from '../core/types'
-import { localAdminStore } from '../services/localAdminStore'
+import { adminRepository, getAdminRepositoryMode } from '../services/adminRepository'
 
 const categories: KnowledgeCategory[] = [
   'Empresa',
@@ -20,9 +20,34 @@ const emptyForm = {
 }
 
 export function KnowledgeModule() {
-  const [entries, setEntries] = useState<KnowledgeEntry[]>(() => localAdminStore.listKnowledge())
+  const [entries, setEntries] = useState<KnowledgeEntry[]>([])
   const [form, setForm] = useState(emptyForm)
   const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const mode = getAdminRepositoryMode()
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError('')
+
+    adminRepository.listKnowledge()
+      .then((items) => {
+        if (active) setEntries(items)
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Falha ao carregar a base de conhecimento.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [mode])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('pt-BR')
@@ -33,11 +58,11 @@ export function KnowledgeModule() {
     )
   }, [entries, query])
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
     const title = form.title.trim()
     const content = form.content.trim()
-    if (!title || !content) return
+    if (!title || !content || saving) return
 
     const entry: KnowledgeEntry = {
       id: form.id || crypto.randomUUID(),
@@ -48,8 +73,16 @@ export function KnowledgeModule() {
       updatedAt: new Date().toISOString(),
     }
 
-    setEntries(localAdminStore.saveKnowledge(entry))
-    setForm(emptyForm)
+    setSaving(true)
+    setError('')
+    try {
+      setEntries(await adminRepository.saveKnowledge(entry))
+      setForm(emptyForm)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao salvar a regra.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function edit(entry: KnowledgeEntry) {
@@ -62,9 +95,18 @@ export function KnowledgeModule() {
     })
   }
 
-  function remove(id: string) {
-    setEntries(localAdminStore.deleteKnowledge(id))
-    if (form.id === id) setForm(emptyForm)
+  async function remove(id: string) {
+    if (saving) return
+    setSaving(true)
+    setError('')
+    try {
+      setEntries(await adminRepository.deleteKnowledge(id))
+      if (form.id === id) setForm(emptyForm)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao excluir a regra.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -78,10 +120,16 @@ export function KnowledgeModule() {
           <span className="count-badge">{entries.length}</span>
         </div>
 
-        <div className="local-warning">
-          <strong>MVP local</strong>
-          <span>As regras já podem ser cadastradas e testadas neste navegador. A persistência segura será conectada depois sem mudar este módulo.</span>
+        <div className={mode === 'make' ? 'storage-state storage-state--remote' : 'local-warning'}>
+          <strong>{mode === 'make' ? 'Persistência Make' : 'MVP local'}</strong>
+          <span>
+            {mode === 'make'
+              ? 'URL e chave da ponte estão configuradas nesta sessão. Alterações serão enviadas ao Make.'
+              : 'Sem ponte configurada, as regras ficam somente neste navegador para desenvolvimento.'}
+          </span>
         </div>
+
+        {error && <div className="bridge-message bridge-message--error">{error}</div>}
 
         <label className="search-field compact-search">
           <span>Buscar regra</span>
@@ -93,7 +141,9 @@ export function KnowledgeModule() {
         </label>
 
         <div className="record-list">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="empty-state">Carregando regras…</div>
+          ) : filtered.length === 0 ? (
             <div className="empty-state">
               <strong>Nenhuma regra cadastrada.</strong>
               <span>Comece pelas regras da empresa, entrega, pagamento e atendimento.</span>
@@ -111,8 +161,8 @@ export function KnowledgeModule() {
               </div>
               <p>{entry.content}</p>
               <div className="record-actions">
-                <button className="button button--secondary" type="button" onClick={() => edit(entry)}>Editar</button>
-                <button className="button button--danger" type="button" onClick={() => remove(entry.id)}>Excluir</button>
+                <button className="button button--secondary" type="button" disabled={saving} onClick={() => edit(entry)}>Editar</button>
+                <button className="button button--danger" type="button" disabled={saving} onClick={() => remove(entry.id)}>Excluir</button>
               </div>
             </article>
           ))}
@@ -170,9 +220,11 @@ export function KnowledgeModule() {
 
           <div className="form-actions">
             {form.id && (
-              <button className="button button--secondary" type="button" onClick={() => setForm(emptyForm)}>Cancelar</button>
+              <button className="button button--secondary" type="button" disabled={saving} onClick={() => setForm(emptyForm)}>Cancelar</button>
             )}
-            <button className="button button--primary" type="submit">Salvar regra</button>
+            <button className="button button--primary" type="submit" disabled={saving}>
+              {saving ? 'Salvando…' : 'Salvar regra'}
+            </button>
           </div>
         </form>
       </section>
