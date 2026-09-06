@@ -1,13 +1,14 @@
 {
   "name": "chat-dona-antonia",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "build": "npm run typecheck && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:bling-products": "node scripts/bling/sync-products.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
