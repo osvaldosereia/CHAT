@@ -5,6 +5,7 @@ import type {
   ModuleId,
   NavigationItem,
 } from './core/types'
+import { ProductsModule } from './modules/ProductsModule'
 
 const navigation: NavigationItem[] = [
   { id: 'dashboard', label: 'Dashboard', description: 'Visão geral da operação' },
@@ -17,15 +18,15 @@ const navigation: NavigationItem[] = [
 ]
 
 const integrations: Integration[] = [
-  { id: 'bling', name: 'Bling', status: 'pending', detail: 'Aguardando OAuth/API' },
-  { id: 'make', name: 'Make', status: 'pending', detail: 'Aguardando webhook do cenário' },
+  { id: 'bling', name: 'Bling', status: 'pending', detail: 'Camada de catálogo pronta; falta autorizar OAuth/API' },
+  { id: 'make', name: 'Make', status: 'pending', detail: 'Aguardando webhook do primeiro cenário' },
   { id: 'meta', name: 'WhatsApp Meta', status: 'pending', detail: 'Será conectado pelo Make' },
   { id: 'openai', name: 'OpenAI', status: 'pending', detail: 'Será usado no cenário do Make' },
 ]
 
 const metrics: DashboardMetric[] = [
-  { label: 'Produtos', value: '—', hint: 'Sincronização Bling ainda não configurada' },
-  { label: 'Cestas ativas', value: '0', hint: 'Cadastre após conectar o catálogo' },
+  { label: 'Produtos', value: '—', hint: 'Tela pronta; sincronização Bling pendente' },
+  { label: 'Cestas ativas', value: '0', hint: 'Próximo módulo após catálogo real' },
   { label: 'Conversas abertas', value: '0', hint: 'WhatsApp ainda não conectado' },
   { label: 'Pedidos hoje', value: '0', hint: 'Pedidos confirmados irão para o Bling' },
 ]
@@ -34,12 +35,12 @@ const moduleCopy: Record<ModuleId, { title: string; intro: string; next: string[
   dashboard: {
     title: 'Dashboard',
     intro: 'Acompanhe o mínimo necessário para saber se atendimento, catálogo e pedidos estão funcionando.',
-    next: ['Conectar Bling', 'Configurar base inicial da empresa', 'Conectar cenário do Make'],
+    next: ['Autorizar Bling', 'Cadastrar regras da empresa', 'Conectar cenário do Make'],
   },
   products: {
     title: 'Produtos',
-    intro: 'Aqui ficará o espelho do catálogo do Bling. Preço, estoque, SKU e status continuam tendo o Bling como fonte oficial.',
-    next: ['OAuth do Bling', 'Sincronização incremental', 'Busca por nome, SKU e GTIN'],
+    intro: 'Espelho de consulta do catálogo do Bling. Preço, estoque, SKU e status continuam tendo o Bling como fonte oficial.',
+    next: ['OAuth do Bling', 'Sincronização segura', 'Busca por nome, SKU e GTIN'],
   },
   baskets: {
     title: 'Cestas básicas',
@@ -71,6 +72,29 @@ const moduleCopy: Record<ModuleId, { title: string; intro: string; next: string[
 function StatusBadge({ status }: { status: Integration['status'] }) {
   const text = status === 'connected' ? 'Conectado' : status === 'error' ? 'Erro' : 'Pendente'
   return <span className={`status status--${status}`}>{text}</span>
+}
+
+function GenericModule({ module }: { module: ModuleId }) {
+  const current = moduleCopy[module]
+  return (
+    <section className="panel panel--module">
+      <div className="panel-heading">
+        <div>
+          <span className="eyebrow">Módulo</span>
+          <h2>{current.title}</h2>
+        </div>
+      </div>
+      <p className="module-intro">{current.intro}</p>
+      <div className="next-grid">
+        {current.next.map((item, index) => (
+          <div className="next-card" key={item}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <strong>{item}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 export default function App() {
@@ -111,10 +135,10 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <div>
-            <span className="eyebrow">CHAT / MVP 0.1</span>
+            <span className="eyebrow">CHAT / MVP 0.2</span>
             <h1>{current.title}</h1>
           </div>
-          <span className="environment">Ambiente inicial</span>
+          <span className="environment">Desenvolvimento</span>
         </header>
 
         {activeModule === 'dashboard' && (
@@ -151,23 +175,7 @@ export default function App() {
           </>
         )}
 
-        <section className="panel panel--module">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">Módulo</span>
-              <h2>{current.title}</h2>
-            </div>
-          </div>
-          <p className="module-intro">{current.intro}</p>
-          <div className="next-grid">
-            {current.next.map((item, index) => (
-              <div className="next-card" key={item}>
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{item}</strong>
-              </div>
-            ))}
-          </div>
-        </section>
+        {activeModule === 'products' ? <ProductsModule /> : <GenericModule module={activeModule} />}
       </main>
     </div>
   )
