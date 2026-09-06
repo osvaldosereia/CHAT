@@ -23,24 +23,43 @@
   font-weight: 800;
 }
 
-.local-warning {
+.local-warning,
+.storage-state {
   display: grid;
   gap: 4px;
   margin: 16px 0;
   padding: 13px 14px;
-  border: 1px solid #f4d7a1;
   border-radius: 12px;
+}
+
+.local-warning {
+  border: 1px solid #f4d7a1;
   background: #fffaf0;
 }
 
-.local-warning strong {
+.local-warning strong,
+.storage-state strong {
   font-size: 13px;
+}
+
+.local-warning span,
+.storage-state span {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .local-warning span {
   color: #7a5a21;
-  font-size: 12px;
-  line-height: 1.5;
+}
+
+.storage-state--remote {
+  border: 1px solid #a6e4c5;
+  background: #ecfdf3;
+}
+
+.storage-state--remote strong,
+.storage-state--remote span {
+  color: #067647;
 }
 
 .compact-search {
