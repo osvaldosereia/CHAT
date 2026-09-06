@@ -55,7 +55,7 @@ MVP 0.3 em desenvolvimento no repositório `osvaldosereia/CHAT`.
 - IA não aprende automaticamente com clientes.
 - Persistência atual é local no navegador apenas para desenvolvimento.
 
-### Ponte Make preparada
+### Ponte Make — código do Admin
 
 - `src/services/makeBridge.ts` criado.
 - Configuração pública via `VITE_ADMIN_BRIDGE_URL`.
@@ -64,6 +64,15 @@ MVP 0.3 em desenvolvimento no repositório `osvaldosereia/CHAT`.
 - Tela Configurações permite salvar chave na sessão e executar `system.ping`.
 - Contrato documentado em `docs/MAKE-BRIDGE.md`.
 - Ações previstas: `system.ping`, `products.search`, `knowledge.*`, `baskets.*`, `customer.find`, `order.create`.
+
+### Ponte Make — cenário criado
+
+- Cenário criado na conta Make: `CHAT - Admin Bridge`.
+- Está INATIVO propositalmente.
+- Trigger `Custom Webhook` criado e corretamente associado ao cenário.
+- O URL do webhook NÃO foi gravado no GitHub público.
+- Modo de aprendizado foi testado e desligado sem capturar credenciais reais.
+- Próxima etapa no Make é aprender a estrutura do payload e somente depois adicionar validação de `adminKey`, rotas e respostas.
 
 ## API Bling confirmada em 06/09/2026
 
@@ -94,31 +103,32 @@ Os módulos server-side diretos do Bling permanecem no repositório para sincron
 
 ## Próximo passo EXATO
 
-### Fase 3 — primeiro cenário Make administrativo
+### Fase 3 — completar `CHAT - Admin Bridge`
 
-Criar UM cenário inicial com:
+1. Colocar o webhook em modo de aprendizado.
+2. Enviar uma amostra SEM segredo real com esta estrutura:
 
-```text
-Custom Webhook
-  ↓
-validar adminKey
-  ↓
-Router por action
-  ├─ system.ping
-  ├─ knowledge.list/save/delete
-  ├─ baskets.list/save/delete
-  └─ products.search → Bling
-  ↓
-resposta JSON
+```json
+{
+  "action": "system.ping",
+  "requestId": "uuid",
+  "adminKey": "LEARN_ONLY_NOT_SECRET",
+  "payload": {}
+}
 ```
 
-Depois:
+3. Ler os campos detectados pelo Make.
+4. Adicionar validação obrigatória da `adminKey` ANTES de qualquer ação.
+5. Adicionar `Webhook response` para `system.ping`.
+6. Criar armazenamento compartilhado para `knowledge.*` e `baskets.*`.
+7. Adicionar `products.search` usando Bling.
+8. Somente após tudo isso ativar o cenário.
+9. Configurar `VITE_ADMIN_BRIDGE_URL` fora do repositório e testar pelo Admin.
+10. Migrar Cestas e Conhecimento de localStorage para a ponte Make.
 
-1. configurar `VITE_ADMIN_BRIDGE_URL`;
-2. testar `system.ping` pelo Admin;
-3. migrar Cestas e Conhecimento de localStorage para a ponte Make;
-4. fazer `products.search` usar conexão oficial do Bling no Make;
-5. só então criar primeiro cenário WhatsApp texto.
+### Observação operacional
+
+O ambiente de execução desta conversa não conseguiu enviar diretamente o POST de aprendizado ao domínio `hook.eu1.make.com`. Portanto o cenário foi deixado inativo e o learning mode foi desligado para não capturar acidentalmente uma requisição qualquer.
 
 ## Primeiro cenário WhatsApp
 
