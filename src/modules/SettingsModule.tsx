@@ -1,10 +1,11 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import {
   callMakeBridge,
   getAdminSessionKey,
+  getBridgeOrigin,
   getBridgeUrl,
-  isBridgeConfigured,
   setAdminSessionKey,
+  setBridgeUrl,
 } from '../services/makeBridge'
 
 type PingResult = {
@@ -13,23 +14,51 @@ type PingResult = {
   bling?: string
 }
 
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:'
+  } catch {
+    return false
+  }
+}
+
 export function SettingsModule() {
+  const [bridgeUrl, setBridgeUrlInput] = useState(() => getBridgeUrl())
   const [key, setKey] = useState(() => getAdminSessionKey())
   const [status, setStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
-  const bridgeConfigured = isBridgeConfigured()
 
-  function saveKey(event: FormEvent) {
+  const urlValid = useMemo(() => isHttpUrl(bridgeUrl.trim()), [bridgeUrl])
+  const bridgeConfigured = Boolean(bridgeUrl.trim() && urlValid)
+
+  function saveSessionSettings(event: FormEvent) {
     event.preventDefault()
+
+    if (bridgeUrl.trim() && !urlValid) {
+      setStatus('error')
+      setMessage('Informe uma URL HTTP/HTTPS válida para a ponte Make.')
+      return
+    }
+
+    setBridgeUrl(bridgeUrl)
     setAdminSessionKey(key)
-    setMessage(key.trim() ? 'Chave guardada somente nesta sessão do navegador.' : 'Chave removida da sessão.')
     setStatus('idle')
+    setMessage(
+      bridgeUrl.trim() || key.trim()
+        ? 'Configuração guardada somente nesta sessão do navegador.'
+        : 'Configuração da sessão removida.',
+    )
   }
 
   async function testBridge() {
+    if (!bridgeConfigured || !key.trim()) return
+
+    setBridgeUrl(bridgeUrl)
     setAdminSessionKey(key)
     setStatus('testing')
     setMessage('Testando conexão…')
+
     try {
       const result = await callMakeBridge<PingResult>('system.ping')
       setStatus('success')
@@ -40,6 +69,8 @@ export function SettingsModule() {
     }
   }
 
+  const configuredOrigin = bridgeConfigured ? getBridgeOrigin() : ''
+
   return (
     <div className="admin-split settings-grid">
       <section className="panel">
@@ -49,7 +80,7 @@ export function SettingsModule() {
             <h2>Ponte Make</h2>
           </div>
           <span className={bridgeConfigured ? 'status status--connected' : 'status status--pending'}>
-            {bridgeConfigured ? 'URL configurada' : 'Pendente'}
+            {bridgeConfigured ? 'URL informada' : 'Pendente'}
           </span>
         </div>
 
@@ -60,11 +91,11 @@ export function SettingsModule() {
         <dl className="settings-list">
           <div>
             <dt>Endpoint</dt>
-            <dd>{bridgeConfigured ? 'Configurado via VITE_ADMIN_BRIDGE_URL' : 'Ainda não configurado'}</dd>
+            <dd>{bridgeConfigured ? 'Mantido somente na sessão do navegador' : 'Ainda não informado'}</dd>
           </div>
           <div>
             <dt>Segredo no código</dt>
-            <dd>Nenhum. A chave administrativa é informada na sessão.</dd>
+            <dd>Nenhum. URL e chave podem ser informadas na sessão e não são commitadas no GitHub.</dd>
           </div>
           <div>
             <dt>Uso do Make</dt>
@@ -72,8 +103,8 @@ export function SettingsModule() {
           </div>
         </dl>
 
-        {bridgeConfigured && (
-          <small className="technical-note">Origem configurada: {new URL(getBridgeUrl()).origin}</small>
+        {configuredOrigin && configuredOrigin !== 'URL inválida' && (
+          <small className="technical-note">Origem configurada: {configuredOrigin}</small>
         )}
       </section>
 
@@ -81,11 +112,22 @@ export function SettingsModule() {
         <div className="panel-heading">
           <div>
             <span className="eyebrow">Sessão</span>
-            <h2>Chave administrativa</h2>
+            <h2>Conectar Admin ao Make</h2>
           </div>
         </div>
 
-        <form className="admin-form" onSubmit={saveKey}>
+        <form className="admin-form" onSubmit={saveSessionSettings}>
+          <label>
+            <span>URL do webhook do Admin Bridge</span>
+            <input
+              type="url"
+              autoComplete="off"
+              value={bridgeUrl}
+              onChange={(event) => setBridgeUrlInput(event.target.value)}
+              placeholder="https://hook...make.com/..."
+            />
+          </label>
+
           <label>
             <span>Admin Key</span>
             <input
@@ -98,7 +140,7 @@ export function SettingsModule() {
           </label>
 
           <p className="security-copy">
-            Esta chave não é gravada no repositório nem em localStorage. Ela permanece apenas em sessionStorage e desaparece ao encerrar a sessão do navegador.
+            URL e chave não são gravadas no repositório nem em localStorage. Elas permanecem apenas em sessionStorage e desaparecem ao encerrar a sessão do navegador.
           </p>
 
           <div className="form-actions">
