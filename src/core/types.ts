@@ -45,6 +45,26 @@ export type KnowledgeEntry = {
   updatedAt: string
 }
 
+export type BasketItem = {
+  blingId: string
+  sku: string
+  name: string
+  quantity: number
+}
+
+export type Basket = {
+  id: string
+  blingId?: string
+  sku?: string
+  name: string
+  description: string
+  salesGuidance: string
+  substitutionRules: string
+  active: boolean
+  items: BasketItem[]
+  updatedAt: string
+}
+
 export type ProductSummary = {
   id: string
   blingId: string
