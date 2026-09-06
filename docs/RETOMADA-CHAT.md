@@ -2,13 +2,13 @@
 
 ## Estado atual
 
-Repositório inicializado em 06/09/2026.
+MVP 0.3 em desenvolvimento no repositório `osvaldosereia/CHAT`.
 
 ### Decisões fechadas
 
-- Projeto: Admin da Dona Antônia + automação do WhatsApp + Bling.
+- Projeto: Admin da Dona Antônia + automação oficial do WhatsApp + Bling.
 - Não será criado automatizador próprio.
-- Make será usado somente para tempo real/webhooks e integrações síncronas necessárias.
+- Make será usado somente para tempo real, webhooks e ações síncronas que precisam de credenciais protegidas.
 - GitHub Actions será usado para rotinas em lote/agendadas sempre que fizer sentido.
 - Bling é a fonte oficial de produtos, preço, estoque, contatos e pedidos confirmados.
 - Admin é a fonte oficial das regras de atendimento, regras da empresa, conhecimento comercial das cestas e configurações da automação.
@@ -20,85 +20,120 @@ Repositório inicializado em 06/09/2026.
 
 ### Fundação
 
-- README com objetivo e regras de arquitetura.
-- `docs/ARCHITECTURE.md` com fluxo e divisão Make x Actions.
-- Base React + TypeScript + Vite.
-- Dashboard responsivo inicial.
-- Navegação dos módulos:
-  - Dashboard
-  - Produtos
-  - Cestas
-  - Conhecimento
-  - WhatsApp
-  - Pedidos
-  - Configurações
-- Tipos de domínio iniciais.
-- Portas/interfaces para Bling, conhecimento e automação.
-- `.gitignore` e `.env.example` com regra explícita de não expor segredos.
-- GitHub Actions CI para instalar dependências e validar frontend + módulos server-side.
+- React + TypeScript + Vite.
+- Dashboard responsivo.
+- Navegação: Dashboard, Produtos, Cestas, Conhecimento, WhatsApp, Pedidos e Configurações.
+- GitHub Actions CI validando frontend e módulos server-side.
+- `.gitignore` e `.env.example` com fronteira de segurança.
+- documentação de arquitetura e retomada.
 
-### Fase 2 — Produtos/Bling iniciada
+### Produtos / Bling
 
-- Tela real de Produtos criada.
+- Tela real de Produtos.
 - Busca por nome, SKU, GTIN e ID Bling.
 - Exibição preparada para preço, estoque e status.
 - Serviço de catálogo com `VITE_CATALOG_URL` configurável.
 - Placeholder público vazio em `public/data/products.json`.
-- Domínio `ProductCatalog` e `ProductSummary` ampliado.
-- Script `scripts/bling/sync-products.mjs` criado.
-- Script pagina `GET /produtos`, consulta `/estoques/saldos`, trata 429 e respeita limite de requisições.
-- Dados reais do script são gravados em `runtime/`, ignorado pelo Git.
-- `docs/BLING-INTEGRATION.md` documenta API, JWT, limites e segurança.
+- Script `scripts/bling/sync-products.mjs` com paginação, estoque, retry 429 e limite de requisições.
+- Saída real em `runtime/`, ignorada pelo Git.
+- `server/bling/oauth.mjs` com authorization code / refresh token e JWT.
+- `server/bling/client.mjs` com produtos, estoque, contatos e pedido de venda.
+- `docs/BLING-INTEGRATION.md`.
 
-### Camada segura do Bling iniciada
+### Cestas — funcional no MVP
 
-- `server/bling/oauth.mjs`: troca de authorization code e refresh token usando `enable-jwt: 1`.
-- `server/bling/client.mjs`: cliente REST reutilizável para produtos, estoque, contatos e criação de pedido de venda.
-- Tratamento central de `429 Too Many Requests`.
-- `server/README.md`: fronteira de segurança e responsabilidades da API do Admin.
-- Nenhum client secret, refresh token ou access token é enviado ao frontend.
+- CRUD de cestas no Admin.
+- Campos: ID Bling, SKU, nome, descrição comercial, orientação de venda, regras de substituição e status.
+- Modelo mantém Bling como dono de preço, estoque e composição.
+- Persistência atual é local no navegador apenas para desenvolvimento.
+
+### Base de conhecimento — funcional no MVP
+
+- CRUD de regras oficiais.
+- Categorias: Empresa, Atendimento, Entregas, Pagamentos, Cestas e Pós-venda.
+- Busca, ativação/desativação, edição e exclusão.
+- IA não aprende automaticamente com clientes.
+- Persistência atual é local no navegador apenas para desenvolvimento.
+
+### Ponte Make preparada
+
+- `src/services/makeBridge.ts` criado.
+- Configuração pública via `VITE_ADMIN_BRIDGE_URL`.
+- `ADMIN_KEY` nunca entra em `VITE_*` ou Git; usuário informa por sessão.
+- Chave mantida apenas em `sessionStorage`.
+- Tela Configurações permite salvar chave na sessão e executar `system.ping`.
+- Contrato documentado em `docs/MAKE-BRIDGE.md`.
+- Ações previstas: `system.ping`, `products.search`, `knowledge.*`, `baskets.*`, `customer.find`, `order.create`.
 
 ## API Bling confirmada em 06/09/2026
 
 - Base: `https://api.bling.com.br/Api/v3`.
 - OAuth 2.0.
-- JWT recomendado/necessário para nova integração, com `enable-jwt: 1`.
-- Access token: `expires_in` documentado em 21.600 segundos.
-- Refresh token: 30 dias segundo documentação atual.
+- JWT com `enable-jwt: 1` para integração nova.
+- Access token: `expires_in` 21.600 segundos.
+- Refresh token: 30 dias segundo documentação consultada.
 - Limite: 3 requisições/segundo e 120.000/dia.
+
+## Estratégia atual de custo
+
+Não contratar backend próprio no primeiro MVP.
+
+```text
+ADMIN
+  ↓
+MAKE BRIDGE (somente operações imediatas)
+  ├─ Bling
+  ├─ armazenamento compartilhado
+  └─ depois WhatsApp/OpenAI
+
+GITHUB ACTIONS
+  └─ lotes, sincronizações, manutenção e tarefas agendadas
+```
+
+Os módulos server-side diretos do Bling permanecem no repositório para sincronizações via Actions e para uma futura migração sem dependência do Make, mas não são requisito para colocar o primeiro MVP no ar.
 
 ## Próximo passo EXATO
 
-### Fase 2B — endpoint seguro + armazenamento OAuth
+### Fase 3 — primeiro cenário Make administrativo
 
-1. Escolher/implementar o pequeno runtime da API segura do Admin.
-2. Criar endpoint de callback OAuth usando `server/bling/oauth.mjs`.
-3. Guardar `access_token`/`refresh_token` em armazenamento privado.
-4. Implementar renovação automática JWT.
-5. Expor `GET /api/products` usando `server/bling/client.mjs` e cache/espelho seguro.
-6. Fazer a tela Produtos consumir dados reais.
-7. Depois criar CRUD básico de Cestas e Conhecimento.
+Criar UM cenário inicial com:
 
-### Restrição atual
+```text
+Custom Webhook
+  ↓
+validar adminKey
+  ↓
+Router por action
+  ├─ system.ping
+  ├─ knowledge.list/save/delete
+  ├─ baskets.list/save/delete
+  └─ products.search → Bling
+  ↓
+resposta JSON
+```
 
-Não criar Action agendado que grave catálogo real no Git enquanto o repositório estiver público. Não usar access token de 6 horas como solução permanente.
+Depois:
 
-## Escopo do primeiro cenário Make
+1. configurar `VITE_ADMIN_BRIDGE_URL`;
+2. testar `system.ping` pelo Admin;
+3. migrar Cestas e Conhecimento de localStorage para a ponte Make;
+4. fazer `products.search` usar conexão oficial do Bling no Make;
+5. só então criar primeiro cenário WhatsApp texto.
+
+## Primeiro cenário WhatsApp
 
 Não adicionar áudio/imagem ainda.
-
-Primeiro cenário deve fazer apenas:
 
 ```text
 WhatsApp Meta
   ↓
 Make recebe texto
   ↓
-consulta Admin/contexto
+consulta conhecimento/cestas
   ↓
-OpenAI
+OpenAI classifica e responde
   ↓
-se houver consulta de produto → Bling/Admin
+se produto fora de cesta → Bling
   ↓
 Make responde texto no WhatsApp
 ```
