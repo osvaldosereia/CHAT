@@ -5,6 +5,8 @@ import type {
   ModuleId,
   NavigationItem,
 } from './core/types'
+import { BasketsModule } from './modules/BasketsModule'
+import { KnowledgeModule } from './modules/KnowledgeModule'
 import { ProductsModule } from './modules/ProductsModule'
 
 const navigation: NavigationItem[] = [
@@ -18,15 +20,15 @@ const navigation: NavigationItem[] = [
 ]
 
 const integrations: Integration[] = [
-  { id: 'bling', name: 'Bling', status: 'pending', detail: 'Camada de catálogo pronta; falta autorizar OAuth/API' },
-  { id: 'make', name: 'Make', status: 'pending', detail: 'Aguardando webhook do primeiro cenário' },
+  { id: 'bling', name: 'Bling', status: 'pending', detail: 'Cliente OAuth/API pronto; falta autorizar credenciais' },
+  { id: 'make', name: 'Make', status: 'pending', detail: 'Será a ponte segura do atendimento em tempo real' },
   { id: 'meta', name: 'WhatsApp Meta', status: 'pending', detail: 'Será conectado pelo Make' },
   { id: 'openai', name: 'OpenAI', status: 'pending', detail: 'Será usado no cenário do Make' },
 ]
 
 const metrics: DashboardMetric[] = [
   { label: 'Produtos', value: '—', hint: 'Tela pronta; sincronização Bling pendente' },
-  { label: 'Cestas ativas', value: '0', hint: 'Próximo módulo após catálogo real' },
+  { label: 'Cestas ativas', value: 'local', hint: 'Módulo CRUD disponível no MVP' },
   { label: 'Conversas abertas', value: '0', hint: 'WhatsApp ainda não conectado' },
   { label: 'Pedidos hoje', value: '0', hint: 'Pedidos confirmados irão para o Bling' },
 ]
@@ -44,13 +46,13 @@ const moduleCopy: Record<ModuleId, { title: string; intro: string; next: string[
   },
   baskets: {
     title: 'Cestas básicas',
-    intro: 'Cestas serão vinculadas aos produtos/composições do Bling e receberão no Admin as informações que a IA usa para vender e orientar.',
-    next: ['Vincular produto do Bling', 'Composição', 'Descrição comercial e regras'],
+    intro: 'O Bling mantém produto, preço, estoque e composição; o Admin mantém a orientação comercial e as regras que a IA deve usar.',
+    next: ['Vincular produto do Bling', 'Sincronizar composição', 'Disponibilizar contexto para o WhatsApp'],
   },
   knowledge: {
     title: 'Base de conhecimento',
     intro: 'Regras oficiais da Dona Antônia: atendimento, entrega, pagamento, cestas e pós-venda. A IA consulta esta base; não aprende regras diretamente com clientes.',
-    next: ['Empresa', 'Entrega e pagamento', 'Atendimento e pós-venda'],
+    next: ['Cadastrar regras oficiais', 'Mover persistência para API segura', 'Entregar contexto ao Make'],
   },
   whatsapp: {
     title: 'WhatsApp',
@@ -97,6 +99,13 @@ function GenericModule({ module }: { module: ModuleId }) {
   )
 }
 
+function ActiveModule({ module }: { module: ModuleId }) {
+  if (module === 'products') return <ProductsModule />
+  if (module === 'baskets') return <BasketsModule />
+  if (module === 'knowledge') return <KnowledgeModule />
+  return <GenericModule module={module} />
+}
+
 export default function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('dashboard')
   const current = useMemo(() => moduleCopy[activeModule], [activeModule])
@@ -135,7 +144,7 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <div>
-            <span className="eyebrow">CHAT / MVP 0.2</span>
+            <span className="eyebrow">CHAT / MVP 0.3</span>
             <h1>{current.title}</h1>
           </div>
           <span className="environment">Desenvolvimento</span>
@@ -175,7 +184,7 @@ export default function App() {
           </>
         )}
 
-        {activeModule === 'products' ? <ProductsModule /> : <GenericModule module={activeModule} />}
+        <ActiveModule module={activeModule} />
       </main>
     </div>
   )
