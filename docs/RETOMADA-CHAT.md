@@ -35,7 +35,7 @@ Repositório inicializado em 06/09/2026.
 - Tipos de domínio iniciais.
 - Portas/interfaces para Bling, conhecimento e automação.
 - `.gitignore` e `.env.example` com regra explícita de não expor segredos.
-- GitHub Actions CI para instalar dependências e validar o build.
+- GitHub Actions CI para instalar dependências e validar frontend + módulos server-side.
 
 ### Fase 2 — Produtos/Bling iniciada
 
@@ -50,6 +50,14 @@ Repositório inicializado em 06/09/2026.
 - Dados reais do script são gravados em `runtime/`, ignorado pelo Git.
 - `docs/BLING-INTEGRATION.md` documenta API, JWT, limites e segurança.
 
+### Camada segura do Bling iniciada
+
+- `server/bling/oauth.mjs`: troca de authorization code e refresh token usando `enable-jwt: 1`.
+- `server/bling/client.mjs`: cliente REST reutilizável para produtos, estoque, contatos e criação de pedido de venda.
+- Tratamento central de `429 Too Many Requests`.
+- `server/README.md`: fronteira de segurança e responsabilidades da API do Admin.
+- Nenhum client secret, refresh token ou access token é enviado ao frontend.
+
 ## API Bling confirmada em 06/09/2026
 
 - Base: `https://api.bling.com.br/Api/v3`.
@@ -61,13 +69,13 @@ Repositório inicializado em 06/09/2026.
 
 ## Próximo passo EXATO
 
-### Fase 2B — endpoint seguro + OAuth do Bling
+### Fase 2B — endpoint seguro + armazenamento OAuth
 
-1. Definir/implementar um pequeno backend seguro para o Admin, sem colocar segredos no frontend.
-2. Implementar callback OAuth do Bling.
+1. Escolher/implementar o pequeno runtime da API segura do Admin.
+2. Criar endpoint de callback OAuth usando `server/bling/oauth.mjs`.
 3. Guardar `access_token`/`refresh_token` em armazenamento privado.
 4. Implementar renovação automática JWT.
-5. Expor endpoint interno seguro de produtos para o Admin.
+5. Expor `GET /api/products` usando `server/bling/client.mjs` e cache/espelho seguro.
 6. Fazer a tela Produtos consumir dados reais.
 7. Depois criar CRUD básico de Cestas e Conhecimento.
 
