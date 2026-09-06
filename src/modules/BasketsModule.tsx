@@ -1,6 +1,6 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import type { Basket } from '../core/types'
-import { localAdminStore } from '../services/localAdminStore'
+import { adminRepository, getAdminRepositoryMode } from '../services/adminRepository'
 
 const emptyForm = {
   id: '',
@@ -14,9 +14,34 @@ const emptyForm = {
 }
 
 export function BasketsModule() {
-  const [baskets, setBaskets] = useState<Basket[]>(() => localAdminStore.listBaskets())
+  const [baskets, setBaskets] = useState<Basket[]>([])
   const [form, setForm] = useState(emptyForm)
   const [query, setQuery] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const mode = getAdminRepositoryMode()
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError('')
+
+    adminRepository.listBaskets()
+      .then((items) => {
+        if (active) setBaskets(items)
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'Falha ao carregar as cestas.')
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [mode])
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('pt-BR')
@@ -27,10 +52,10 @@ export function BasketsModule() {
     )
   }, [baskets, query])
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
     const name = form.name.trim()
-    if (!name) return
+    if (!name || saving) return
 
     const basket: Basket = {
       id: form.id || crypto.randomUUID(),
@@ -47,8 +72,16 @@ export function BasketsModule() {
       updatedAt: new Date().toISOString(),
     }
 
-    setBaskets(localAdminStore.saveBasket(basket))
-    setForm(emptyForm)
+    setSaving(true)
+    setError('')
+    try {
+      setBaskets(await adminRepository.saveBasket(basket))
+      setForm(emptyForm)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao salvar a cesta.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function edit(basket: Basket) {
@@ -64,9 +97,18 @@ export function BasketsModule() {
     })
   }
 
-  function remove(id: string) {
-    setBaskets(localAdminStore.deleteBasket(id))
-    if (form.id === id) setForm(emptyForm)
+  async function remove(id: string) {
+    if (saving) return
+    setSaving(true)
+    setError('')
+    try {
+      setBaskets(await adminRepository.deleteBasket(id))
+      if (form.id === id) setForm(emptyForm)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Falha ao excluir a cesta.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -80,10 +122,16 @@ export function BasketsModule() {
           <span className="count-badge">{baskets.length}</span>
         </div>
 
-        <div className="local-warning">
-          <strong>Modelo correto para o MVP</strong>
-          <span>O Bling continua dono do produto, preço, estoque e composição. Aqui ficam a descrição comercial e as regras que a automação precisa conhecer.</span>
+        <div className={mode === 'make' ? 'storage-state storage-state--remote' : 'local-warning'}>
+          <strong>{mode === 'make' ? 'Persistência Make' : 'MVP local'}</strong>
+          <span>
+            {mode === 'make'
+              ? 'Os metadados comerciais das cestas serão lidos e gravados pela ponte Make.'
+              : 'Sem ponte configurada, as cestas ficam somente neste navegador para desenvolvimento. O Bling continua sendo a fonte oficial dos produtos.'}
+          </span>
         </div>
+
+        {error && <div className="bridge-message bridge-message--error">{error}</div>}
 
         <label className="search-field compact-search">
           <span>Buscar cesta</span>
@@ -95,7 +143,9 @@ export function BasketsModule() {
         </label>
 
         <div className="record-list">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="empty-state">Carregando cestas…</div>
+          ) : filtered.length === 0 ? (
             <div className="empty-state">
               <strong>Nenhuma cesta cadastrada.</strong>
               <span>Cadastre somente as cestas que a automação deverá apresentar e explicar ao cliente.</span>
@@ -126,8 +176,8 @@ export function BasketsModule() {
               </dl>
 
               <div className="record-actions">
-                <button className="button button--secondary" type="button" onClick={() => edit(basket)}>Editar</button>
-                <button className="button button--danger" type="button" onClick={() => remove(basket.id)}>Excluir</button>
+                <button className="button button--secondary" type="button" disabled={saving} onClick={() => edit(basket)}>Editar</button>
+                <button className="button button--danger" type="button" disabled={saving} onClick={() => remove(basket.id)}>Excluir</button>
               </div>
             </article>
           ))}
@@ -213,9 +263,11 @@ export function BasketsModule() {
 
           <div className="form-actions">
             {form.id && (
-              <button className="button button--secondary" type="button" onClick={() => setForm(emptyForm)}>Cancelar</button>
+              <button className="button button--secondary" type="button" disabled={saving} onClick={() => setForm(emptyForm)}>Cancelar</button>
             )}
-            <button className="button button--primary" type="submit">Salvar cesta</button>
+            <button className="button button--primary" type="submit" disabled={saving}>
+              {saving ? 'Salvando…' : 'Salvar cesta'}
+            </button>
           </div>
         </form>
       </section>
