@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ProductCatalog } from '../core/types'
 import { loadProductCatalog } from '../services/catalog'
+import './products.css'
 
 const currency = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
