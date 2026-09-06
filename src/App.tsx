@@ -8,6 +8,7 @@ import type {
 import { BasketsModule } from './modules/BasketsModule'
 import { KnowledgeModule } from './modules/KnowledgeModule'
 import { ProductsModule } from './modules/ProductsModule'
+import { SettingsModule } from './modules/SettingsModule'
 
 const navigation: NavigationItem[] = [
   { id: 'dashboard', label: 'Dashboard', description: 'Visão geral da operação' },
@@ -21,7 +22,7 @@ const navigation: NavigationItem[] = [
 
 const integrations: Integration[] = [
   { id: 'bling', name: 'Bling', status: 'pending', detail: 'Cliente OAuth/API pronto; falta autorizar credenciais' },
-  { id: 'make', name: 'Make', status: 'pending', detail: 'Será a ponte segura do atendimento em tempo real' },
+  { id: 'make', name: 'Make', status: 'pending', detail: 'Ponte administrativa preparada; falta criar o webhook' },
   { id: 'meta', name: 'WhatsApp Meta', status: 'pending', detail: 'Será conectado pelo Make' },
   { id: 'openai', name: 'OpenAI', status: 'pending', detail: 'Será usado no cenário do Make' },
 ]
@@ -67,7 +68,7 @@ const moduleCopy: Record<ModuleId, { title: string; intro: string; next: string[
   settings: {
     title: 'Configurações',
     intro: 'Integrações e parâmetros técnicos. Segredos nunca serão armazenados no frontend nem commitados no GitHub.',
-    next: ['Bling', 'Make', 'Regras de segurança'],
+    next: ['Ponte Make', 'Bling', 'Regras de segurança'],
   },
 }
 
@@ -103,6 +104,7 @@ function ActiveModule({ module }: { module: ModuleId }) {
   if (module === 'products') return <ProductsModule />
   if (module === 'baskets') return <BasketsModule />
   if (module === 'knowledge') return <KnowledgeModule />
+  if (module === 'settings') return <SettingsModule />
   return <GenericModule module={module} />
 }
 
