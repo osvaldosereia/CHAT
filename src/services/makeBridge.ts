@@ -16,9 +16,18 @@ export type BridgeResponse<TData = unknown> = {
 }
 
 const ADMIN_KEY_STORAGE = 'chat.admin.session-key'
+const BRIDGE_URL_STORAGE = 'chat.admin.bridge-url'
 
 export function getBridgeUrl() {
+  const sessionUrl = window.sessionStorage.getItem(BRIDGE_URL_STORAGE)?.trim()
+  if (sessionUrl) return sessionUrl
   return (import.meta.env.VITE_ADMIN_BRIDGE_URL as string | undefined)?.trim() || ''
+}
+
+export function setBridgeUrl(value: string) {
+  const normalized = value.trim()
+  if (normalized) window.sessionStorage.setItem(BRIDGE_URL_STORAGE, normalized)
+  else window.sessionStorage.removeItem(BRIDGE_URL_STORAGE)
 }
 
 export function isBridgeConfigured() {
@@ -35,13 +44,23 @@ export function setAdminSessionKey(value: string) {
   else window.sessionStorage.removeItem(ADMIN_KEY_STORAGE)
 }
 
+export function getBridgeOrigin() {
+  const url = getBridgeUrl()
+  if (!url) return ''
+  try {
+    return new URL(url).origin
+  } catch {
+    return 'URL inválida'
+  }
+}
+
 export async function callMakeBridge<TData, TPayload = unknown>(
   action: string,
   payload?: TPayload,
   signal?: AbortSignal,
 ): Promise<TData> {
   const url = getBridgeUrl()
-  if (!url) throw new Error('VITE_ADMIN_BRIDGE_URL não configurada')
+  if (!url) throw new Error('URL da ponte Make não configurada nesta sessão')
 
   const adminKey = getAdminSessionKey()
   if (!adminKey) throw new Error('Chave administrativa não informada nesta sessão')
