@@ -43,7 +43,7 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts
       - name: Commit lockfile when needed
         run: |
-          if git diff --quiet -- package-lock.json; then
+          if [ -z "$(git status --porcelain -- package-lock.json)" ]; then
             echo "Lockfile already current"
             exit 0
           fi
