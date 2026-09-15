@@ -1,58 +1,29 @@
-# CHAT — Admin + WhatsApp + Bling
+# Caneca Fácil
 
-Painel operacional da Dona Antônia para administrar produtos do Bling, cestas básicas, regras de atendimento, base de conhecimento e automação do WhatsApp.
+MVP de atendimento via WhatsApp para criação de canecas personalizadas com OpenAI.
 
-## Objetivo do MVP
+## Escopo inicial
 
-Começar pequeno e funcional:
+O fluxo do MVP recebe texto, áudio e até três imagens de referência, constrói um briefing inteligente, gera a arte mestre horizontal, gera um mockup por IA mostrando os dois lados da caneca e conduz o cliente até a aprovação.
 
-1. Admin central da operação.
-2. Produtos comerciais vêm do Bling.
-3. Cestas básicas recebem conhecimento adicional no Admin.
-4. Regras da empresa e do atendimento ficam no Admin.
-5. WhatsApp oficial da Meta é atendido via Make + OpenAI.
-6. Pedido confirmado é enviado ao Bling com cliente, itens e valor final.
-7. GitHub Actions executa rotinas em lote/agendadas para reduzir consumo do Make.
-
-## Regra de arquitetura
-
-- **Admin:** centro de gestão e configuração.
-- **Bling:** fonte oficial de produtos, preços, estoque, contatos e pedidos confirmados.
-- **Make:** caminho em tempo real do WhatsApp e integrações síncronas necessárias.
-- **GitHub Actions:** sincronizações, validações e rotinas que não precisam ocorrer em segundos.
-- **OpenAI:** entendimento e redação das respostas; nunca é fonte oficial de preço, estoque ou total do pedido.
-
-## Estrutura inicial
+## Estrutura planejada
 
 ```text
-src/
-  app/           shell e navegação do Admin
-  modules/       módulos funcionais
-  core/          tipos, contratos e regras compartilhadas
-docs/
-  ARCHITECTURE.md
-  RETOMADA-CHAT.md
-.github/workflows/
-  ci.yml
+apps/
+  admin/   painel operacional
+  api/     webhook WhatsApp e orquestrador de IA
+packages/
+  core/    tipos e regras compartilhadas
+supabase/
+  migrations/
+docs/superpowers/
+  specs/
+  plans/
 ```
 
-## Desenvolvimento
+## Documentação
 
-```bash
-npm install
-npm run dev
-```
+- Design aprovado: `docs/superpowers/specs/2026-09-15-caneca-facil-mvp-design.md`
+- Plano de implementação: `docs/superpowers/plans/2026-09-15-caneca-facil-mvp.md`
 
-Build:
-
-```bash
-npm run build
-```
-
-## Segurança
-
-Nunca commitar tokens ou segredos. Credenciais de Bling, Meta, OpenAI e Make devem ficar em variáveis de ambiente/Secrets do ambiente que executar cada integração.
-
-## Status
-
-Fase 1 — fundação do MVP em construção. Consulte `docs/RETOMADA-CHAT.md` para continuar o projeto em outra conversa sem perder o ponto de andamento.
+O projeto legado anterior está preservado na branch `archive-dona-antonia`.

@@ -1,9 +1,9 @@
 node_modules/
 dist/
-.vite/
-runtime/
+coverage/
 .env
 .env.*
 !.env.example
 .DS_Store
 *.log
+.vite/
