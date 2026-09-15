@@ -28,6 +28,21 @@ const STATUS_LABELS: Record<string, string> = {
   failed: 'Falhou',
 };
 
+function formatProjectDate(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Data indisponível';
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  }).format(date);
+}
+
 export function ProjectList({ projects, selectedProjectId, onSelect }: ProjectListProps) {
   return (
     <section aria-labelledby="projects-title" className="project-list">
@@ -50,6 +65,7 @@ export function ProjectList({ projects, selectedProjectId, onSelect }: ProjectLi
                 <strong>{project.title || 'Caneca sem título'}</strong>
                 <span>{project.customerName || 'Cliente sem nome'}</span>
                 <small>{STATUS_LABELS[project.status] ?? project.status}</small>
+                <time dateTime={project.createdAt}>{formatProjectDate(project.createdAt)}</time>
               </button>
             </li>
           ))}
