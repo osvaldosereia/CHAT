@@ -77,13 +77,15 @@
 - Create: `apps/api/src/models/model-library-store.test.ts`
 
 **Interfaces:**
-- Produces: model library records with media, name, category/occasion/style, tags, colors, AI description, origin, reusable flag and active state; `searchModels(query)` for text/tag/category/style/occasion filters.
+- Produces tables `model_library`, `model_categories`, `model_tags`, `model_library_categories`, and `model_library_tags`.
+- `model_library` stores media reference, name, occasion, style, color descriptors, AI description, origin, reusable flag and active state.
+- `searchModels(query)` filters active/reusable records by text, category, tag, style and occasion.
 
-- [ ] Write failing search/filter tests in `packages/core`.
-- [ ] Create forward migration for `model_library`, normalized tag/category support as needed, RLS and private media references; no public customer media exposure.
+- [ ] Write failing search/filter tests in `packages/core`, including combined category + tag + style filtering and exclusion of inactive/non-reusable records.
+- [ ] Create the forward migration with the five tables above, unique normalized category/tag slugs, foreign keys, RLS, admin CRUD policies and private media references; customer uploads remain private and are never automatically exposed.
 - [ ] Apply migration through Supabase and run security/performance advisors.
-- [ ] Implement store/search adapter using only active/reusable records for AI suggestions.
-- [ ] Add a sanitization rule: customer-origin artwork cannot be reusable by default; an admin must explicitly opt in.
+- [ ] Implement `model-library-store.ts` with create/update/search operations and deterministic filter mapping.
+- [ ] Enforce `reusable=false` by default for `origin='customer'`; only an explicit Admin update may set it true after sanitization.
 - [ ] Run repository verification; expect PASS.
 - [ ] Commit with `feat: add mug inspiration library`.
 
