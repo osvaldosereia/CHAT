@@ -3,7 +3,7 @@ import { createApiApp } from '../app';
 
 describe('WhatsApp webhook verification', () => {
   it('devolve hub.challenge quando mode e verify token são válidos', async () => {
-    const app = createApiApp({ metaVerifyToken: 'caneca-secret' });
+    const app = createApiApp({ whatsappVerifyToken: 'caneca-secret' });
     const response = await app.request(
       '/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=caneca-secret&hub.challenge=123456',
     );
@@ -13,7 +13,7 @@ describe('WhatsApp webhook verification', () => {
   });
 
   it('recusa token incorreto sem revelar o token esperado', async () => {
-    const app = createApiApp({ metaVerifyToken: 'caneca-secret' });
+    const app = createApiApp({ whatsappVerifyToken: 'caneca-secret' });
     const response = await app.request(
       '/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=123456',
     );
@@ -23,7 +23,7 @@ describe('WhatsApp webhook verification', () => {
   });
 
   it('recusa mode diferente de subscribe', async () => {
-    const app = createApiApp({ metaVerifyToken: 'caneca-secret' });
+    const app = createApiApp({ whatsappVerifyToken: 'caneca-secret' });
     const response = await app.request(
       '/webhooks/whatsapp?hub.mode=unsubscribe&hub.verify_token=caneca-secret&hub.challenge=123456',
     );

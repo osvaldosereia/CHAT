@@ -1,11 +1,10 @@
 import { serve } from '@hono/node-server';
 import { createApiApp } from './app';
+import { loadApiConfig } from './config';
 
-const port = Number(process.env.PORT ?? 3000);
+const config = loadApiConfig(process.env);
 
 serve({
-  fetch: createApiApp({
-    metaVerifyToken: process.env.META_VERIFY_TOKEN,
-  }).fetch,
-  port,
+  fetch: createApiApp(config).fetch,
+  port: config.port,
 });

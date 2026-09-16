@@ -1,9 +1,8 @@
 import { Hono } from 'hono';
+import type { ApiConfig } from './config';
 import { registerWhatsappWebhook } from './whatsapp/webhook';
 
-export interface ApiAppConfig {
-  metaVerifyToken?: string;
-}
+export type ApiAppConfig = Partial<ApiConfig>;
 
 export function createApiApp(config: ApiAppConfig = {}) {
   const app = new Hono();
@@ -15,8 +14,10 @@ export function createApiApp(config: ApiAppConfig = {}) {
     }),
   );
 
-  if (config.metaVerifyToken?.trim()) {
-    registerWhatsappWebhook(app, { verifyToken: config.metaVerifyToken });
+  if (config.whatsappVerifyToken?.trim()) {
+    registerWhatsappWebhook(app, {
+      verifyToken: config.whatsappVerifyToken,
+    });
   }
 
   return app;
