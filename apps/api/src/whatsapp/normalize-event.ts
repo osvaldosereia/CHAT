@@ -32,6 +32,14 @@ function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+export function isWhatsappWebhookEnvelope(payload: unknown): payload is UnknownRecord {
+  return (
+    isRecord(payload) &&
+    payload.object === 'whatsapp_business_account' &&
+    Array.isArray(payload.entry)
+  );
+}
+
 function findCustomerName(value: UnknownRecord, phone: string): string | null {
   const contacts = asRecordArray(value.contacts);
   const contact = contacts.find((item) => item.wa_id === phone) ?? contacts[0];
@@ -81,7 +89,7 @@ function normalizeMessage(
 }
 
 export function normalizeWhatsappEvent(payload: unknown): NormalizedInboundMessage[] {
-  if (!isRecord(payload) || payload.object !== 'whatsapp_business_account') return [];
+  if (!isWhatsappWebhookEnvelope(payload)) return [];
 
   const normalized: NormalizedInboundMessage[] = [];
 

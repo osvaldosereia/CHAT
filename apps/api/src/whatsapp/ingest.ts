@@ -3,6 +3,8 @@ import type { NormalizedInboundMessage } from './normalize-event';
 export interface InboundMessageClaim {
   accepted: boolean;
   messageId: string;
+  customerId: string;
+  conversationId: string;
 }
 
 export interface InboundMessageStore {
