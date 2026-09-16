@@ -7,6 +7,7 @@ const requiredEnv = {
   WHATSAPP_VERIFY_TOKEN: 'verify-test',
   WHATSAPP_ACCESS_TOKEN: 'access-test',
   WHATSAPP_PHONE_NUMBER_ID: '123456789',
+  WHATSAPP_GRAPH_VERSION: 'v99.0',
 };
 
 describe('loadApiConfig', () => {
@@ -23,6 +24,7 @@ describe('loadApiConfig', () => {
       whatsappVerifyToken: 'verify-test',
       whatsappAccessToken: 'access-test',
       whatsappPhoneNumberId: '123456789',
+      whatsappGraphVersion: 'v99.0',
       whatsappAppSecret: 'app-secret-test',
       port: 4100,
     });
@@ -35,6 +37,11 @@ describe('loadApiConfig', () => {
         SUPABASE_SECRET_KEY: '',
       }),
     ).toThrow('SUPABASE_SECRET_KEY');
+  });
+
+  it('requires an explicit Graph API version instead of freezing one in code', () => {
+    const { WHATSAPP_GRAPH_VERSION: _removed, ...withoutGraphVersion } = requiredEnv;
+    expect(() => loadApiConfig(withoutGraphVersion)).toThrow('WHATSAPP_GRAPH_VERSION');
   });
 
   it('does not silently use META_VERIFY_TOKEN as the verify token', () => {
