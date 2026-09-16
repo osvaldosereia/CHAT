@@ -4,6 +4,7 @@ export interface ApiConfig {
   whatsappVerifyToken: string;
   whatsappAccessToken: string;
   whatsappPhoneNumberId: string;
+  whatsappGraphVersion: string;
   whatsappAppSecret?: string;
   port: number;
 }
@@ -41,6 +42,7 @@ export function loadApiConfig(env: ApiEnvironment): ApiConfig {
     whatsappVerifyToken: requireValue(env, 'WHATSAPP_VERIFY_TOKEN'),
     whatsappAccessToken: requireValue(env, 'WHATSAPP_ACCESS_TOKEN'),
     whatsappPhoneNumberId: requireValue(env, 'WHATSAPP_PHONE_NUMBER_ID'),
+    whatsappGraphVersion: requireValue(env, 'WHATSAPP_GRAPH_VERSION'),
     whatsappAppSecret: optionalValue(env, 'WHATSAPP_APP_SECRET'),
     port: parsePort(env.PORT),
   };
