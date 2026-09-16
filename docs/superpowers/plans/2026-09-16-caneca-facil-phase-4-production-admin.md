@@ -37,8 +37,8 @@
 - Produces: `canReleaseToProduction(order, payment, art, printFile)` and `releaseOrderToProduction(orderId)`.
 
 - [ ] Write failing core tests proving all three gates are mandatory: approved pinned art, confirmed paid status and valid print file.
-- [ ] Create/apply production migration with immutable links to order/project/art version, storage path, dimensions/DPI/template metadata, timestamps and operator IDs where applicable.
-- [ ] Implement print-file generation from the order-pinned approved art and mug template; persist into a private print-file storage location rather than reusing customer mockup storage.
+- [ ] Create/apply production migration with immutable links to order/project/art version, storage path, dimensions/DPI/template metadata, timestamps and operator IDs.
+- [ ] Implement print-file generation from the order-pinned approved art and mug template; persist into a private `print-files` storage bucket created by the migration with admin/service-only access.
 - [ ] Implement production release in a transactional boundary so an order cannot be marked `in_production` without a ready production job.
 - [ ] Write transition tests rejecting skipped/invalid production steps and preserving `problem` as an exception flag/reason without losing traceability.
 - [ ] Run repository verification and Supabase advisors; expect PASS.
@@ -77,15 +77,17 @@
 - Create: `apps/admin/src/auth/permissions.test.ts`
 - Create: `apps/admin/src/services/admin-profile.ts`
 - Create: `apps/admin/src/services/admin-profile.test.ts`
+- Create: `docs/operations/admin-bootstrap.md`
 
 **Interfaces:**
 - Produces roles: `administrator`, `sales`, `production`; permission helpers used by routes/actions.
 - Database policies enforce the same role boundaries for admin-readable/writeable operational tables.
 
 - [ ] Write failing permission tests for Administrator full access, Sales access to conversations/customers/orders with no integration-secret/production-setting mutation, and Production access only to fulfillment-required data/actions.
-- [ ] Create/apply admin-role migration extending the existing admin membership model with explicit role and active state; add role-aware RLS/policies without disabling RLS.
+- [ ] Create/apply admin-role migration extending the existing `private.admin_users` membership model with `role`, `active`, `display_name`, `created_at`, and `updated_at`; add role-aware helper functions/policies without disabling RLS.
 - [ ] Load the signed-in admin profile immediately after Auth session verification and reject authenticated users who are not active admin members.
 - [ ] Add permission helpers for UI rendering, but keep privileged mutations protected server/database-side.
+- [ ] Document bootstrap exactly: create the first Auth user through Supabase Auth, then insert that `auth.users.id` into `private.admin_users` with role `administrator`; never insert directly into `auth.users` with SQL.
 - [ ] Run Admin tests, full repository verification and Supabase security advisor; expect PASS.
 - [ ] Commit with `feat: enforce admin operational roles`.
 
@@ -95,13 +97,19 @@
 - Modify: `apps/admin/src/AdminWorkspace.tsx`
 - Modify: `apps/admin/src/AdminWorkspace.test.tsx`
 - Create: `apps/admin/src/pages/HomePage.tsx`
+- Create: `apps/admin/src/pages/HomePage.test.tsx`
 - Create: `apps/admin/src/pages/ConversationsPage.tsx`
+- Create: `apps/admin/src/pages/ConversationsPage.test.tsx`
 - Create: `apps/admin/src/pages/OrdersPage.tsx`
+- Create: `apps/admin/src/pages/OrdersPage.test.tsx`
 - Create: `apps/admin/src/pages/ProductionPage.tsx`
+- Create: `apps/admin/src/pages/ProductionPage.test.tsx`
 - Create: `apps/admin/src/pages/CustomersPage.tsx`
+- Create: `apps/admin/src/pages/CustomersPage.test.tsx`
 - Create: `apps/admin/src/pages/ModelsPage.tsx`
+- Create: `apps/admin/src/pages/ModelsPage.test.tsx`
 - Create: `apps/admin/src/pages/SettingsPage.tsx`
-- Create corresponding `*.test.tsx` files for each page.
+- Create: `apps/admin/src/pages/SettingsPage.test.tsx`
 
 **Interfaces:**
 - Produces navigation: `Início | Atendimento | Pedidos | Artes & Produção | Clientes | Modelos | Configurações` filtered by role.
@@ -117,10 +125,13 @@
 
 **Files:**
 - Create: `apps/admin/src/components/conversations/ConversationList.tsx`
+- Create: `apps/admin/src/components/conversations/ConversationList.test.tsx`
 - Create: `apps/admin/src/components/conversations/ConversationThread.tsx`
+- Create: `apps/admin/src/components/conversations/ConversationThread.test.tsx`
 - Create: `apps/admin/src/components/conversations/ConversationContext.tsx`
+- Create: `apps/admin/src/components/conversations/ConversationContext.test.tsx`
 - Create: `apps/admin/src/services/conversations.ts`
-- Create corresponding tests.
+- Create: `apps/admin/src/services/conversations.test.ts`
 
 **Interfaces:**
 - Displays: conversation stream, text/image/audio/document messages, audio transcription, structured briefing summary, missing information, project/order status and AI/human/paused mode.
@@ -137,10 +148,29 @@
 
 **Files:**
 - Create: `apps/admin/src/services/orders.ts`
+- Create: `apps/admin/src/services/orders.test.ts`
 - Create: `apps/admin/src/services/production.ts`
+- Create: `apps/admin/src/services/production.test.ts`
 - Create: `apps/admin/src/services/customers.ts`
+- Create: `apps/admin/src/services/customers.test.ts`
 - Create: `apps/admin/src/services/models.ts`
-- Create focused list/detail components and tests under `apps/admin/src/components/orders/`, `production/`, `customers/`, `models/`.
+- Create: `apps/admin/src/services/models.test.ts`
+- Create: `apps/admin/src/components/orders/OrderList.tsx`
+- Create: `apps/admin/src/components/orders/OrderList.test.tsx`
+- Create: `apps/admin/src/components/orders/OrderDetail.tsx`
+- Create: `apps/admin/src/components/orders/OrderDetail.test.tsx`
+- Create: `apps/admin/src/components/production/ProductionQueue.tsx`
+- Create: `apps/admin/src/components/production/ProductionQueue.test.tsx`
+- Create: `apps/admin/src/components/production/ProductionDetail.tsx`
+- Create: `apps/admin/src/components/production/ProductionDetail.test.tsx`
+- Create: `apps/admin/src/components/customers/CustomerList.tsx`
+- Create: `apps/admin/src/components/customers/CustomerList.test.tsx`
+- Create: `apps/admin/src/components/customers/CustomerDetail.tsx`
+- Create: `apps/admin/src/components/customers/CustomerDetail.test.tsx`
+- Create: `apps/admin/src/components/models/ModelGallery.tsx`
+- Create: `apps/admin/src/components/models/ModelGallery.test.tsx`
+- Create: `apps/admin/src/components/models/ModelForm.tsx`
+- Create: `apps/admin/src/components/models/ModelForm.test.tsx`
 
 **Interfaces:**
 - Orders: filters by commercial state, totals, payment, approved art, production, shipment and event timeline.
@@ -161,21 +191,28 @@
 **Files:**
 - Create: `supabase/migrations/20260916_operational_settings.sql`
 - Create: `apps/admin/src/services/settings.ts`
+- Create: `apps/admin/src/services/settings.test.ts`
 - Create: `apps/admin/src/components/settings/AiAttendantSettings.tsx`
+- Create: `apps/admin/src/components/settings/AiAttendantSettings.test.tsx`
 - Create: `apps/admin/src/components/settings/BusinessKnowledgeSettings.tsx`
+- Create: `apps/admin/src/components/settings/BusinessKnowledgeSettings.test.tsx`
 - Create: `apps/admin/src/components/settings/ProductSettings.tsx`
+- Create: `apps/admin/src/components/settings/ProductSettings.test.tsx`
 - Create: `apps/admin/src/components/settings/PricingSettings.tsx`
+- Create: `apps/admin/src/components/settings/PricingSettings.test.tsx`
 - Create: `apps/admin/src/components/settings/IntegrationStatus.tsx`
-- Create corresponding tests.
+- Create: `apps/admin/src/components/settings/IntegrationStatus.test.tsx`
+- Create: `apps/api/src/admin/ai-simulator.ts`
+- Create: `apps/api/src/admin/ai-simulator.test.ts`
 
 **Interfaces:**
 - Produces versioned AI attendant settings, editable business knowledge, product/mug definitions, discount rules and safe integration health/config references.
 
 - [ ] Write failing tests proving AI config changes create a new version and can reactivate a prior version rather than destructively overwriting history.
-- [ ] Create/apply operational-settings migration for AI config versions and business knowledge; reuse product/discount tables from Phase 3.
+- [ ] Create/apply operational-settings migration for `ai_config_versions` and `business_knowledge_entries`; reuse product/discount tables from Phase 3.
 - [ ] Implement settings forms with validation and role restriction to Administrator.
 - [ ] Integration status panels may show connected/disconnected/webhook health/last event, but must never return raw secret values to the browser.
-- [ ] Implement an Admin AI test/simulator endpoint that uses the same orchestration rules with a non-WhatsApp test conversation context and cannot send real customer messages.
+- [ ] Implement `apps/api/src/admin/ai-simulator.ts` so it runs the same briefing/conversation orchestration against an isolated test context and has no access to the real WhatsApp send function.
 - [ ] Run repository verification and Supabase advisors; expect PASS.
 - [ ] Commit with `feat: add admin operational settings`.
 
