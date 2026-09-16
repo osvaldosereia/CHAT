@@ -2,7 +2,7 @@ name: Caneca Fácil CI
 
 on:
   push:
-    branches: [main, feat/caneca-facil-foundation]
+    branches: [main, feat/caneca-facil-foundation, 'feat/caneca-facil-*']
   pull_request:
     branches: [main]
 
