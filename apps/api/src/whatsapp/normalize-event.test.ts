@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeWhatsappEvent } from './normalize-event';
+import {
+  isWhatsappWebhookEnvelope,
+  normalizeWhatsappEvent,
+} from './normalize-event';
 
 const baseValue = {
   messaging_product: 'whatsapp',
@@ -34,6 +37,21 @@ function webhookWithMessage(message: Record<string, unknown>) {
     ],
   };
 }
+
+describe('isWhatsappWebhookEnvelope', () => {
+  it('accepts a Meta WhatsApp status envelope even when it contains no inbound message', () => {
+    expect(
+      isWhatsappWebhookEnvelope({
+        object: 'whatsapp_business_account',
+        entry: [{ changes: [{ field: 'messages', value: { statuses: [] } }] }],
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects unrelated JSON objects', () => {
+    expect(isWhatsappWebhookEnvelope({ object: 'other' })).toBe(false);
+  });
+});
 
 describe('normalizeWhatsappEvent', () => {
   it('normaliza mensagem de texto', () => {

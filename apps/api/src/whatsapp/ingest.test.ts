@@ -23,22 +23,38 @@ describe('processInboundMessage', () => {
     const store: InboundMessageStore = {
       claim: vi.fn(async (incoming) => {
         if (seen.has(incoming.messageId)) {
-          return { accepted: false, messageId: 'stored-message-1' };
+          return {
+            accepted: false,
+            messageId: 'stored-message-1',
+            customerId: 'customer-1',
+            conversationId: 'conversation-1',
+          };
         }
 
         seen.add(incoming.messageId);
         stored.push(incoming.messageId);
-        return { accepted: true, messageId: 'stored-message-1' };
+        return {
+          accepted: true,
+          messageId: 'stored-message-1',
+          customerId: 'customer-1',
+          conversationId: 'conversation-1',
+        };
       }),
     };
     const onAccepted = vi.fn().mockResolvedValue(undefined);
 
-    await processInboundMessage(store, message, onAccepted);
-    await processInboundMessage(store, message, onAccepted);
+    const first = await processInboundMessage(store, message, onAccepted);
+    const second = await processInboundMessage(store, message, onAccepted);
 
     expect(stored).toEqual(['wamid.duplicate-1']);
     expect(store.claim).toHaveBeenCalledTimes(2);
     expect(onAccepted).toHaveBeenCalledTimes(1);
     expect(onAccepted).toHaveBeenCalledWith(message, 'stored-message-1');
+    expect(first).toMatchObject({
+      accepted: true,
+      customerId: 'customer-1',
+      conversationId: 'conversation-1',
+    });
+    expect(second.accepted).toBe(false);
   });
 });
