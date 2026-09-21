@@ -10,82 +10,108 @@
 ## Estado atual
 
 ### Fundação
-- arquitetura monólito modular multi-tenant;
-- Customer 360 desde a primeira conversa;
-- contratos TypeScript e event ledger;
-- migration baseline canônica;
-- seed da Dona Antônia;
-- configuração das Edge Functions versionada.
+- arquitetura monólito modular multi-tenant definida;
+- Customer 360 desde a V1;
+- contratos TypeScript de domínio;
+- event ledger inicial;
+- V1 Dona Antônia documentada;
+- baseline oficial de migration registrada;
+- advisor de segurança: **0 lints**.
 
-### Dados da Dona Antônia
-- 1 organização ativa;
-- 1.670 produtos ativos com preço migrados;
-- 1.667 produtos com imagem;
-- 9 cestas oficiais;
-- 222 linhas de composição de cestas;
-- 18 ofertas ativas;
-- IDs legados preservados para rastreabilidade de migração.
+### Supabase
+- projeto novo e isolado criado;
+- Dona Antônia cadastrada como primeiro tenant;
+- RLS ativa em todas as tabelas públicas;
+- acesso interno isolado por membership;
+- chat público sem CRUD direto nas tabelas centrais;
+- rate limit público server-side;
+- checkout conversacional criado;
+- histórico de composição das cestas preservado em pedidos;
+- trilha de auditoria de atribuição humana criada.
 
-### Chat Core
-- sessão pública com token próprio e expiração;
-- tabelas comerciais sem acesso direto do visitante;
-- gateway público `chat-gateway-v1`;
+### Catálogo importado
+- 1.670 produtos;
+- 1.670 com preço;
+- 1.670 com estoque informado;
+- 1.667 com imagem;
+- 9 cestas ativas;
+- 222 relações cesta/produto;
+- 18 ofertas importadas; 1 inválida foi desativada por preço promocional não inferior ao preço normal.
+
+### Dependência de mídia
+- 1.646 imagens ainda apontam para o Storage do Supabase antigo da Dona Antônia;
+- 21 imagens apontam para GitHub;
+- 3 produtos estão sem imagem.
+
+A migração de mídia para o Storage do Chat Commerce OS é uma tarefa própria e **não deve bloquear** a V1 funcional, mas precisa ser concluída antes de desligar definitivamente o storage antigo.
+
+### Chat cliente
+- `chat-gateway-v1` ativo;
+- `chat-web-v1` ativo;
+- sessão pública com token próprio;
 - idempotência de mensagens;
-- rate limit por origem/sessão;
-- conversa compassada no frontend;
-- busca de produtos;
-- cards de cestas/ofertas/produtos;
-- carrinho real no Supabase;
-- bloqueio de produto sem estoque;
-- pedido de atendimento humano.
-
-### Checkout
-- fechamento dentro da conversa;
-- coleta progressiva de nome;
-- telefone e resolução de identidade do cliente;
-- endereço;
-- pagamento na entrega;
-- revisão;
-- confirmação;
-- snapshot do pedido;
-- snapshot dos componentes da cesta;
-- evento de pedido confirmado.
+- rate limiting;
+- restauração de histórico;
+- cestas por faixa de preço;
+- ofertas;
+- busca de produto;
+- carrinho;
+- checkout progressivo;
+- confirmação de pedido;
+- solicitação de atendimento humano;
+- UI mobile-first conectada ao gateway.
 
 ### Inbox humano
-- API autenticada `admin-inbox-v1`;
-- membership obrigatória por organização;
-- roles owner/admin/manager/agent/viewer;
-- fila de conversas;
-- detalhe de conversa/cliente/pedidos;
-- assumir atendimento;
-- devolver para assistente;
-- responder como humano;
+- `admin-inbox-v1` ativo e protegido por Supabase Auth;
+- `admin-web-v1` ativo;
+- lista de conversas;
+- filtro de espera humana;
+- abrir histórico;
+- assumir;
+- devolver à assistente;
 - encerrar;
-- trilha de auditoria de assignment/handoff.
+- responder;
+- auditoria de atribuições.
 
-### Homologação publicada
-- Chat cliente: `https://qxstkwshuvplmmftrctj.supabase.co/functions/v1/chat-web-v1`
-- Admin: `https://qxstkwshuvplmmftrctj.supabase.co/functions/v1/admin-web-v1`
+**Bloqueio atual do inbox:** ainda não existe usuário em `auth.users`. O primeiro acesso administrativo precisa ser criado conscientemente; nenhuma senha será inventada pelo sistema.
 
-O admin exige usuário Supabase Auth + membership ativa; nenhum bootstrap público inseguro foi criado.
+### Módulos Dona Antônia
+Ativos:
+- chat
+- customers
+- catalog
+- baskets
+- offers
+- cart
+- orders
+- human_inbox
+- ai
 
-### Segurança
-- RLS em tabelas expostas;
-- visitante não acessa tabelas centrais diretamente;
-- `public_chat_sessions` sem SELECT para anon/authenticated;
-- RPC de rate limit executável somente por service_role;
-- pg_trgm fora do schema public;
-- anon validado com 0 linhas visíveis em products/customers/conversations;
-- authenticated sem membership validado com 0 organizações/produtos/pedidos.
+Desligados:
+- automation
+- analytics
+- whatsapp
+- instagram
 
-## Próximos passos
-1. criar primeiro usuário owner via fluxo seguro de Auth;
-2. homologar chat completo no navegador;
-3. homologar inbox humano;
-4. substituir polling do inbox por Realtime privado;
-5. melhorar Customer Context Builder;
-6. iniciar AI Core mínimo somente após a jornada determinística estar estável;
-7. migrar/normalizar endereços históricos e preferências quando necessário.
+## Regras arquiteturais confirmadas
+- `customer_id` é a identidade interna permanente;
+- telefone/CPF/email/canais são identidades associadas;
+- IA conversa/interpreta; domínio executa;
+- fatos comerciais não são substituídos por inferências;
+- canais externos serão adapters;
+- segredos não ficam no frontend;
+- experiência V1 simples; dados preparados para recompra e pós-venda.
 
-## Observação
-O Supabase Caneca Fácil `ijquzclfijwfgwupoxmg` continua pausado; não foi excluído definitivamente porque a integração disponível não expõe exclusão de projeto.
+## Próximos blocos
+1. teste real do chat hospedado no navegador;
+2. bootstrap consciente do primeiro usuário admin;
+3. Customer Identity linking durante checkout;
+4. Customer Context Builder;
+5. IA conversacional mínima por tools;
+6. migração das imagens para o novo storage;
+7. substituir polling do inbox por Realtime privado;
+8. testes automatizados RLS/multi-tenant;
+9. homologação V1 Dona Antônia.
+
+## Supabase antigo
+O projeto Caneca Fácil `ijquzclfijwfgwupoxmg` foi pausado para liberar a vaga do plano gratuito.
