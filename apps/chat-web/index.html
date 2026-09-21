@@ -427,6 +427,12 @@
   const ENDPOINT = "https://qxstkwshuvplmmftrctj.supabase.co/functions/v1/chat-gateway-v1";
   const ORG_SLUG = "dona-antonia";
   const TOKEN_KEY = "chat_commerce_dona_antonia_session_v1";
+  const VISITOR_KEY = "chat_commerce_dona_antonia_visitor_v1";
+  let visitorId = localStorage.getItem(VISITOR_KEY);
+  if (!visitorId) {
+    visitorId = crypto.randomUUID();
+    localStorage.setItem(VISITOR_KEY, visitorId);
+  }
 
   const messagesEl = document.querySelector("#messages");
   const input = document.querySelector("#input");
@@ -705,7 +711,7 @@
   }
 
   async function startSession() {
-    const data=await api("start_session",{organizationSlug:ORG_SLUG});
+    const data=await api("start_session",{organizationSlug:ORG_SLUG,visitorId});
     token=data.session.token;
     localStorage.setItem(TOKEN_KEY,token);
     clearBoot();
