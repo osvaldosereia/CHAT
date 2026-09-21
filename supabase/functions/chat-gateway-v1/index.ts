@@ -1,6 +1,7 @@
 import { withSupabase } from "npm:@supabase/server@1.7.0";
 
 type Json = Record<string, unknown>;
+type AdminClient = any;
 
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -23,7 +24,9 @@ function corsHeaders(req: Request): HeadersInit {
 
   const origin = req.headers.get("origin") ?? "";
   const allowedOrigin =
-    configured.includes("*") || configured.includes(origin) ? origin || "*" : configured[0] || "*";
+    configured.includes("*") || configured.includes(origin)
+      ? origin || "*"
+      : configured[0] || "*";
 
   return {
     "access-control-allow-origin": allowedOrigin,
@@ -64,6 +67,441 @@ function textValue(value: unknown, max = MAX_MESSAGE_LENGTH): string {
   return value.trim().slice(0, max);
 }
 
+function normalize(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractBudget(text: string): number | null {
+  const normalized = text.replace(/\./g, "").replace(",", ".");
+  const matches = [...normalized.matchAll(/(?:r\$\s*)?(\d{2,4})(?:\.\d{1,2})?/gi)];
+  for (const match of matches) {
+    const value = Number(match[1]);
+    if (Number.isFinite(value) && value >= 50 && value <= 2000) return Math.round(value * 100);
+  }
+  return null;
+}
+
+function searchTerm(text: string): string {
+  const stop = new Set([
+    "tem","quero","queria","preciso","procuro","procurar","produto","produtos","me","mostra",
+    "mostrar","ver","um","uma","uns","umas","o","a","os","as","de","do","da","dos","das","por",
+    "favor","voces","voce","ai","hoje","qual","quais","vende","vendem"
+  ]);
+  return normalize(text)
+    .split(" ")
+    .filter((word) => word.length >= 2 && !stop.has(word))
+    .join(" ")
+    .trim();
+}
+
+async function insertAssistant(
+  admin: AdminClient,
+  session: any,
+  bodyText: string,
+  messageType = "text",
+  payload: Json = {},
+) {
+  const { data, error } = await admin
+    .from("messages")
+    .insert({
+      organization_id: session.organization_id,
+      conversation_id: session.conversation_id,
+      sender_type: "assistant",
+      message_type: messageType,
+      body_text: bodyText,
+      payload,
+    })
+    .select("id,sender_type,message_type,body_text,payload,created_at")
+    .single();
+
+  if (error) throw error;
+  await admin
+    .from("conversations")
+    .update({ last_message_at: new Date().toISOString() })
+    .eq("id", session.conversation_id);
+
+  return data;
+}
+
+async function listBaskets(admin: AdminClient, organizationId: string, budgetCents?: number | null) {
+  const { data, error } = await admin
+    .from("baskets")
+    .select("id,name,description,display_price_cents,image_url")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .order("display_price_cents", { ascending: true });
+
+  if (error) throw error;
+
+  const rows = [...(data ?? [])];
+  if (budgetCents) {
+    rows.sort((a: any, b: any) =>
+      Math.abs((a.display_price_cents ?? 0) - budgetCents) -
+      Math.abs((b.display_price_cents ?? 0) - budgetCents)
+    );
+  }
+
+  return rows.slice(0, 3).map((row: any) => ({
+    kind: "basket",
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    priceCents: row.display_price_cents,
+    imageUrl: row.image_url,
+    action: "add_basket",
+  }));
+}
+
+async function listOffers(admin: AdminClient, organizationId: string) {
+  const now = Date.now();
+  const { data: offers, error } = await admin
+    .from("offers")
+    .select("id,product_id,title,sale_price_cents,starts_at,ends_at")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .limit(12);
+
+  if (error) throw error;
+
+  const valid = (offers ?? []).filter((offer: any) => {
+    if (offer.starts_at && new Date(offer.starts_at).getTime() > now) return false;
+    if (offer.ends_at && new Date(offer.ends_at).getTime() < now) return false;
+    return true;
+  });
+
+  const ids = valid.map((offer: any) => offer.product_id);
+  if (!ids.length) return [];
+
+  const { data: products, error: productError } = await admin
+    .from("products")
+    .select("id,name,sale_price_cents,image_url,stock_quantity")
+    .in("id", ids)
+    .eq("active", true);
+
+  if (productError) throw productError;
+  const productMap = new Map((products ?? []).map((product: any) => [product.id, product]));
+
+  return valid
+    .map((offer: any) => {
+      const product: any = productMap.get(offer.product_id);
+      if (!product) return null;
+      return {
+        kind: "product",
+        id: product.id,
+        name: product.name,
+        regularPriceCents: product.sale_price_cents,
+        priceCents: offer.sale_price_cents,
+        imageUrl: product.image_url,
+        stockQuantity: product.stock_quantity,
+        badge: "Oferta",
+        action: "add_product",
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+async function searchProducts(admin: AdminClient, organizationId: string, term: string) {
+  const clean = term.trim();
+  if (!clean) return [];
+
+  const { data, error } = await admin
+    .from("products")
+    .select("id,name,sale_price_cents,image_url,stock_quantity")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .ilike("name", `%${clean}%`)
+    .order("name", { ascending: true })
+    .limit(5);
+
+  if (error) throw error;
+
+  const ids = (data ?? []).map((product: any) => product.id);
+  let offerMap = new Map<string, number>();
+
+  if (ids.length) {
+    const { data: offers } = await admin
+      .from("offers")
+      .select("product_id,sale_price_cents,starts_at,ends_at")
+      .eq("organization_id", organizationId)
+      .eq("active", true)
+      .in("product_id", ids);
+
+    const now = Date.now();
+    for (const offer of offers ?? []) {
+      if (offer.starts_at && new Date(offer.starts_at).getTime() > now) continue;
+      if (offer.ends_at && new Date(offer.ends_at).getTime() < now) continue;
+      offerMap.set(offer.product_id, offer.sale_price_cents);
+    }
+  }
+
+  return (data ?? []).slice(0, 3).map((product: any) => {
+    const offerPrice = offerMap.get(product.id);
+    return {
+      kind: "product",
+      id: product.id,
+      name: product.name,
+      regularPriceCents: offerPrice ? product.sale_price_cents : null,
+      priceCents: offerPrice ?? product.sale_price_cents,
+      imageUrl: product.image_url,
+      stockQuantity: product.stock_quantity,
+      badge: offerPrice ? "Oferta" : null,
+      action: "add_product",
+    };
+  });
+}
+
+async function ensureCart(admin: AdminClient, session: any) {
+  const { data: existing, error } = await admin
+    .from("carts")
+    .select("id,status,subtotal_cents,discount_cents,total_cents")
+    .eq("conversation_id", session.conversation_id)
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (existing) return existing;
+
+  const { data, error: insertError } = await admin
+    .from("carts")
+    .insert({
+      organization_id: session.organization_id,
+      customer_id: session.customer_id,
+      conversation_id: session.conversation_id,
+      status: "open",
+    })
+    .select("id,status,subtotal_cents,discount_cents,total_cents")
+    .single();
+
+  if (insertError) throw insertError;
+
+  await admin.from("customer_events").insert({
+    organization_id: session.organization_id,
+    customer_id: session.customer_id,
+    conversation_id: session.conversation_id,
+    event_type: "cart.created",
+    data: {},
+  });
+
+  return data;
+}
+
+async function recalcCart(admin: AdminClient, cartId: string) {
+  const { data: items, error } = await admin
+    .from("cart_items")
+    .select("id,item_kind,name_snapshot,quantity,unit_price_cents,total_cents,product_id,basket_id")
+    .eq("cart_id", cartId)
+    .order("id");
+
+  if (error) throw error;
+
+  const subtotal = (items ?? []).reduce((sum: number, item: any) => sum + Number(item.total_cents ?? 0), 0);
+
+  const { data: cart, error: updateError } = await admin
+    .from("carts")
+    .update({
+      subtotal_cents: subtotal,
+      discount_cents: 0,
+      total_cents: subtotal,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", cartId)
+    .select("id,status,subtotal_cents,discount_cents,total_cents")
+    .single();
+
+  if (updateError) throw updateError;
+
+  return {
+    ...cart,
+    items: items ?? [],
+    itemCount: (items ?? []).reduce((sum: number, item: any) => sum + Number(item.quantity ?? 0), 0),
+  };
+}
+
+async function addBasket(admin: AdminClient, session: any, basketId: string) {
+  const { data: basket, error } = await admin
+    .from("baskets")
+    .select("id,name,display_price_cents")
+    .eq("id", basketId)
+    .eq("organization_id", session.organization_id)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!basket) return { error: "basket_not_found" };
+
+  const cart = await ensureCart(admin, session);
+  const { data: existing } = await admin
+    .from("cart_items")
+    .select("id,quantity")
+    .eq("cart_id", cart.id)
+    .eq("basket_id", basket.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const quantity = Number(existing.quantity) + 1;
+    await admin.from("cart_items").update({
+      quantity,
+      total_cents: quantity * basket.display_price_cents,
+    }).eq("id", existing.id);
+  } else {
+    await admin.from("cart_items").insert({
+      organization_id: session.organization_id,
+      cart_id: cart.id,
+      basket_id: basket.id,
+      item_kind: "basket",
+      name_snapshot: basket.name,
+      quantity: 1,
+      unit_price_cents: basket.display_price_cents,
+      total_cents: basket.display_price_cents,
+    });
+  }
+
+  return { cart: await recalcCart(admin, cart.id), itemName: basket.name };
+}
+
+async function addProduct(admin: AdminClient, session: any, productId: string) {
+  const { data: product, error } = await admin
+    .from("products")
+    .select("id,name,sku,sale_price_cents")
+    .eq("id", productId)
+    .eq("organization_id", session.organization_id)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!product) return { error: "product_not_found" };
+
+  const { data: offers } = await admin
+    .from("offers")
+    .select("sale_price_cents,starts_at,ends_at")
+    .eq("product_id", product.id)
+    .eq("organization_id", session.organization_id)
+    .eq("active", true)
+    .limit(3);
+
+  const now = Date.now();
+  const activeOffer = (offers ?? []).find((offer: any) => {
+    if (offer.starts_at && new Date(offer.starts_at).getTime() > now) return false;
+    if (offer.ends_at && new Date(offer.ends_at).getTime() < now) return false;
+    return true;
+  });
+  const unitPrice = activeOffer?.sale_price_cents ?? product.sale_price_cents;
+
+  const cart = await ensureCart(admin, session);
+  const { data: existing } = await admin
+    .from("cart_items")
+    .select("id,quantity")
+    .eq("cart_id", cart.id)
+    .eq("product_id", product.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const quantity = Number(existing.quantity) + 1;
+    await admin.from("cart_items").update({
+      quantity,
+      unit_price_cents: unitPrice,
+      total_cents: quantity * unitPrice,
+    }).eq("id", existing.id);
+  } else {
+    await admin.from("cart_items").insert({
+      organization_id: session.organization_id,
+      cart_id: cart.id,
+      product_id: product.id,
+      item_kind: "product",
+      name_snapshot: product.name,
+      sku_snapshot: product.sku,
+      quantity: 1,
+      unit_price_cents: unitPrice,
+      total_cents: unitPrice,
+    });
+  }
+
+  return { cart: await recalcCart(admin, cart.id), itemName: product.name };
+}
+
+async function loadCart(admin: AdminClient, session: any) {
+  const { data: cart, error } = await admin
+    .from("carts")
+    .select("id")
+    .eq("conversation_id", session.conversation_id)
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!cart) return null;
+  return recalcCart(admin, cart.id);
+}
+
+async function saveCommerceAssistant(admin: AdminClient, session: any, text: string) {
+  const normalized = normalize(text);
+  const budget = extractBudget(text);
+
+  if (/\b(cesta|cestas)\b/.test(normalized) || budget) {
+    const items = await listBaskets(admin, session.organization_id, budget);
+    const reply = budget
+      ? "Tenho estas cestas mais próximas desse valor."
+      : "Claro. Separei algumas cestas para você começar.";
+    return insertAssistant(admin, session, reply, "basket", {
+      ui: { type: "commerce_list", items },
+    });
+  }
+
+  if (/\b(oferta|ofertas|promocao|promocoes)\b/.test(normalized)) {
+    const items = await listOffers(admin, session.organization_id);
+    const reply = items.length
+      ? "Estas são algumas ofertas boas de hoje."
+      : "No momento não encontrei ofertas ativas.";
+    return insertAssistant(admin, session, reply, "offer", {
+      ui: { type: "commerce_list", items },
+    });
+  }
+
+  if (/^(oi|ola|bom dia|boa tarde|boa noite|opa)\b/.test(normalized)) {
+    return insertAssistant(
+      admin,
+      session,
+      "Oi 😊 Pode falar normalmente comigo. Posso te ajudar com uma cesta, uma oferta ou procurar um produto.",
+      "text",
+      { suggestions: ["Ver cestas", "Ver ofertas", "Procurar produto"] },
+    );
+  }
+
+  const term = searchTerm(text);
+  if (term.length >= 2) {
+    const items = await searchProducts(admin, session.organization_id, term);
+    if (items.length) {
+      return insertAssistant(
+        admin,
+        session,
+        items.length === 1 ? "Encontrei este produto." : "Encontrei estas opções.",
+        "product_list",
+        { ui: { type: "commerce_list", items }, searchTerm: term },
+      );
+    }
+  }
+
+  return insertAssistant(
+    admin,
+    session,
+    "Ainda estou aprendendo essa parte. Você pode me dizer se procura uma cesta, uma oferta ou o nome de algum produto?",
+    "text",
+    { suggestions: ["Ver cestas", "Ver ofertas"] },
+  );
+}
+
 const coreHandler = withSupabase(
   { auth: "none" },
   async (req, ctx) => {
@@ -73,7 +511,7 @@ const coreHandler = withSupabase(
       return response({
         ok: true,
         service: "chat-gateway-v1",
-        version: 1,
+        version: 2,
       });
     }
 
@@ -150,13 +588,20 @@ const coreHandler = withSupabase(
       const welcome =
         "Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?";
 
-      await admin.from("messages").insert({
-        organization_id: organization.id,
-        conversation_id: conversation.id,
-        sender_type: "assistant",
-        message_type: "text",
-        body_text: welcome,
-      });
+      const welcomeMessage = await admin
+        .from("messages")
+        .insert({
+          organization_id: organization.id,
+          conversation_id: conversation.id,
+          sender_type: "assistant",
+          message_type: "text",
+          body_text: welcome,
+          payload: { suggestions: ["Ver cestas", "Ver ofertas", "Procurar produto"] },
+        })
+        .select("id,sender_type,message_type,body_text,payload,created_at")
+        .single();
+
+      if (welcomeMessage.error) throw welcomeMessage.error;
 
       await admin.from("customer_events").insert({
         organization_id: organization.id,
@@ -178,13 +623,7 @@ const coreHandler = withSupabase(
           name: organization.name,
           slug: organization.slug,
         },
-        messages: [
-          {
-            senderType: "assistant",
-            messageType: "text",
-            bodyText: welcome,
-          },
-        ],
+        messages: [welcomeMessage.data],
       }, 201);
     }
 
@@ -228,7 +667,81 @@ const coreHandler = withSupabase(
         ok: true,
         conversationId: session.conversation_id,
         messages: messages ?? [],
+        cart: await loadCart(admin, session),
       });
+    }
+
+    if (action === "list_baskets") {
+      const items = await listBaskets(admin, session.organization_id, null);
+      const message = await insertAssistant(
+        admin,
+        session,
+        "Claro. Separei algumas cestas para você.",
+        "basket",
+        { ui: { type: "commerce_list", items } },
+      );
+      return response({ ok: true, message });
+    }
+
+    if (action === "list_offers") {
+      const items = await listOffers(admin, session.organization_id);
+      const message = await insertAssistant(
+        admin,
+        session,
+        items.length ? "Estas são algumas ofertas boas de hoje." : "No momento não encontrei ofertas ativas.",
+        "offer",
+        { ui: { type: "commerce_list", items } },
+      );
+      return response({ ok: true, message });
+    }
+
+    if (action === "search_products") {
+      const term = textValue(body.term, 120);
+      const items = await searchProducts(admin, session.organization_id, term);
+      const message = await insertAssistant(
+        admin,
+        session,
+        items.length ? "Encontrei estas opções." : "Não encontrei esse produto nessa primeira seleção do catálogo.",
+        "product_list",
+        { ui: { type: "commerce_list", items }, searchTerm: term },
+      );
+      return response({ ok: true, message });
+    }
+
+    if (action === "add_basket") {
+      const basketId = textValue(body.basketId, 64);
+      const result = await addBasket(admin, session, basketId);
+      if (result.error) return response({ ok: false, error: result.error }, 404);
+
+      const message = await insertAssistant(
+        admin,
+        session,
+        `Pronto. Coloquei ${result.itemName} no seu pedido 😊`,
+        "cart",
+        { cart: result.cart, suggestions: ["Ver ofertas", "Ver meu pedido"] },
+      );
+
+      return response({ ok: true, message, cart: result.cart });
+    }
+
+    if (action === "add_product") {
+      const productId = textValue(body.productId, 64);
+      const result = await addProduct(admin, session, productId);
+      if (result.error) return response({ ok: false, error: result.error }, 404);
+
+      const message = await insertAssistant(
+        admin,
+        session,
+        `Pronto. Adicionei ${result.itemName} ao seu pedido.`,
+        "cart",
+        { cart: result.cart, suggestions: ["Continuar comprando", "Ver meu pedido"] },
+      );
+
+      return response({ ok: true, message, cart: result.cart });
+    }
+
+    if (action === "get_cart") {
+      return response({ ok: true, cart: await loadCart(admin, session) });
     }
 
     if (action === "send_message") {
@@ -273,6 +786,7 @@ const coreHandler = withSupabase(
 
       if (messageError) throw messageError;
 
+      let assistant = null;
       if (inserted) {
         await Promise.all([
           admin
@@ -287,11 +801,15 @@ const coreHandler = withSupabase(
             data: { message_type: "text" },
           }),
         ]);
+
+        assistant = await saveCommerceAssistant(admin, session, messageText);
       }
 
       return response({
         ok: true,
         message,
+        assistant,
+        cart: await loadCart(admin, session),
         duplicate: !inserted,
       });
     }
@@ -318,18 +836,20 @@ const coreHandler = withSupabase(
       const systemText =
         "Certo. Você pediu atendimento humano. Quando alguém assumir, a conversa continua por aqui.";
 
-      await admin.from("messages").insert({
+      const message = await admin.from("messages").insert({
         organization_id: session.organization_id,
         conversation_id: session.conversation_id,
         sender_type: "system",
         message_type: "text",
         body_text: systemText,
-      });
+      }).select("id,sender_type,message_type,body_text,payload,created_at").single();
+
+      if (message.error) throw message.error;
 
       return response({
         ok: true,
         status: "waiting_human",
-        message: systemText,
+        message: message.data,
       });
     }
 
