@@ -3,204 +3,357 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
   <title>Dona Antônia — Chat</title>
   <style>
-    :root {
-      --bg:#f7f7f5;
-      --surface:#fff;
-      --text:#222;
-      --muted:#6f6f6b;
-      --line:#e9e9e5;
-      --brand:#b64a28;
-      --radius:20px;
+    :root{
+      --bg:#f4f4f1;--surface:#fff;--text:#242421;--muted:#76766f;--line:#e8e7e1;
+      --soft:#f4f3ef;--mine:#f7e8e0;--brand:#a94729;--brand-dark:#87371f;
+      --success:#276642;--radius:20px;
     }
-    * { box-sizing:border-box; }
-    body {
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font:17px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    }
-    .shell {
-      min-height:100dvh;
-      max-width:720px;
-      margin:0 auto;
-      background:var(--surface);
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-    }
-    header {
-      padding:18px 20px;
-      border-bottom:1px solid var(--line);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-    }
-    .title strong { display:block; font-size:18px; }
-    .title span { color:var(--muted); font-size:14px; }
-    .human {
-      border:0;
-      background:transparent;
-      min-height:44px;
-      padding:0 8px;
-      color:var(--brand);
-      font-weight:700;
-      cursor:pointer;
-    }
-    main {
-      padding:30px 20px 140px;
-      overflow:auto;
-    }
-    .msg {
-      max-width:82%;
-      margin:0 0 18px;
-      padding:13px 16px;
-      border-radius:18px;
-      background:#f2f2ef;
-    }
-    .msg.me {
-      margin-left:auto;
-      background:#f6e8e1;
-    }
-    .meta {
-      color:var(--muted);
-      font-size:13px;
-      margin:6px 2px 22px;
-    }
-    .suggestions {
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin:8px 0 28px;
-    }
-    .chip {
-      border:1px solid var(--line);
-      border-radius:999px;
-      background:#fff;
-      min-height:44px;
-      padding:10px 16px;
-      font:inherit;
-      cursor:pointer;
-    }
-    .product {
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      overflow:hidden;
-      margin:6px 0 26px;
-      max-width:360px;
-    }
-    .photo {
-      aspect-ratio:4/3;
-      display:grid;
-      place-items:center;
-      background:#f0eee8;
-      color:var(--muted);
-    }
-    .product-body { padding:18px; }
-    .price { font-size:24px; font-weight:800; margin:5px 0 16px; }
-    .primary {
-      width:100%;
-      border:0;
-      min-height:50px;
-      border-radius:14px;
-      background:var(--brand);
-      color:#fff;
-      font:inherit;
-      font-weight:800;
-      cursor:pointer;
-    }
-    footer {
-      position:sticky;
-      bottom:0;
-      padding:14px 16px calc(14px + env(safe-area-inset-bottom));
-      border-top:1px solid var(--line);
-      background:rgba(255,255,255,.96);
-      backdrop-filter:blur(12px);
-    }
-    form {
-      display:grid;
-      grid-template-columns:44px 1fr 50px;
-      gap:8px;
-      align-items:end;
-    }
-    button,input { font:inherit; }
-    .round {
-      width:44px;height:44px;border:0;border-radius:50%;background:#f1f1ee;cursor:pointer;
-    }
-    input {
-      min-height:50px;
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:12px 14px;
-      outline:none;
-      width:100%;
-    }
-    .send {
-      min-height:50px;
-      border:0;
-      border-radius:16px;
-      background:var(--brand);
-      color:white;
-      font-weight:800;
-      cursor:pointer;
-    }
-    @media (min-width:721px) {
-      .shell { min-height:92vh; margin-top:4vh; border:1px solid var(--line); border-radius:26px; overflow:hidden; }
-    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+    body{font:17px/1.48 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,input{font:inherit}
+    button{touch-action:manipulation}
+    .shell{min-height:100dvh;max-width:760px;margin:0 auto;background:var(--surface);display:grid;grid-template-rows:auto 1fr auto}
+    header{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:14px;background:#fff}
+    .identity{display:flex;align-items:center;gap:12px;min-width:0}
+    .avatar{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#f3e6df;font-weight:800;color:var(--brand);flex:0 0 auto}
+    .title{min-width:0}
+    .title strong{display:block;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .title span{display:block;color:var(--muted);font-size:13px;margin-top:1px}
+    .human{border:0;background:transparent;min-height:44px;padding:0 6px;color:var(--brand);font-weight:750;cursor:pointer}
+    main{padding:26px 18px 150px;overflow:auto;scroll-behavior:smooth}
+    .row{display:flex;flex-direction:column;align-items:flex-start;margin-bottom:16px}
+    .row.me{align-items:flex-end}
+    .msg{max-width:min(84%,560px);padding:12px 15px;border-radius:18px;background:var(--soft);white-space:pre-wrap;overflow-wrap:anywhere}
+    .me .msg{background:var(--mine)}
+    .system .msg{background:#f6f6f6;color:var(--muted);font-size:15px}
+    .time{font-size:12px;color:#99988f;margin:5px 4px 0}
+    .typing{display:flex;gap:5px;align-items:center;width:max-content;padding:13px 16px;border-radius:18px;background:var(--soft);margin-bottom:16px}
+    .typing i{width:6px;height:6px;background:#a4a39c;border-radius:50%;animation:pulse 1.2s infinite}
+    .typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+    @keyframes pulse{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-2px)}}
+    .suggestions{display:flex;flex-wrap:wrap;gap:9px;margin:2px 0 24px}
+    .chip{border:1px solid var(--line);border-radius:999px;background:#fff;min-height:44px;padding:9px 15px;color:var(--text);cursor:pointer}
+    .chip:hover{border-color:#cbc9c0}
+    .cards{display:grid;gap:14px;width:min(100%,390px);margin:2px 0 22px}
+    .card{border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#fff}
+    .card img{display:block;width:100%;aspect-ratio:4/3;object-fit:contain;background:#f4f3ef;padding:10px}
+    .placeholder{width:100%;aspect-ratio:4/3;display:grid;place-items:center;background:#f4f3ef;color:var(--muted)}
+    .card-body{padding:16px}
+    .badge{display:inline-block;font-size:12px;font-weight:800;background:#f6e5dd;color:var(--brand-dark);padding:4px 8px;border-radius:999px;margin-bottom:8px}
+    .card h3{font-size:17px;line-height:1.35;margin:0 0 7px}
+    .card p{margin:0 0 12px;color:var(--muted);font-size:14px}
+    .old-price{font-size:13px;color:#929087;text-decoration:line-through;margin-right:7px}
+    .price{font-size:23px;font-weight:850;letter-spacing:-.02em;margin-bottom:13px}
+    .primary{width:100%;border:0;min-height:50px;border-radius:14px;background:var(--brand);color:#fff;font-weight:800;cursor:pointer;padding:10px 14px}
+    .primary:active{background:var(--brand-dark)}
+    .primary[disabled]{opacity:.58;cursor:default}
+    .cartbar{display:none;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px;background:#fff;border-top:1px solid var(--line);cursor:pointer}
+    .cartbar.show{display:flex}
+    .cartbar strong{display:block}
+    .cartbar span{font-size:13px;color:var(--muted)}
+    .cart-total{font-weight:850;color:var(--brand)}
+    footer{position:sticky;bottom:0;background:rgba(255,255,255,.97);backdrop-filter:blur(12px)}
+    .composer-wrap{border-top:1px solid var(--line);padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+    form{display:grid;grid-template-columns:44px 1fr 50px;gap:8px;align-items:end}
+    .round{width:44px;height:44px;border:0;border-radius:50%;background:#f1f1ed;cursor:pointer}
+    input{min-height:50px;width:100%;border:1px solid var(--line);border-radius:17px;padding:11px 14px;outline:none;background:#fff}
+    input:focus{border-color:#c6a392;box-shadow:0 0 0 3px rgba(169,71,41,.08)}
+    .send{min-height:50px;border:0;border-radius:16px;background:var(--brand);color:#fff;font-weight:900;cursor:pointer}
+    .status{font-size:13px;color:var(--muted);text-align:center;padding:8px 12px}
+    dialog{border:0;border-radius:22px;padding:0;max-width:min(92vw,520px);width:100%;box-shadow:0 22px 60px rgba(0,0,0,.2)}
+    dialog::backdrop{background:rgba(0,0,0,.28)}
+    .sheet{padding:21px}
+    .sheet-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:18px}
+    .sheet-head h2{font-size:20px;margin:0}
+    .close{width:44px;height:44px;border:0;border-radius:50%;background:var(--soft);cursor:pointer}
+    .cart-lines{display:grid;gap:13px}
+    .cart-line{display:grid;grid-template-columns:1fr auto;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+    .cart-line span{color:var(--muted);font-size:14px}
+    .sheet-total{display:flex;justify-content:space-between;font-size:20px;font-weight:850;margin:18px 0}
+    .notice{font-size:14px;color:var(--muted);margin-top:10px}
+    @media(min-width:761px){.shell{min-height:92vh;margin-top:4vh;border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.06)}}
   </style>
 </head>
 <body>
   <div class="shell">
     <header>
-      <div class="title">
-        <strong>Dona Antônia</strong>
-        <span>Assistente virtual · atendimento online</span>
+      <div class="identity">
+        <div class="avatar">DA</div>
+        <div class="title">
+          <strong>Dona Antônia</strong>
+          <span>Assistente virtual · atendimento online</span>
+        </div>
       </div>
-      <button class="human" type="button">Falar com uma pessoa</button>
+      <button id="human" class="human" type="button">Falar com uma pessoa</button>
     </header>
 
-    <main id="messages" aria-live="polite">
-      <div class="msg">Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?</div>
-      <div class="suggestions">
-        <button class="chip" data-text="Quero ver as cestas">Ver cestas</button>
-        <button class="chip" data-text="Quero ver as ofertas">Ver ofertas</button>
-        <button class="chip" data-text="Quero procurar um produto">Procurar produto</button>
-      </div>
-    </main>
+    <main id="messages" aria-live="polite"></main>
 
     <footer>
-      <form id="composer">
-        <button class="round" type="button" aria-label="Adicionar">+</button>
-        <input id="input" autocomplete="off" placeholder="Digite uma mensagem…" aria-label="Mensagem" />
-        <button class="send" type="submit" aria-label="Enviar">↑</button>
-      </form>
+      <div id="cartbar" class="cartbar" role="button" tabindex="0" aria-label="Ver pedido">
+        <div>
+          <strong>Seu pedido</strong>
+          <span id="cartcount">0 itens</span>
+        </div>
+        <div id="carttotal" class="cart-total">R$ 0,00</div>
+      </div>
+      <div class="composer-wrap">
+        <form id="composer">
+          <button class="round" type="button" id="plus" aria-label="Mais opções">+</button>
+          <input id="input" autocomplete="off" placeholder="Digite uma mensagem…" aria-label="Mensagem" />
+          <button class="send" type="submit" aria-label="Enviar">↑</button>
+        </form>
+        <div id="status" class="status">Conectando…</div>
+      </div>
     </footer>
   </div>
 
+  <dialog id="cartdialog">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Seu pedido</h2>
+        <button id="closecart" class="close" type="button" aria-label="Fechar">×</button>
+      </div>
+      <div id="cartlines" class="cart-lines"></div>
+      <div class="sheet-total"><span>Total</span><span id="sheettotal">R$ 0,00</span></div>
+      <button class="primary" type="button" disabled>Fechamento entra na próxima etapa</button>
+      <div class="notice">Seu carrinho já está salvo nesta conversa.</div>
+    </div>
+  </dialog>
+
   <script>
-    const messages = document.querySelector("#messages");
-    const input = document.querySelector("#input");
-    const form = document.querySelector("#composer");
+    const API_URL="https://qxstkwshuvplmmftrctj.supabase.co/functions/v1/chat-gateway-v1";
+    const STORAGE_KEY="dona_antonia_chat_session_v1";
+    const messages=document.querySelector("#messages");
+    const input=document.querySelector("#input");
+    const form=document.querySelector("#composer");
+    const statusEl=document.querySelector("#status");
+    const humanBtn=document.querySelector("#human");
+    const cartbar=document.querySelector("#cartbar");
+    const cartcount=document.querySelector("#cartcount");
+    const carttotal=document.querySelector("#carttotal");
+    const cartdialog=document.querySelector("#cartdialog");
+    const cartlines=document.querySelector("#cartlines");
+    const sheettotal=document.querySelector("#sheettotal");
+    const closecart=document.querySelector("#closecart");
 
-    function append(text, mine=false) {
-      const el=document.createElement("div");
-      el.className="msg"+(mine?" me":"");
-      el.textContent=text;
-      messages.appendChild(el);
-      messages.scrollTop=messages.scrollHeight;
+    let token=localStorage.getItem(STORAGE_KEY)||"";
+    let currentCart=null;
+    let busy=false;
+
+    const money=(cents)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((Number(cents)||0)/100);
+
+    function scrollEnd(){requestAnimationFrame(()=>{messages.scrollTop=messages.scrollHeight;});}
+
+    function rowFor(sender){
+      const row=document.createElement("div");
+      row.className="row"+(sender==="customer"?" me":sender==="system"?" system":"");
+      return row;
     }
 
-    function send(text) {
-      const value=(text||input.value).trim();
-      if(!value) return;
-      append(value,true);
-      input.value="";
-      setTimeout(()=>append("Entendi. Nesta primeira versão, a próxima etapa será ligar esta conversa ao Chat Core e ao catálogo real da Dona Antônia."),550);
+    function addSuggestions(items){
+      if(!Array.isArray(items)||!items.length)return;
+      const wrap=document.createElement("div");
+      wrap.className="suggestions";
+      items.forEach(label=>{
+        const btn=document.createElement("button");
+        btn.type="button";btn.className="chip";btn.textContent=label;
+        btn.addEventListener("click",()=>suggest(label));
+        wrap.appendChild(btn);
+      });
+      messages.appendChild(wrap);
     }
 
-    form.addEventListener("submit",e=>{e.preventDefault();send();});
-    document.querySelectorAll("[data-text]").forEach(btn=>btn.addEventListener("click",()=>send(btn.dataset.text)));
+    function addCards(items){
+      if(!Array.isArray(items)||!items.length)return;
+      const wrap=document.createElement("div");wrap.className="cards";
+      items.forEach(item=>{
+        const card=document.createElement("article");card.className="card";
+        if(item.imageUrl){
+          const img=document.createElement("img");img.src=item.imageUrl;img.alt=item.name||"Produto";img.loading="lazy";card.appendChild(img);
+        }else{
+          const ph=document.createElement("div");ph.className="placeholder";ph.textContent="Foto do produto";card.appendChild(ph);
+        }
+        const body=document.createElement("div");body.className="card-body";
+        if(item.badge){
+          const badge=document.createElement("div");badge.className="badge";badge.textContent=item.badge;body.appendChild(badge);
+        }
+        const h=document.createElement("h3");h.textContent=item.name||"Item";body.appendChild(h);
+        if(item.description){
+          const p=document.createElement("p");p.textContent=item.description;body.appendChild(p);
+        }
+        const price=document.createElement("div");price.className="price";
+        if(item.regularPriceCents && Number(item.regularPriceCents)>Number(item.priceCents)){
+          const old=document.createElement("span");old.className="old-price";old.textContent=money(item.regularPriceCents);price.appendChild(old);
+        }
+        price.append(document.createTextNode(money(item.priceCents)));body.appendChild(price);
+        const btn=document.createElement("button");btn.className="primary";btn.type="button";
+        btn.textContent=item.kind==="basket"?"Escolher esta cesta":"Adicionar";
+        btn.addEventListener("click",async()=>{
+          btn.disabled=true;btn.textContent="Adicionando…";
+          try{
+            const action=item.kind==="basket"?"add_basket":"add_product";
+            const payload=item.kind==="basket"?{basketId:item.id}:{productId:item.id};
+            const data=await api(action,payload);
+            if(data.message) renderMessage(data.message);
+            updateCart(data.cart);
+          }catch(e){showError("Não consegui adicionar agora. Tente novamente.");}
+          finally{btn.disabled=false;btn.textContent=item.kind==="basket"?"Escolher esta cesta":"Adicionar";}
+        });
+        body.appendChild(btn);card.appendChild(body);wrap.appendChild(card);
+      });
+      messages.appendChild(wrap);
+    }
+
+    function renderMessage(message){
+      if(!message)return;
+      const sender=message.sender_type||message.senderType||"assistant";
+      const body=message.body_text??message.bodyText??"";
+      if(body){
+        const row=rowFor(sender);
+        const bubble=document.createElement("div");bubble.className="msg";bubble.textContent=body;row.appendChild(bubble);
+        messages.appendChild(row);
+      }
+      const payload=message.payload||{};
+      if(payload.ui?.items) addCards(payload.ui.items);
+      if(payload.suggestions) addSuggestions(payload.suggestions);
+      scrollEnd();
+    }
+
+    function optimistic(text){
+      renderMessage({sender_type:"customer",body_text:text,payload:{}});
+    }
+
+    function showTyping(){
+      removeTyping();
+      const el=document.createElement("div");el.id="typing";el.className="typing";
+      el.innerHTML="<i></i><i></i><i></i>";messages.appendChild(el);scrollEnd();
+    }
+    function removeTyping(){document.querySelector("#typing")?.remove();}
+
+    function showError(text){
+      renderMessage({sender_type:"system",body_text:text,payload:{}});
+    }
+
+    function updateCart(cart){
+      if(cart!==undefined) currentCart=cart;
+      if(!currentCart || !Number(currentCart.itemCount)){
+        cartbar.classList.remove("show");return;
+      }
+      cartbar.classList.add("show");
+      const count=Number(currentCart.itemCount)||0;
+      cartcount.textContent=count+(count===1?" item":" itens");
+      carttotal.textContent=money(currentCart.total_cents);
+    }
+
+    async function api(action,payload={}){
+      const headers={"content-type":"application/json"};
+      if(token) headers["x-chat-session-token"]=token;
+      const res=await fetch(API_URL,{method:"POST",headers,body:JSON.stringify({action,...payload})});
+      const data=await res.json().catch(()=>({ok:false,error:"invalid_response"}));
+      if(!res.ok || data.ok===false){
+        const error=new Error(data.error||"request_failed");error.code=data.error;throw error;
+      }
+      return data;
+    }
+
+    async function start(){
+      messages.replaceChildren();
+      statusEl.textContent="Conectando…";
+      if(token){
+        try{
+          const data=await api("get_messages");
+          (data.messages||[]).forEach(renderMessage);
+          updateCart(data.cart);
+          statusEl.textContent="Atendimento online";
+          return;
+        }catch(e){
+          if(e.code!=="invalid_or_expired_session") console.warn(e);
+          token="";localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+      const data=await api("start_session",{organizationSlug:"dona-antonia"});
+      token=data.session.token;localStorage.setItem(STORAGE_KEY,token);
+      (data.messages||[]).forEach(renderMessage);
+      statusEl.textContent="Atendimento online";
+    }
+
+    async function sendText(text){
+      const value=(text||"").trim();if(!value||busy)return;
+      busy=true;optimistic(value);input.value="";showTyping();
+      try{
+        const id=(crypto.randomUUID?.()||String(Date.now())+"-"+Math.random());
+        const data=await api("send_message",{text:value,clientMessageId:id});
+        removeTyping();
+        if(data.assistant) renderMessage(data.assistant);
+        updateCart(data.cart);
+      }catch(e){
+        removeTyping();showError("Tive um problema para responder. Sua conversa continua salva; tente de novo.");
+      }finally{busy=false;input.focus();}
+    }
+
+    async function suggest(label){
+      const lower=label.toLowerCase();
+      if(lower.includes("cesta")){
+        optimistic(label);showTyping();
+        try{const data=await api("list_baskets");removeTyping();renderMessage(data.message);}
+        catch(e){removeTyping();showError("Não consegui abrir as cestas agora.");}
+        return;
+      }
+      if(lower.includes("oferta")){
+        optimistic(label);showTyping();
+        try{const data=await api("list_offers");removeTyping();renderMessage(data.message);}
+        catch(e){removeTyping();showError("Não consegui abrir as ofertas agora.");}
+        return;
+      }
+      if(lower.includes("pedido")){
+        openCart();return;
+      }
+      if(lower.includes("produto")||lower.includes("continuar")){
+        input.focus();input.placeholder="Digite o produto que procura…";return;
+      }
+      sendText(label);
+    }
+
+    async function openCart(){
+      try{
+        const data=await api("get_cart");updateCart(data.cart);
+        cartlines.replaceChildren();
+        const cart=data.cart;
+        if(!cart || !cart.items?.length){
+          const empty=document.createElement("div");empty.className="notice";empty.textContent="Seu pedido ainda está vazio.";cartlines.appendChild(empty);
+          sheettotal.textContent=money(0);
+        }else{
+          cart.items.forEach(item=>{
+            const line=document.createElement("div");line.className="cart-line";
+            const left=document.createElement("div");left.textContent=item.name_snapshot;
+            const sub=document.createElement("span");sub.textContent=Number(item.quantity)+" × "+money(item.unit_price_cents);left.appendChild(document.createElement("br"));left.appendChild(sub);
+            const right=document.createElement("strong");right.textContent=money(item.total_cents);
+            line.append(left,right);cartlines.appendChild(line);
+          });
+          sheettotal.textContent=money(cart.total_cents);
+        }
+        cartdialog.showModal();
+      }catch(e){showError("Não consegui abrir seu pedido agora.");}
+    }
+
+    form.addEventListener("submit",e=>{e.preventDefault();sendText(input.value);});
+    humanBtn.addEventListener("click",async()=>{
+      if(busy)return;busy=true;showTyping();
+      try{const data=await api("request_human");removeTyping();renderMessage(data.message);humanBtn.disabled=true;humanBtn.textContent="Humano solicitado";}
+      catch(e){removeTyping();showError("Não consegui chamar alguém agora. Tente novamente.");}
+      finally{busy=false;}
+    });
+    cartbar.addEventListener("click",openCart);
+    cartbar.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openCart();}});
+    closecart.addEventListener("click",()=>cartdialog.close());
+    document.querySelector("#plus").addEventListener("click",()=>addSuggestions(["Ver cestas","Ver ofertas","Ver meu pedido"]));
+
+    start().catch(()=>{statusEl.textContent="Falha na conexão";showError("Não consegui iniciar o atendimento. Atualize a página e tente novamente.");});
   </script>
 </body>
 </html>
