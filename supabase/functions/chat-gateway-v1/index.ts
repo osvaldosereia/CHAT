@@ -297,7 +297,7 @@ async function ensureCart(admin: AdminClient, session: any) {
 async function recalcCart(admin: AdminClient, cartId: string) {
   const { data: items, error } = await admin
     .from("cart_items")
-    .select("id,item_kind,name_snapshot,quantity,unit_price_cents,total_cents,product_id,basket_id")
+    .select("id,item_kind,name_snapshot,sku_snapshot,quantity,unit_price_cents,total_cents,product_id,basket_id,metadata")
     .eq("cart_id", cartId)
     .order("id");
 
