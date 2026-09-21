@@ -54,6 +54,29 @@ async function sha256(value: string): Promise<string> {
     .join("");
 }
 
+function clientFingerprint(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = forwarded || req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "unknown";
+  const ua = (req.headers.get("user-agent") || "unknown").slice(0, 180);
+  return `${ip}|${ua}`;
+}
+
+async function consumeRateLimit(
+  admin: AdminClient,
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<boolean> {
+  const keyHash = await sha256(key);
+  const { data, error } = await admin.rpc("consume_public_rate_limit", {
+    p_key_hash: keyHash,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 async function readBody(req: Request): Promise<Json> {
   try {
     return await req.json();
@@ -208,21 +231,34 @@ async function listOffers(admin: AdminClient, organizationId: string) {
 }
 
 async function searchProducts(admin: AdminClient, organizationId: string, term: string) {
-  const clean = term.trim();
+  const clean = normalize(term);
   if (!clean) return [];
+
+  const tokens = clean.split(" ").filter((token) => token.length >= 2);
+  if (!tokens.length) return [];
+  const primary = [...tokens].sort((a, b) => b.length - a.length)[0];
 
   const { data, error } = await admin
     .from("products")
     .select("id,name,sale_price_cents,image_url,stock_quantity")
     .eq("organization_id", organizationId)
     .eq("active", true)
-    .ilike("name", `%${clean}%`)
-    .order("name", { ascending: true })
-    .limit(5);
+    .ilike("name", `%${primary}%`)
+    .limit(24);
 
   if (error) throw error;
 
-  const ids = (data ?? []).map((product: any) => product.id);
+  const ranked = [...(data ?? [])].sort((a: any, b: any) => {
+    const an = normalize(a.name || "");
+    const bn = normalize(b.name || "");
+    const score = (name: string) =>
+      tokens.reduce((sum, token) => sum + (name.includes(token) ? 3 : 0), 0) +
+      (name.startsWith(primary) ? 2 : 0) +
+      (Number(name.includes(clean)) * 5);
+    return score(bn) - score(an) || an.localeCompare(bn, "pt-BR");
+  });
+
+  const ids = ranked.slice(0, 8).map((product: any) => product.id);
   let offerMap = new Map<string, number>();
 
   if (ids.length) {
@@ -241,7 +277,7 @@ async function searchProducts(admin: AdminClient, organizationId: string, term: 
     }
   }
 
-  return (data ?? []).slice(0, 3).map((product: any) => {
+  return ranked.slice(0, 3).map((product: any) => {
     const offerPrice = offerMap.get(product.id);
     return {
       kind: "product",
@@ -405,7 +441,7 @@ async function addBasket(admin: AdminClient, session: any, basketId: string) {
 async function addProduct(admin: AdminClient, session: any, productId: string) {
   const { data: product, error } = await admin
     .from("products")
-    .select("id,name,sku,sale_price_cents")
+    .select("id,name,sku,sale_price_cents,stock_quantity")
     .eq("id", productId)
     .eq("organization_id", session.organization_id)
     .eq("active", true)
@@ -413,6 +449,9 @@ async function addProduct(admin: AdminClient, session: any, productId: string) {
 
   if (error) throw error;
   if (!product) return { error: "product_not_found" };
+  if (product.stock_quantity !== null && Number(product.stock_quantity) <= 0) {
+    return { error: "out_of_stock" };
+  }
 
   const { data: offers } = await admin
     .from("offers")
@@ -948,7 +987,7 @@ const coreHandler = withSupabase(
       return response({
         ok: true,
         service: "chat-gateway-v1",
-        version: 2,
+        version: 3,
       });
     }
 
@@ -960,6 +999,16 @@ const coreHandler = withSupabase(
     const action = textValue(body.action, 64);
 
     if (action === "start_session") {
+      const startAllowed = await consumeRateLimit(
+        admin,
+        "start:" + clientFingerprint(req),
+        20,
+        3600,
+      );
+      if (!startAllowed) {
+        return response({ ok: false, error: "rate_limited" }, 429);
+      }
+
       const organizationSlug = textValue(body.organizationSlug, 80);
       if (!organizationSlug) {
         return response({ ok: false, error: "organization_required" }, 400);
@@ -1064,12 +1113,32 @@ const coreHandler = withSupabase(
       }, 201);
     }
 
+    const publicAllowed = await consumeRateLimit(
+      admin,
+      "public:" + clientFingerprint(req),
+      240,
+      60,
+    );
+    if (!publicAllowed) {
+      return response({ ok: false, error: "rate_limited" }, 429);
+    }
+
     const token = textValue(req.headers.get("x-chat-session-token"), 256);
     if (!token) {
       return response({ ok: false, error: "session_token_required" }, 401);
     }
 
     const tokenHash = await sha256(token);
+    const sessionAllowed = await consumeRateLimit(
+      admin,
+      "session:" + tokenHash,
+      180,
+      60,
+    );
+    if (!sessionAllowed) {
+      return response({ ok: false, error: "rate_limited" }, 429);
+    }
+
     const now = new Date().toISOString();
 
     const { data: session, error: sessionError } = await admin
@@ -1164,6 +1233,9 @@ const coreHandler = withSupabase(
     if (action === "add_product") {
       const productId = textValue(body.productId, 64);
       const result = await addProduct(admin, session, productId);
+      if (result.error === "out_of_stock") {
+        return response({ ok: false, error: "out_of_stock" }, 409);
+      }
       if (result.error) return response({ ok: false, error: result.error }, 404);
 
       const message = await insertAssistant(
