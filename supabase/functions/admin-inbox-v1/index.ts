@@ -104,6 +104,18 @@ const handler = withSupabase({ auth: "user" }, async (req, ctx) => {
   const orgId = access.organization.id;
   const role = access.role;
 
+  const { data: inboxModule, error: inboxModuleError } = await admin
+    .from("organization_modules")
+    .select("enabled")
+    .eq("organization_id", orgId)
+    .eq("module_key", "human_inbox")
+    .maybeSingle();
+
+  if (inboxModuleError) throw inboxModuleError;
+  if (!inboxModule?.enabled) {
+    return json({ ok:false, error:"human_inbox_disabled" }, 403, headers);
+  }
+
   if (action === "me") {
     return json({
       ok:true,
