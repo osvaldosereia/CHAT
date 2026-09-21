@@ -1390,9 +1390,19 @@ const coreHandler = withSupabase(
           }),
         ]);
 
-        assistant = await handleCheckoutInput(admin, session, messageText);
-        if (!assistant) {
-          assistant = await saveCommerceAssistant(admin, session, messageText);
+        const { data: liveConversation, error: conversationStateError } = await admin
+          .from("conversations")
+          .select("status")
+          .eq("id", session.conversation_id)
+          .single();
+
+        if (conversationStateError) throw conversationStateError;
+
+        if (liveConversation.status === "open" || liveConversation.status === "waiting_customer") {
+          assistant = await handleCheckoutInput(admin, session, messageText);
+          if (!assistant) {
+            assistant = await saveCommerceAssistant(admin, session, messageText);
+          }
         }
       }
 
