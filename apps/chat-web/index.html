@@ -120,8 +120,8 @@
       </div>
       <div id="cartlines" class="cart-lines"></div>
       <div class="sheet-total"><span>Total</span><span id="sheettotal">R$ 0,00</span></div>
-      <button class="primary" type="button" disabled>Fechamento entra na próxima etapa</button>
-      <div class="notice">Seu carrinho já está salvo nesta conversa.</div>
+      <button id="checkoutbtn" class="primary" type="button">Fechar pedido</button>
+      <div class="notice">Seu carrinho fica salvo nesta conversa.</div>
     </div>
   </dialog>
 
@@ -140,6 +140,7 @@
     const cartlines=document.querySelector("#cartlines");
     const sheettotal=document.querySelector("#sheettotal");
     const closecart=document.querySelector("#closecart");
+    const checkoutbtn=document.querySelector("#checkoutbtn");
 
     let token=localStorage.getItem(STORAGE_KEY)||"";
     let currentCart=null;
@@ -310,6 +311,9 @@
         catch(e){removeTyping();showError("Não consegui abrir as ofertas agora.");}
         return;
       }
+      if(lower.includes("fechar")){
+        startCheckout();return;
+      }
       if(lower.includes("pedido")){
         openCart();return;
       }
@@ -317,6 +321,26 @@
         input.focus();input.placeholder="Digite o produto que procura…";return;
       }
       sendText(label);
+    }
+
+    async function startCheckout(){
+      if(busy)return;
+      busy=true;
+      if(cartdialog.open) cartdialog.close();
+      showTyping();
+      try{
+        const data=await api("start_checkout");
+        removeTyping();
+        if(data.message) renderMessage(data.message);
+        updateCart(data.cart);
+      }catch(e){
+        removeTyping();
+        if(e.code==="empty_cart") showError("Seu pedido ainda está vazio.");
+        else showError("Não consegui iniciar o fechamento agora.");
+      }finally{
+        busy=false;
+        input.focus();
+      }
     }
 
     async function openCart(){
@@ -351,6 +375,7 @@
     cartbar.addEventListener("click",openCart);
     cartbar.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openCart();}});
     closecart.addEventListener("click",()=>cartdialog.close());
+    checkoutbtn.addEventListener("click",startCheckout);
     document.querySelector("#plus").addEventListener("click",()=>addSuggestions(["Ver cestas","Ver ofertas","Ver meu pedido"]));
 
     start().catch(()=>{statusEl.textContent="Falha na conexão";showError("Não consegui iniciar o atendimento. Atualize a página e tente novamente.");});
