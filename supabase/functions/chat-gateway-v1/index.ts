@@ -176,6 +176,22 @@ async function publicRequestKey(req: Request) {
   return "ip:" + await sha256(ip);
 }
 
+async function isModuleEnabled(
+  admin: AdminClient,
+  organizationId: string,
+  moduleKey: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("organization_modules")
+    .select("enabled")
+    .eq("organization_id", organizationId)
+    .eq("module_key", moduleKey)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.enabled === true;
+}
+
 async function insertAssistant(
   admin: AdminClient,
   session: any,
@@ -206,6 +222,7 @@ async function insertAssistant(
 }
 
 async function listBaskets(admin: AdminClient, organizationId: string, budgetCents?: number | null) {
+  if (!(await isModuleEnabled(admin, organizationId, "baskets"))) return [];
   const { data, error } = await admin
     .from("baskets")
     .select("id,name,description,display_price_cents,image_url")
@@ -235,6 +252,7 @@ async function listBaskets(admin: AdminClient, organizationId: string, budgetCen
 }
 
 async function listOffers(admin: AdminClient, organizationId: string) {
+  if (!(await isModuleEnabled(admin, organizationId, "offers"))) return [];
   const now = Date.now();
   const { data: offers, error } = await admin
     .from("offers")
@@ -284,6 +302,7 @@ async function listOffers(admin: AdminClient, organizationId: string) {
 }
 
 async function searchProducts(admin: AdminClient, organizationId: string, term: string) {
+  if (!(await isModuleEnabled(admin, organizationId, "catalog"))) return [];
   const clean = normalize(term);
   if (clean.length < 2) return [];
 
@@ -404,6 +423,10 @@ async function recalcCart(admin: AdminClient, cartId: string) {
 }
 
 async function addBasket(admin: AdminClient, session: any, basketId: string) {
+  if (!(await isModuleEnabled(admin, session.organization_id, "baskets")) ||
+      !(await isModuleEnabled(admin, session.organization_id, "cart"))) {
+    return { error: "baskets_module_disabled" };
+  }
   const { data: basket, error } = await admin
     .from("baskets")
     .select("id,name,display_price_cents")
@@ -480,6 +503,10 @@ async function addBasket(admin: AdminClient, session: any, basketId: string) {
 }
 
 async function addProduct(admin: AdminClient, session: any, productId: string) {
+  if (!(await isModuleEnabled(admin, session.organization_id, "catalog")) ||
+      !(await isModuleEnabled(admin, session.organization_id, "cart"))) {
+    return { error: "catalog_module_disabled" };
+  }
   const { data: product, error } = await admin
     .from("products")
     .select("id,name,sku,sale_price_cents,stock_quantity")
@@ -699,6 +726,11 @@ async function getActiveCheckout(admin: AdminClient, session: any) {
 }
 
 async function startCheckout(admin: AdminClient, session: any) {
+  if (!(await isModuleEnabled(admin, session.organization_id, "orders")) ||
+      !(await isModuleEnabled(admin, session.organization_id, "cart"))) {
+    return { error: "checkout_module_disabled" };
+  }
+
   const cart = await loadCart(admin, session);
   if (!cart || !cart.items?.length) return { error: "empty_cart" };
 
@@ -1273,6 +1305,8 @@ async function tryAiIntentRouter(
   session: any,
   messageText: string,
 ): Promise<AiIntentResult | null> {
+  if (!(await isModuleEnabled(admin, session.organization_id, "ai"))) return null;
+
   const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
   if (!apiKey) return null;
 
@@ -2194,6 +2228,10 @@ const coreHandler = withSupabase(
     }
 
     if (action === "request_human") {
+      if (!(await isModuleEnabled(admin, session.organization_id, "human_inbox"))) {
+        return response({ ok: false, error: "human_inbox_disabled" }, 403);
+      }
+
       const { error: updateError } = await admin
         .from("conversations")
         .update({
