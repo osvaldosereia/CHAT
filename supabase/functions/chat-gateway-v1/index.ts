@@ -893,6 +893,30 @@ async function handleCheckoutInput(admin: AdminClient, session: any, text: strin
       });
     }
 
+    if (session.visitor_hash) {
+      const { data: existingWebIdentity, error: existingWebIdentityError } = await admin
+        .from("customer_identities")
+        .select("customer_id")
+        .eq("organization_id", session.organization_id)
+        .eq("kind", "web_session")
+        .eq("normalized_value", session.visitor_hash)
+        .maybeSingle();
+      if (existingWebIdentityError) throw existingWebIdentityError;
+
+      if (!existingWebIdentity) {
+        const { error: webIdentityInsertError } = await admin
+          .from("customer_identities")
+          .insert({
+            organization_id: session.organization_id,
+            customer_id: customerId,
+            kind: "web_session",
+            normalized_value: session.visitor_hash,
+            is_primary: false,
+          });
+        if (webIdentityInsertError) throw webIdentityInsertError;
+      }
+    }
+
     await Promise.all([
       admin.from("checkout_sessions").update({
         customer_id: customerId,
@@ -1105,6 +1129,7 @@ const coreHandler = withSupabase(
       }
 
       const organizationSlug = textValue(body.organizationSlug, 80);
+      const visitorId = textValue(body.visitorId, 120);
       if (!organizationSlug) {
         return response({ ok: false, error: "organization_required" }, 400);
       }
@@ -1119,6 +1144,32 @@ const coreHandler = withSupabase(
       if (orgError) throw orgError;
       if (!organization) {
         return response({ ok: false, error: "organization_not_found" }, 404);
+      }
+
+      let recognizedCustomer: any = null;
+      let visitorHash: string | null = null;
+      if (visitorId) {
+        visitorHash = await sha256("web-visitor:" + visitorId);
+        const { data: visitorIdentity, error: visitorIdentityError } = await admin
+          .from("customer_identities")
+          .select("customer_id")
+          .eq("organization_id", organization.id)
+          .eq("kind", "web_session")
+          .eq("normalized_value", visitorHash)
+          .maybeSingle();
+        if (visitorIdentityError) throw visitorIdentityError;
+
+        if (visitorIdentity?.customer_id) {
+          const { data: customer, error: customerError } = await admin
+            .from("customers")
+            .select("id,display_name,first_name,status")
+            .eq("id", visitorIdentity.customer_id)
+            .eq("organization_id", organization.id)
+            .eq("status", "active")
+            .maybeSingle();
+          if (customerError) throw customerError;
+          recognizedCustomer = customer;
+        }
       }
 
       const { data: chatModule, error: moduleError } = await admin
@@ -1149,6 +1200,7 @@ const coreHandler = withSupabase(
         .from("conversations")
         .insert({
           organization_id: organization.id,
+          customer_id: recognizedCustomer?.id ?? null,
           channel: "web",
           status: "open",
         })
@@ -1166,7 +1218,9 @@ const coreHandler = withSupabase(
         .insert({
           organization_id: organization.id,
           conversation_id: conversation.id,
+          customer_id: recognizedCustomer?.id ?? null,
           token_hash: tokenHash,
+          visitor_hash: visitorHash,
           status: "active",
           expires_at: expiresAt,
         })
@@ -1178,8 +1232,18 @@ const coreHandler = withSupabase(
         throw sessionError;
       }
 
-      const welcome =
-        "Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?";
+      let customerContext: any = null;
+      if (recognizedCustomer?.id) {
+        const { data: contextData } = await admin.rpc("get_customer_context_v1", {
+          p_customer_id: recognizedCustomer.id,
+        });
+        customerContext = contextData ?? null;
+      }
+
+      const firstName = recognizedCustomer?.first_name || recognizedCustomer?.display_name;
+      const welcome = firstName
+        ? `Oi, ${firstName} 😊 Bom te ver de novo. O que você está procurando hoje?`
+        : "Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?";
 
       const welcomeMessage = await admin
         .from("messages")
@@ -1189,7 +1253,15 @@ const coreHandler = withSupabase(
           sender_type: "assistant",
           message_type: "text",
           body_text: welcome,
-          payload: { suggestions: ["Ver cestas", "Ver ofertas", "Procurar produto"] },
+          payload: {
+          suggestions: customerContext?.lastOrder
+            ? ["Ver cestas", "Ver ofertas", "Procurar produto", "Ver meu último pedido"]
+            : ["Ver cestas", "Ver ofertas", "Procurar produto"],
+          recognizedCustomer: recognizedCustomer ? {
+            id: recognizedCustomer.id,
+            displayName: recognizedCustomer.display_name,
+          } : null,
+        },
         })
         .select("id,sender_type,message_type,body_text,payload,created_at")
         .single();
@@ -1217,6 +1289,13 @@ const coreHandler = withSupabase(
           slug: organization.slug,
         },
         messages: [welcomeMessage.data],
+        customerContext: customerContext ? {
+          customerId: customerContext.customerId,
+          displayName: customerContext.displayName,
+          ordersCount: customerContext.ordersCount,
+          lastOrderAt: customerContext.lastOrderAt,
+          lastOrder: customerContext.lastOrder,
+        } : null,
       }, 201);
     }
 
@@ -1250,7 +1329,7 @@ const coreHandler = withSupabase(
 
     const { data: session, error: sessionError } = await admin
       .from("public_chat_sessions")
-      .select("id,organization_id,conversation_id,customer_id,status,expires_at")
+      .select("id,organization_id,conversation_id,customer_id,visitor_hash,status,expires_at")
       .eq("token_hash", tokenHash)
       .eq("status", "active")
       .gt("expires_at", now)
