@@ -123,6 +123,43 @@ function searchTerm(text: string): string {
     .trim();
 }
 
+
+async function enforceRate(
+  admin: AdminClient,
+  organizationId: string,
+  requestKey: string,
+  action: string,
+  limitPerMinute: number,
+) {
+  const since = new Date(Date.now() - 60_000).toISOString();
+  const { count, error } = await admin
+    .from("public_chat_rate_events")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .eq("request_key", requestKey)
+    .gte("created_at", since);
+
+  if (error) throw error;
+  if ((count ?? 0) >= limitPerMinute) return false;
+
+  const { error: insertError } = await admin
+    .from("public_chat_rate_events")
+    .insert({
+      organization_id: organizationId,
+      request_key: requestKey,
+      action,
+    });
+
+  if (insertError) throw insertError;
+  return true;
+}
+
+async function publicRequestKey(req: Request) {
+  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = req.headers.get("cf-connecting-ip") || forwarded || "unknown";
+  return "ip:" + await sha256(ip);
+}
+
 async function insertAssistant(
   admin: AdminClient,
   session: any,
@@ -1038,6 +1075,18 @@ const coreHandler = withSupabase(
         return response({ ok: false, error: "chat_disabled" }, 403);
       }
 
+      const startKey = await publicRequestKey(req);
+      const startAllowed = await enforceRate(
+        admin,
+        organization.id,
+        startKey,
+        "start_session",
+        8,
+      );
+      if (!startAllowed) {
+        return response({ ok: false, error: "rate_limited" }, 429);
+      }
+
       const { data: conversation, error: conversationError } = await admin
         .from("conversations")
         .insert({
@@ -1158,6 +1207,18 @@ const coreHandler = withSupabase(
       .from("public_chat_sessions")
       .update({ last_seen_at: now })
       .eq("id", session.id);
+
+    const sessionLimit = action === "send_message" ? 20 : 60;
+    const sessionAllowed = await enforceRate(
+      admin,
+      session.organization_id,
+      "session:" + session.id,
+      action || "unknown",
+      sessionLimit,
+    );
+    if (!sessionAllowed) {
+      return response({ ok: false, error: "rate_limited" }, 429);
+    }
 
     if (action === "get_messages") {
       const { data: messages, error } = await admin
