@@ -656,6 +656,15 @@
     total.className="cart-total";
     total.innerHTML=`<span>Total</span><span>${money(cart.total_cents)}</span>`;
     panel.appendChild(total);
+
+    const close=document.createElement("button");
+    close.type="button";
+    close.className="primary";
+    close.style.marginTop="16px";
+    close.textContent="Fechar pedido";
+    close.addEventListener("click", startCheckout);
+    panel.appendChild(close);
+
     messagesEl.appendChild(panel);
     scrollBottom();
   }
@@ -748,6 +757,26 @@
     if (n.includes("ver meu pedido")) {
       return showCart();
     }
+    if (n.includes("fechar pedido")) {
+      return startCheckout();
+    }
+    if (n.includes("confirmar pedido")) {
+      showTyping();
+      try {
+        const data=await api("confirm_order");
+        hideTyping();
+        if (data.message) bubble(data.message);
+        updateCart(null);
+      } catch (e) {
+        hideTyping();
+        if (e.code==="checkout_not_ready") {
+          await send(label);
+        } else {
+          status("Não consegui confirmar o pedido agora. Tente novamente.",true);
+        }
+      }
+      return;
+    }
     if (n.includes("continuar")) {
       input.focus();
       return;
@@ -757,8 +786,26 @@
       input.focus();
       return;
     }
-    input.value=label;
-    input.focus();
+    await send(label);
+  }
+
+  async function startCheckout() {
+    if (sending) return;
+    showTyping();
+    try {
+      const data=await api("start_checkout");
+      hideTyping();
+      if (data.message) bubble(data.message);
+      updateCart(data.cart);
+      input.focus();
+    } catch (e) {
+      hideTyping();
+      if (e.code==="empty_cart") {
+        status("Seu pedido ainda está vazio.");
+      } else {
+        status("Não consegui iniciar o fechamento agora.",true);
+      }
+    }
   }
 
   async function showCart() {
