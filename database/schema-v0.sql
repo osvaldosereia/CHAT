@@ -14,6 +14,19 @@ create table if not exists organizations (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists organization_memberships (
+  organization_id uuid not null references organizations(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'agent' check (role in ('owner','admin','manager','agent','viewer')),
+  status text not null default 'active' check (status in ('active','invited','disabled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  primary key (organization_id, user_id)
+);
+
+create index if not exists organization_memberships_user_idx
+  on organization_memberships(user_id, status);
+
 create table if not exists organization_modules (
   organization_id uuid not null references organizations(id) on delete cascade,
   module_key text not null,
