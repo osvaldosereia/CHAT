@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Dona Antônia — Chat</title>
+  <style>
+    :root {
+      --bg:#f7f7f5;
+      --surface:#fff;
+      --text:#222;
+      --muted:#6f6f6b;
+      --line:#e9e9e5;
+      --brand:#b64a28;
+      --radius:20px;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font:17px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    .shell {
+      min-height:100dvh;
+      max-width:720px;
+      margin:0 auto;
+      background:var(--surface);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+    }
+    header {
+      padding:18px 20px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+    }
+    .title strong { display:block; font-size:18px; }
+    .title span { color:var(--muted); font-size:14px; }
+    .human {
+      border:0;
+      background:transparent;
+      min-height:44px;
+      padding:0 8px;
+      color:var(--brand);
+      font-weight:700;
+      cursor:pointer;
+    }
+    main {
+      padding:30px 20px 140px;
+      overflow:auto;
+    }
+    .msg {
+      max-width:82%;
+      margin:0 0 18px;
+      padding:13px 16px;
+      border-radius:18px;
+      background:#f2f2ef;
+    }
+    .msg.me {
+      margin-left:auto;
+      background:#f6e8e1;
+    }
+    .meta {
+      color:var(--muted);
+      font-size:13px;
+      margin:6px 2px 22px;
+    }
+    .suggestions {
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin:8px 0 28px;
+    }
+    .chip {
+      border:1px solid var(--line);
+      border-radius:999px;
+      background:#fff;
+      min-height:44px;
+      padding:10px 16px;
+      font:inherit;
+      cursor:pointer;
+    }
+    .product {
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      overflow:hidden;
+      margin:6px 0 26px;
+      max-width:360px;
+    }
+    .photo {
+      aspect-ratio:4/3;
+      display:grid;
+      place-items:center;
+      background:#f0eee8;
+      color:var(--muted);
+    }
+    .product-body { padding:18px; }
+    .price { font-size:24px; font-weight:800; margin:5px 0 16px; }
+    .primary {
+      width:100%;
+      border:0;
+      min-height:50px;
+      border-radius:14px;
+      background:var(--brand);
+      color:#fff;
+      font:inherit;
+      font-weight:800;
+      cursor:pointer;
+    }
+    footer {
+      position:sticky;
+      bottom:0;
+      padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+      border-top:1px solid var(--line);
+      background:rgba(255,255,255,.96);
+      backdrop-filter:blur(12px);
+    }
+    form {
+      display:grid;
+      grid-template-columns:44px 1fr 50px;
+      gap:8px;
+      align-items:end;
+    }
+    button,input { font:inherit; }
+    .round {
+      width:44px;height:44px;border:0;border-radius:50%;background:#f1f1ee;cursor:pointer;
+    }
+    input {
+      min-height:50px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:12px 14px;
+      outline:none;
+      width:100%;
+    }
+    .send {
+      min-height:50px;
+      border:0;
+      border-radius:16px;
+      background:var(--brand);
+      color:white;
+      font-weight:800;
+      cursor:pointer;
+    }
+    @media (min-width:721px) {
+      .shell { min-height:92vh; margin-top:4vh; border:1px solid var(--line); border-radius:26px; overflow:hidden; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="title">
+        <strong>Dona Antônia</strong>
+        <span>Assistente virtual · atendimento online</span>
+      </div>
+      <button class="human" type="button">Falar com uma pessoa</button>
+    </header>
+
+    <main id="messages" aria-live="polite">
+      <div class="msg">Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?</div>
+      <div class="suggestions">
+        <button class="chip" data-text="Quero ver as cestas">Ver cestas</button>
+        <button class="chip" data-text="Quero ver as ofertas">Ver ofertas</button>
+        <button class="chip" data-text="Quero procurar um produto">Procurar produto</button>
+      </div>
+    </main>
+
+    <footer>
+      <form id="composer">
+        <button class="round" type="button" aria-label="Adicionar">+</button>
+        <input id="input" autocomplete="off" placeholder="Digite uma mensagem…" aria-label="Mensagem" />
+        <button class="send" type="submit" aria-label="Enviar">↑</button>
+      </form>
+    </footer>
+  </div>
+
+  <script>
+    const messages = document.querySelector("#messages");
+    const input = document.querySelector("#input");
+    const form = document.querySelector("#composer");
+
+    function append(text, mine=false) {
+      const el=document.createElement("div");
+      el.className="msg"+(mine?" me":"");
+      el.textContent=text;
+      messages.appendChild(el);
+      messages.scrollTop=messages.scrollHeight;
+    }
+
+    function send(text) {
+      const value=(text||input.value).trim();
+      if(!value) return;
+      append(value,true);
+      input.value="";
+      setTimeout(()=>append("Entendi. Nesta primeira versão, a próxima etapa será ligar esta conversa ao Chat Core e ao catálogo real da Dona Antônia."),550);
+    }
+
+    form.addEventListener("submit",e=>{e.preventDefault();send();});
+    document.querySelectorAll("[data-text]").forEach(btn=>btn.addEventListener("click",()=>send(btn.dataset.text)));
+  </script>
+</body>
+</html>
