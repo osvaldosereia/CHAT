@@ -643,12 +643,70 @@ async function startCheckout(admin: AdminClient, session: any) {
   return { checkout, cart, message };
 }
 
+async function persistCustomerAddress(
+  admin: AdminClient,
+  session: any,
+  customerId: string,
+  rawText: string,
+) {
+  const clean = rawText.trim().replace(/\s+/g, " ").slice(0, 500);
+  if (!clean) return null;
+
+  const { data: existing, error: existingError } = await admin
+    .from("customer_addresses")
+    .select("id,is_default")
+    .eq("organization_id", session.organization_id)
+    .eq("customer_id", customerId)
+    .eq("raw_text", clean)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existing) return existing.id;
+
+  const { count, error: countError } = await admin
+    .from("customer_addresses")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", session.organization_id)
+    .eq("customer_id", customerId)
+    .eq("active", true);
+
+  if (countError) throw countError;
+
+  const { data: address, error: insertError } = await admin
+    .from("customer_addresses")
+    .insert({
+      organization_id: session.organization_id,
+      customer_id: customerId,
+      label: "Entrega",
+      raw_text: clean,
+      is_default: (count ?? 0) === 0,
+      active: true,
+    })
+    .select("id")
+    .single();
+
+  if (insertError) throw insertError;
+  return address.id;
+}
+
 async function confirmOrder(admin: AdminClient, session: any, checkout: any) {
   const cart = await loadCart(admin, session);
   if (!cart || !cart.items?.length) return { error: "empty_cart" };
   if (!checkout.customer_id) return { error: "customer_required" };
 
-  const addressSnapshot = { rawText: checkout.address_raw };
+  const addressId = await persistCustomerAddress(
+    admin,
+    session,
+    checkout.customer_id,
+    checkout.address_raw,
+  );
+
+  const addressSnapshot = {
+    addressId,
+    rawText: checkout.address_raw,
+  };
   const paymentSnapshot = {
     method: checkout.payment_method,
     label: paymentLabel(checkout.payment_method),
