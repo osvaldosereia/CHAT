@@ -285,42 +285,29 @@ async function listOffers(admin: AdminClient, organizationId: string) {
 
 async function searchProducts(admin: AdminClient, organizationId: string, term: string) {
   const clean = normalize(term);
-  if (!clean) return [];
+  if (clean.length < 2) return [];
 
-  const tokens = clean.split(" ").filter((token) => token.length >= 2);
-  if (!tokens.length) return [];
-  const primary = [...tokens].sort((a, b) => b.length - a.length)[0];
-
-  const { data, error } = await admin
-    .from("products")
-    .select("id,name,sale_price_cents,image_url,stock_quantity")
-    .eq("organization_id", organizationId)
-    .eq("active", true)
-    .ilike("name", `%${primary}%`)
-    .limit(24);
+  const { data, error } = await admin.rpc("search_catalog_products_v1", {
+    p_organization_id: organizationId,
+    p_query: clean,
+    p_limit: 12,
+  });
 
   if (error) throw error;
 
-  const ranked = [...(data ?? [])].sort((a: any, b: any) => {
-    const an = normalize(a.name || "");
-    const bn = normalize(b.name || "");
-    const score = (name: string) =>
-      tokens.reduce((sum, token) => sum + (name.includes(token) ? 3 : 0), 0) +
-      (name.startsWith(primary) ? 2 : 0) +
-      (Number(name.includes(clean)) * 5);
-    return score(bn) - score(an) || an.localeCompare(bn, "pt-BR");
-  });
-
+  const ranked = data ?? [];
   const ids = ranked.slice(0, 8).map((product: any) => product.id);
-  let offerMap = new Map<string, number>();
+  const offerMap = new Map<string, number>();
 
   if (ids.length) {
-    const { data: offers } = await admin
+    const { data: offers, error: offersError } = await admin
       .from("offers")
       .select("product_id,sale_price_cents,starts_at,ends_at")
       .eq("organization_id", organizationId)
       .eq("active", true)
       .in("product_id", ids);
+
+    if (offersError) throw offersError;
 
     const now = Date.now();
     for (const offer of offers ?? []) {
@@ -341,6 +328,7 @@ async function searchProducts(admin: AdminClient, organizationId: string, term: 
       imageUrl: product.image_url,
       stockQuantity: product.stock_quantity,
       badge: offerPrice ? "Oferta" : null,
+      searchRank: product.search_rank ?? null,
       action: "add_product",
     };
   });
