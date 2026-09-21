@@ -555,6 +555,110 @@ async function loadCart(admin: AdminClient, session: any) {
 }
 
 
+async function repeatLastPurchase(
+  admin: AdminClient,
+  session: any,
+  mode: "order" | "basket" = "order",
+) {
+  if (!session.customer_id) {
+    return { error: "customer_not_identified" };
+  }
+
+  const { data: lastOrder, error: orderError } = await admin
+    .from("orders")
+    .select("id,order_number,created_at")
+    .eq("organization_id", session.organization_id)
+    .eq("customer_id", session.customer_id)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (orderError) throw orderError;
+  if (!lastOrder) return { error: "no_previous_order" };
+
+  let itemQuery = admin
+    .from("order_items")
+    .select("id,item_kind,product_id,basket_id,name_snapshot,quantity")
+    .eq("organization_id", session.organization_id)
+    .eq("order_id", lastOrder.id)
+    .order("id");
+
+  if (mode === "basket") itemQuery = itemQuery.eq("item_kind", "basket");
+
+  const { data: previousItems, error: itemsError } = await itemQuery;
+  if (itemsError) throw itemsError;
+
+  if (!previousItems?.length) {
+    return { error: mode === "basket" ? "no_basket_in_previous_order" : "no_previous_items" };
+  }
+
+  const added: Array<{ name: string; quantity: number }> = [];
+  const skipped: Array<{ name: string; reason: string }> = [];
+
+  for (const item of previousItems) {
+    const quantity = Math.max(1, Math.min(25, Math.round(Number(item.quantity) || 1)));
+    let addedCount = 0;
+    let failure: string | null = null;
+
+    for (let index = 0; index < quantity; index++) {
+      const result = item.item_kind === "basket" && item.basket_id
+        ? await addBasket(admin, session, item.basket_id)
+        : item.product_id
+          ? await addProduct(admin, session, item.product_id)
+          : { error: "item_unavailable" };
+
+      if (result?.error) {
+        failure = result.error;
+        break;
+      }
+      addedCount += 1;
+    }
+
+    if (addedCount > 0) {
+      added.push({ name: item.name_snapshot, quantity: addedCount });
+    }
+    if (failure || addedCount < quantity) {
+      skipped.push({
+        name: item.name_snapshot,
+        reason: failure ?? "quantity_unavailable",
+      });
+    }
+  }
+
+  const cart = await loadCart(admin, session);
+
+  await admin.from("customer_events").insert({
+    organization_id: session.organization_id,
+    customer_id: session.customer_id,
+    conversation_id: session.conversation_id,
+    event_type: mode === "basket" ? "basket.repeated" : "order.repeated",
+    data: {
+      source_order_id: lastOrder.id,
+      source_order_number: lastOrder.order_number,
+      added_count: added.reduce((sum, item) => sum + item.quantity, 0),
+      skipped_count: skipped.length,
+    },
+  });
+
+  if (!added.length) {
+    return {
+      error: "previous_items_unavailable",
+      sourceOrderNumber: lastOrder.order_number,
+      skipped,
+      cart,
+    };
+  }
+
+  return {
+    sourceOrderNumber: lastOrder.order_number,
+    added,
+    skipped,
+    cart,
+  };
+}
+
+
 function normalizePhone(value: string): string | null {
   let digits = value.replace(/\D/g, "");
   if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
@@ -1044,6 +1148,77 @@ async function saveCommerceAssistant(admin: AdminClient, session: any, text: str
   const normalized = normalize(text);
   const budget = extractBudget(text);
 
+  const repeatIntent =
+    /\b(repetir|repete|repetir minha|repetir meu|mesma compra|mesmo pedido|igual da ultima|igual ao ultimo)\b/.test(normalized);
+  const basketRepeatIntent = repeatIntent && /\b(cesta|cestas)\b/.test(normalized);
+
+  if (repeatIntent) {
+    if (!session.customer_id) {
+      return insertAssistant(
+        admin,
+        session,
+        "Consigo repetir compras anteriores, mas ainda não reconheci seu cadastro neste aparelho. Posso montar uma cesta agora e, no fechamento, identifico seu cadastro pelo telefone.",
+        "text",
+        { suggestions: ["Ver cestas", "Ver ofertas"] },
+      );
+    }
+
+    const repeated = await repeatLastPurchase(
+      admin,
+      session,
+      basketRepeatIntent ? "basket" : "order",
+    );
+
+    if (repeated.error === "no_previous_order") {
+      return insertAssistant(
+        admin,
+        session,
+        "Ainda não encontrei uma compra anterior para repetir. Posso te mostrar as cestas.",
+        "text",
+        { suggestions: ["Ver cestas", "Ver ofertas"] },
+      );
+    }
+
+    if (repeated.error === "no_basket_in_previous_order") {
+      return insertAssistant(
+        admin,
+        session,
+        "Na sua última compra não encontrei uma cesta para repetir. Posso repetir a compra inteira ou mostrar as cestas atuais.",
+        "text",
+        { suggestions: ["Repetir última compra", "Ver cestas"] },
+      );
+    }
+
+    if (repeated.error || !repeated.cart) {
+      return insertAssistant(
+        admin,
+        session,
+        "Alguns itens da sua compra anterior não estão disponíveis agora. Posso te mostrar opções atuais.",
+        "text",
+        { suggestions: ["Ver cestas", "Ver ofertas"] },
+      );
+    }
+
+    const skippedText = repeated.skipped?.length
+      ? ` Alguns itens não entraram porque mudaram ou estão indisponíveis.`
+      : "";
+
+    return insertAssistant(
+      admin,
+      session,
+      basketRepeatIntent
+        ? `Pronto 😊 Coloquei sua cesta anterior no pedido com os preços de hoje.${skippedText}`
+        : `Pronto 😊 Recriei sua última compra com os preços e ofertas de hoje.${skippedText}`,
+      "cart",
+      {
+        cart: repeated.cart,
+        repeatedFromOrderNumber: repeated.sourceOrderNumber,
+        skipped: repeated.skipped ?? [],
+        suggestions: ["Ver meu pedido", "Ver ofertas", "Fechar pedido"],
+      },
+    );
+  }
+
   if (/\b(cesta|cestas)\b/.test(normalized) || budget) {
     const items = await listBaskets(admin, session.organization_id, budget);
     const reply = budget
@@ -1245,6 +1420,10 @@ const coreHandler = withSupabase(
         ? `Oi, ${firstName} 😊 Bom te ver de novo. O que você está procurando hoje?`
         : "Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?";
 
+      const welcomeSuggestions = customerContext?.lastOrder
+        ? ["Repetir última compra", "Ver cestas", "Ver ofertas"]
+        : ["Ver cestas", "Ver ofertas", "Procurar produto"];
+
       const welcomeMessage = await admin
         .from("messages")
         .insert({
@@ -1254,7 +1433,7 @@ const coreHandler = withSupabase(
           message_type: "text",
           body_text: welcome,
           payload: {
-          suggestions: ["Ver cestas", "Ver ofertas", "Procurar produto"],
+          suggestions: welcomeSuggestions,
           recognizedCustomer: recognizedCustomer ? {
             id: recognizedCustomer.id,
             displayName: recognizedCustomer.display_name,
