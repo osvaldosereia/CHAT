@@ -28,6 +28,7 @@ alter table customer_events enable row level security;
 alter table customer_preferences enable row level security;
 
 -- Membership: o usuário pode ver suas próprias memberships.
+drop policy if exists organization_memberships_select_own on organization_memberships;
 create policy organization_memberships_select_own
 on organization_memberships
 for select
@@ -35,6 +36,7 @@ to authenticated
 using ((select auth.uid()) = user_id);
 
 -- Organizations: usuário vê somente organizações de que é membro ativo.
+drop policy if exists organizations_select_member on organizations;
 create policy organizations_select_member
 on organizations
 for select
@@ -52,6 +54,7 @@ using (
 -- Padrão das tabelas tenant-scoped.
 -- Exemplo em customers. O mesmo padrão será aplicado explicitamente por tabela
 -- após testes para evitar policies genéricas difíceis de auditar.
+drop policy if exists customers_select_member on customers;
 create policy customers_select_member
 on customers
 for select
@@ -66,6 +69,7 @@ using (
   )
 );
 
+drop policy if exists customers_insert_staff on customers;
 create policy customers_insert_staff
 on customers
 for insert
@@ -81,6 +85,7 @@ with check (
   )
 );
 
+drop policy if exists customers_update_staff on customers;
 create policy customers_update_staff
 on customers
 for update
