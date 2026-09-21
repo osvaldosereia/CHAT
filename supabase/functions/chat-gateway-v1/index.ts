@@ -1254,9 +1254,7 @@ const coreHandler = withSupabase(
           message_type: "text",
           body_text: welcome,
           payload: {
-          suggestions: customerContext?.lastOrder
-            ? ["Ver cestas", "Ver ofertas", "Procurar produto", "Ver meu último pedido"]
-            : ["Ver cestas", "Ver ofertas", "Procurar produto"],
+          suggestions: ["Ver cestas", "Ver ofertas", "Procurar produto"],
           recognizedCustomer: recognizedCustomer ? {
             id: recognizedCustomer.id,
             displayName: recognizedCustomer.display_name,
