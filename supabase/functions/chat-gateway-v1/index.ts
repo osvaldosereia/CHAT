@@ -1492,6 +1492,15 @@ const coreHandler = withSupabase(
         data: { channel: "web" },
       });
 
+      await admin.from("conversation_assignment_events").insert({
+        organization_id: session.organization_id,
+        conversation_id: session.conversation_id,
+        actor_user_id: null,
+        assigned_user_id: null,
+        event_type: "requested",
+        metadata: { channel: "web", source: "customer" },
+      });
+
       const systemText =
         "Certo. Você pediu atendimento humano. Quando alguém assumir, a conversa continua por aqui.";
 
