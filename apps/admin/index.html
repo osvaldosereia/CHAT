@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Chat Commerce OS — Inbox</title>
+<style>
+:root{--bg:#f4f4f1;--surface:#fff;--text:#252522;--muted:#74746d;--line:#e7e7e1;--brand:#b94b2a;--soft:#f8eae4;--warn:#fff4dc}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+.login{min-height:100dvh;display:grid;place-items:center;padding:24px}.login-card{width:min(100%,390px);background:#fff;border:1px solid var(--line);border-radius:24px;padding:28px}
+h1,h2,h3,p{margin-top:0}.login-card h1{font-size:23px;margin-bottom:8px}.login-card p{color:var(--muted);margin-bottom:24px}
+.field{display:grid;gap:7px;margin:14px 0}.field label{font-size:13px;font-weight:700}.field input{min-height:48px;border:1px solid var(--line);border-radius:13px;padding:11px 13px;outline:none}
+.primary,.ghost,.danger{min-height:42px;border-radius:12px;padding:9px 14px;border:0;font-weight:750}
+.primary{background:var(--brand);color:white}.ghost{background:#f1f1ed;color:var(--text)}.danger{background:#fff0ee;color:#912e24}
+.login-card .primary{width:100%;min-height:50px;margin-top:8px}.error{color:#922f25;background:#fff1ef;padding:10px 12px;border-radius:11px;margin-top:12px}
+.app{height:100dvh;display:grid;grid-template-columns:310px minmax(380px,1fr) 310px;background:#fff}
+.sidebar,.details{background:#fafaf8;overflow:auto}.sidebar{border-right:1px solid var(--line)}.details{border-left:1px solid var(--line)}
+.top{padding:17px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fafaf8;z-index:3}
+.brand{font-size:17px;font-weight:850}.sub{font-size:12px;color:var(--muted);margin-top:3px}.filters{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+.filter{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 10px;font-size:12px}.filter.active{background:var(--text);color:#fff;border-color:var(--text)}
+.list{padding:8px}.conv{width:100%;text-align:left;border:0;background:transparent;border-radius:14px;padding:12px;margin:2px 0}.conv:hover,.conv.active{background:#fff;box-shadow:0 3px 15px rgba(20,20,15,.04)}.conv-head{display:flex;justify-content:space-between;gap:8px}.name{font-weight:780}.time{font-size:11px;color:var(--muted)}.preview{color:var(--muted);font-size:13px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pill{display:inline-block;margin-top:7px;padding:3px 7px;border-radius:999px;background:#efefeb;color:#66665f;font-size:10px}.pill.waiting_human{background:var(--warn);color:#7a5913}
+.chat{display:grid;grid-template-rows:auto 1fr auto;min-height:0}.chat-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.chat-title strong{display:block}.chat-title span{font-size:12px;color:var(--muted)}.actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.messages{overflow:auto;padding:24px 22px 120px;background:#fff}.empty{display:grid;place-items:center;height:100%;color:var(--muted);text-align:center;padding:24px}.row{display:flex;margin:0 0 13px}.row.customer{justify-content:flex-end}.bubble{max-width:76%;background:#f1f1ed;border-radius:17px 17px 17px 5px;padding:11px 14px;white-space:pre-wrap;overflow-wrap:anywhere}.customer .bubble{background:var(--soft);border-radius:17px 17px 5px 17px}.human .bubble{background:#e8f2ec}.system .bubble{background:transparent;color:var(--muted);font-size:12px;text-align:center;max-width:100%;width:100%}.composer{padding:12px 14px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:8px;background:#fff}.composer input{min-height:48px;border:1px solid var(--line);border-radius:14px;padding:10px 13px;outline:none}.composer button{min-width:74px}
+.details .section{padding:18px;border-bottom:1px solid var(--line)}.details h3{font-size:14px;margin-bottom:12px}.kv{display:grid;gap:7px;font-size:13px}.kv span{color:var(--muted)}.order{padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}.order:last-child{border:0}
+@media(max-width:920px){.app{grid-template-columns:280px 1fr}.details{display:none}}
+@media(max-width:640px){.app{grid-template-columns:1fr}.sidebar{display:block}.chat{display:none}.app.show-chat .sidebar{display:none}.app.show-chat .chat{display:grid}.chat-head{padding:10px}.bubble{max-width:87%}}
+</style>
+</head>
+<body>
+<section class="login" id="login">
+  <form class="login-card" id="loginForm">
+    <h1>Chat Commerce OS</h1>
+    <p>Inbox da Dona Antônia</p>
+    <div class="field"><label>E-mail</label><input id="email" type="email" autocomplete="username" required></div>
+    <div class="field"><label>Senha</label><input id="password" type="password" autocomplete="current-password" required></div>
+    <button class="primary" type="submit">Entrar</button>
+    <div id="loginError" class="error hidden"></div>
+  </form>
+</section>
+
+<section class="app hidden" id="app">
+  <aside class="sidebar">
+    <div class="top">
+      <div class="brand">Dona Antônia</div>
+      <div class="sub" id="operator">Inbox humano</div>
+      <div class="filters">
+        <button class="filter active" data-status="active">Ativas</button>
+        <button class="filter" data-status="waiting">Esperando humano</button>
+        <button class="filter" data-status="closed">Encerradas</button>
+      </div>
+    </div>
+    <div class="list" id="conversationList"></div>
+  </aside>
+
+  <main class="chat">
+    <div class="empty" id="chatEmpty">Escolha uma conversa para abrir.</div>
+    <div class="hidden" id="chatPanel" style="display:contents">
+      <header class="chat-head">
+        <div class="chat-title"><strong id="chatName">Cliente</strong><span id="chatMeta"></span></div>
+        <div class="actions">
+          <button class="ghost" id="backButton">Voltar</button>
+          <button class="primary" id="claimButton">Assumir</button>
+          <button class="ghost" id="releaseButton">Devolver à assistente</button>
+          <button class="danger" id="closeButton">Encerrar</button>
+        </div>
+      </header>
+      <div class="messages" id="messages"></div>
+      <form class="composer" id="composer">
+        <input id="reply" placeholder="Escreva como atendente…" autocomplete="off">
+        <button class="primary" type="submit">Enviar</button>
+      </form>
+    </div>
+  </main>
+
+  <aside class="details" id="details">
+    <div class="section"><h3>Cliente</h3><div class="kv" id="customerInfo"><span>Nenhuma conversa aberta.</span></div></div>
+    <div class="section"><h3>Pedidos recentes</h3><div id="orders"></div></div>
+  </aside>
+</section>
+
+<script>
+(() => {
+const URL="https://qxstkwshuvplmmftrctj.supabase.co";
+const API=URL+"/functions/v1/admin-inbox-v1";
+const KEY="sb_publishable_wGb_JE4O3e1XYlFQUAdpmg_SLYmeFQz";
+const ORG="dona-antonia";
+const STORE="chat_commerce_admin_session_v1";
+let session=null, current=null, filter="active", timer=null, lastMessageCount=0;
+
+const $=s=>document.querySelector(s);
+const login=$("#login"), app=$("#app"), list=$("#conversationList"), messages=$("#messages");
+
+function saveSession(v){session=v;localStorage.setItem(STORE,JSON.stringify(v))}
+function clearSession(){session=null;localStorage.removeItem(STORE)}
+function loadSession(){try{return JSON.parse(localStorage.getItem(STORE)||"null")}catch{return null}}
+function money(c){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((Number(c)||0)/100)}
+function fmt(d){try{return new Date(d).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}catch{return""}}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+
+async function auth(email,password){
+ const r=await fetch(URL+"/auth/v1/token?grant_type=password",{method:"POST",headers:{"content-type":"application/json","apikey":KEY},body:JSON.stringify({email,password})});
+ const j=await r.json(); if(!r.ok) throw new Error(j.error_description||j.msg||"Não foi possível entrar.");
+ return j;
+}
+async function api(action,extra={}){
+ if(!session?.access_token) throw new Error("not_authenticated");
+ const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json","apikey":KEY,"authorization":"Bearer "+session.access_token},body:JSON.stringify({action,organizationSlug:ORG,...extra})});
+ let j={};try{j=await r.json()}catch{}
+ if(r.status===401){clearSession();location.reload();throw new Error("session_expired")}
+ if(!r.ok){const e=new Error(j.error||"request_failed");e.code=j.error;throw e}
+ return j;
+}
+async function boot(){
+ session=loadSession();
+ if(!session?.access_token)return;
+ try{
+   const me=await api("me");
+   login.classList.add("hidden");app.classList.remove("hidden");
+   $("#operator").textContent=(me.user.email||"Operador")+" · "+me.user.role;
+   await loadList();
+   timer=setInterval(refresh,4000);
+ }catch{clearSession()}
+}
+async function loadList(){
+ const statuses=filter==="waiting"?["waiting_human"]:filter==="closed"?["closed"]:["waiting_human","human_active","open","waiting_customer"];
+ const data=await api("list_conversations",{statuses,limit:50});
+ list.innerHTML="";
+ for(const c of data.conversations){
+   const b=document.createElement("button");b.className="conv"+(current?.id===c.id?" active":"");
+   const name=c.customer?.display_name||"Cliente novo";
+   b.innerHTML=`<div class="conv-head"><span class="name">${esc(name)}</span><span class="time">${esc(fmt(c.last_message_at))}</span></div><div class="preview">${esc(c.lastMessage?.body_text||"Sem mensagem")}</div><span class="pill ${esc(c.status)}">${esc(c.status)}</span>`;
+   b.onclick=()=>openConversation(c.id);
+   list.appendChild(b);
+ }
+}
+async function openConversation(id){
+ const data=await api("get_conversation",{conversationId:id});
+ current=data.conversation; current.customer=data.customer; current.orders=data.orders;
+ app.classList.add("show-chat");
+ $("#chatEmpty").classList.add("hidden");$("#chatPanel").classList.remove("hidden");
+ $("#chatName").textContent=data.customer?.display_name||"Cliente novo";
+ $("#chatMeta").textContent=current.status+" · "+(current.channel||"web");
+ renderMessages(data.messages);renderDetails(data);
+ await loadList();
+}
+function renderMessages(rows){
+ messages.innerHTML="";
+ for(const m of rows){
+   const row=document.createElement("div");row.className="row "+m.sender_type;
+   const bubble=document.createElement("div");bubble.className="bubble";bubble.textContent=m.body_text||"";
+   row.appendChild(bubble);messages.appendChild(row);
+ }
+ lastMessageCount=rows.length;messages.scrollTop=messages.scrollHeight;
+}
+function renderDetails(data){
+ const c=data.customer;
+ $("#customerInfo").innerHTML=c?
+   `<div class="kv"><div><span>Nome</span><br>${esc(c.display_name||"-")}</div><div><span>Status</span><br>${esc(c.status||"-")}</div><div><span>Identidades</span><br>${esc((data.identities||[]).map(x=>x.kind+": "+x.normalized_value).join(" · ")||"-")}</div></div>`:
+   '<span>Cliente ainda não identificado.</span>';
+ $("#orders").innerHTML=(data.orders||[]).length?
+   data.orders.map(o=>`<div class="order"><strong>#${esc(o.order_number)}</strong> · ${esc(money(o.total_cents))}<br><span>${esc(o.status)} · ${esc(fmt(o.created_at))}</span></div>`).join(""):
+   '<span class="sub">Nenhum pedido anterior.</span>';
+}
+async function refresh(){
+ try{
+  await loadList();
+  if(current){
+    const data=await api("get_conversation",{conversationId:current.id});
+    if((data.messages||[]).length!==lastMessageCount){current=data.conversation;renderMessages(data.messages);renderDetails(data)}
+  }
+ }catch{}
+}
+$("#loginForm").onsubmit=async e=>{
+ e.preventDefault();$("#loginError").classList.add("hidden");
+ try{saveSession(await auth($("#email").value.trim(),$("#password").value));await boot()}
+ catch(err){$("#loginError").textContent=err.message;$("#loginError").classList.remove("hidden")}
+};
+document.querySelectorAll(".filter").forEach(b=>b.onclick=async()=>{
+ document.querySelectorAll(".filter").forEach(x=>x.classList.remove("active"));b.classList.add("active");filter=b.dataset.status;await loadList()
+});
+$("#claimButton").onclick=async()=>{if(!current)return;await api("claim",{conversationId:current.id});await openConversation(current.id)};
+$("#releaseButton").onclick=async()=>{if(!current)return;await api("release",{conversationId:current.id});await openConversation(current.id)};
+$("#closeButton").onclick=async()=>{if(!current)return;await api("close",{conversationId:current.id});current=null;app.classList.remove("show-chat");$("#chatPanel").classList.add("hidden");$("#chatEmpty").classList.remove("hidden");await loadList()};
+$("#backButton").onclick=()=>app.classList.remove("show-chat");
+$("#composer").onsubmit=async e=>{
+ e.preventDefault();if(!current)return;const text=$("#reply").value.trim();if(!text)return;
+ $("#reply").value="";await api("send_message",{conversationId:current.id,text});await openConversation(current.id);
+};
+boot();
+})();
+</script>
+</body>
+</html>
