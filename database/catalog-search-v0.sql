@@ -1,5 +1,6 @@
 -- Full catalog search support v0
-create schema if not exists extensions;\ncreate extension if not exists pg_trgm with schema extensions;
+create schema if not exists extensions;
+create extension if not exists pg_trgm with schema extensions;
 
 alter table products
   add column if not exists search_text text not null default '';
