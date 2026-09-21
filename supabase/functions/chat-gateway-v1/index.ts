@@ -3,6 +3,22 @@ import { withSupabase } from "npm:@supabase/server@1.7.0";
 type Json = Record<string, unknown>;
 type AdminClient = any;
 
+type AiIntentResult = {
+  runId: string;
+  intent:
+    | "browse_baskets"
+    | "browse_offers"
+    | "search_products"
+    | "repeat_order"
+    | "repeat_basket"
+    | "smalltalk"
+    | "unknown";
+  searchTerm: string | null;
+  budgetCents: number | null;
+  reply: string;
+  confidence: number;
+};
+
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_MESSAGE_LENGTH = 2000;
 
@@ -1144,6 +1160,338 @@ async function handleCheckoutInput(admin: AdminClient, session: any, text: strin
   return null;
 }
 
+function openAiOutputText(payload: any): string {
+  if (typeof payload?.output_text === "string" && payload.output_text) return payload.output_text;
+
+  for (const item of payload?.output ?? []) {
+    if (item?.type !== "message") continue;
+    for (const content of item?.content ?? []) {
+      if (content?.type === "output_text" && typeof content?.text === "string") {
+        return content.text;
+      }
+    }
+  }
+  return "";
+}
+
+async function tryAiIntentRouter(
+  admin: AdminClient,
+  session: any,
+  messageText: string,
+): Promise<AiIntentResult | null> {
+  const apiKey = Deno.env.get("OPENAI_API_KEY")?.trim();
+  if (!apiKey) return null;
+
+  const { data: agent, error: agentError } = await admin
+    .from("ai_agents")
+    .select("id,provider,model,reasoning_effort,max_output_tokens,configuration")
+    .eq("organization_id", session.organization_id)
+    .eq("agent_key", "sales_assistant")
+    .eq("enabled", true)
+    .maybeSingle();
+
+  if (agentError) throw agentError;
+  if (!agent || agent.provider !== "openai") return null;
+
+  const { data: prompt, error: promptError } = await admin
+    .from("ai_prompt_versions")
+    .select("id,version,instructions")
+    .eq("organization_id", session.organization_id)
+    .eq("agent_id", agent.id)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (promptError) throw promptError;
+  if (!prompt) return null;
+
+  let customerContext: any = null;
+  if (session.customer_id) {
+    const { data } = await admin.rpc("get_customer_context_v1", {
+      p_customer_id: session.customer_id,
+    });
+    if (data) {
+      customerContext = {
+        firstName: data.firstName ?? null,
+        ordersCount: data.ordersCount ?? 0,
+        lastOrderAt: data.lastOrderAt ?? null,
+        favoriteBasket: data.favoriteBasket ?? null,
+        topProducts: Array.isArray(data.topProducts)
+          ? data.topProducts.slice(0, 5).map((item: any) => ({
+              name: item.name,
+              purchaseCount: item.purchaseCount,
+            }))
+          : [],
+      };
+    }
+  }
+
+  const startedAt = Date.now();
+  const { data: run, error: runError } = await admin
+    .from("ai_runs")
+    .insert({
+      organization_id: session.organization_id,
+      agent_id: agent.id,
+      conversation_id: session.conversation_id,
+      customer_id: session.customer_id,
+      provider: "openai",
+      model: agent.model,
+      status: "started",
+      request_kind: "intent_router",
+      metadata: {
+        prompt_version: prompt.version,
+        deterministic_fallback: true,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (runError) throw runError;
+
+  try {
+    const aiResponse = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: agent.model,
+        store: false,
+        reasoning: { effort: agent.reasoning_effort ?? "none" },
+        max_output_tokens: agent.max_output_tokens ?? 300,
+        text: {
+          verbosity: "low",
+          format: {
+            type: "json_schema",
+            name: "chat_commerce_intent",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                intent: {
+                  type: "string",
+                  enum: [
+                    "browse_baskets",
+                    "browse_offers",
+                    "search_products",
+                    "repeat_order",
+                    "repeat_basket",
+                    "smalltalk",
+                    "unknown"
+                  ]
+                },
+                searchTerm: { type: ["string", "null"] },
+                budgetCents: { type: ["integer", "null"], minimum: 0 },
+                reply: { type: "string", maxLength: 240 },
+                confidence: { type: "number", minimum: 0, maximum: 1 }
+              },
+              required: ["intent","searchTerm","budgetCents","reply","confidence"]
+            }
+          }
+        },
+        input: [
+          {
+            role: "developer",
+            content: [{ type: "input_text", text: prompt.instructions }]
+          },
+          {
+            role: "user",
+            content: [{
+              type: "input_text",
+              text: JSON.stringify({
+                message: messageText,
+                customerContext,
+                rules: {
+                  language: "pt-BR",
+                  maxReplySentences: 2,
+                  neverInventCommercialFacts: true
+                }
+              })
+            }]
+          }
+        ]
+      }),
+      signal: AbortSignal.timeout(6500),
+    });
+
+    const payload = await aiResponse.json();
+    if (!aiResponse.ok) {
+      const errorCode = payload?.error?.code || `http_${aiResponse.status}`;
+      await admin.from("ai_runs").update({
+        status: "failed",
+        duration_ms: Date.now() - startedAt,
+        error_code: String(errorCode).slice(0, 120),
+        completed_at: new Date().toISOString(),
+      }).eq("id", run.id);
+      return null;
+    }
+
+    const output = openAiOutputText(payload);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      await admin.from("ai_runs").update({
+        status: "failed",
+        duration_ms: Date.now() - startedAt,
+        error_code: "invalid_structured_output",
+        provider_response_id: payload?.id ?? null,
+        input_tokens: payload?.usage?.input_tokens ?? null,
+        output_tokens: payload?.usage?.output_tokens ?? null,
+        completed_at: new Date().toISOString(),
+      }).eq("id", run.id);
+      return null;
+    }
+
+    await admin.from("ai_runs").update({
+      status: "completed",
+      provider_response_id: payload?.id ?? null,
+      input_tokens: payload?.usage?.input_tokens ?? null,
+      output_tokens: payload?.usage?.output_tokens ?? null,
+      duration_ms: Date.now() - startedAt,
+      completed_at: new Date().toISOString(),
+      metadata: {
+        prompt_version: prompt.version,
+        intent: parsed.intent,
+        confidence: parsed.confidence,
+      },
+    }).eq("id", run.id);
+
+    return {
+      runId: run.id,
+      intent: parsed.intent,
+      searchTerm: typeof parsed.searchTerm === "string" ? parsed.searchTerm.trim().slice(0, 120) : null,
+      budgetCents: Number.isInteger(parsed.budgetCents) ? parsed.budgetCents : null,
+      reply: typeof parsed.reply === "string" ? parsed.reply.trim().slice(0, 240) : "",
+      confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0,
+    };
+  } catch (error) {
+    await admin.from("ai_runs").update({
+      status: "failed",
+      duration_ms: Date.now() - startedAt,
+      error_code: error instanceof DOMException && error.name === "TimeoutError"
+        ? "timeout"
+        : "request_failed",
+      completed_at: new Date().toISOString(),
+    }).eq("id", run.id);
+    return null;
+  }
+}
+
+async function auditAiTool(
+  admin: AdminClient,
+  session: any,
+  ai: AiIntentResult,
+  toolName: string,
+  args: Json,
+  result: Json,
+) {
+  await admin.from("ai_tool_calls").insert({
+    organization_id: session.organization_id,
+    ai_run_id: ai.runId,
+    conversation_id: session.conversation_id,
+    tool_name: toolName,
+    status: "completed",
+    arguments: args,
+    result_summary: result,
+    completed_at: new Date().toISOString(),
+  });
+}
+
+async function applyAiIntent(
+  admin: AdminClient,
+  session: any,
+  ai: AiIntentResult,
+) {
+  if (ai.confidence < 0.55) {
+    return insertAssistant(
+      admin,
+      session,
+      ai.reply || "Me explica só um pouquinho melhor o que você procura?",
+      "text",
+      { ai: { runId: ai.runId, intent: "unknown" } },
+    );
+  }
+
+  if (ai.intent === "browse_baskets") {
+    const items = await listBaskets(admin, session.organization_id, ai.budgetCents);
+    await auditAiTool(admin, session, ai, "find_baskets", { budgetCents: ai.budgetCents }, { count: items.length });
+    return insertAssistant(
+      admin,
+      session,
+      ai.reply || (ai.budgetCents ? "Separei algumas cestas perto desse valor." : "Separei algumas cestas para você."),
+      "basket",
+      { ui: { type: "commerce_list", items }, ai: { runId: ai.runId, intent: ai.intent } },
+    );
+  }
+
+  if (ai.intent === "browse_offers") {
+    const items = await listOffers(admin, session.organization_id);
+    await auditAiTool(admin, session, ai, "find_offers", {}, { count: items.length });
+    return insertAssistant(
+      admin,
+      session,
+      ai.reply || (items.length ? "Separei algumas ofertas de hoje." : "Não encontrei ofertas ativas agora."),
+      "offer",
+      { ui: { type: "commerce_list", items }, ai: { runId: ai.runId, intent: ai.intent } },
+    );
+  }
+
+  if (ai.intent === "search_products" && ai.searchTerm) {
+    const items = await searchProducts(admin, session.organization_id, ai.searchTerm);
+    await auditAiTool(admin, session, ai, "search_products", { term: ai.searchTerm }, { count: items.length });
+    if (items.length) {
+      return insertAssistant(
+        admin,
+        session,
+        ai.reply || (items.length === 1 ? "Encontrei uma opção." : "Encontrei estas opções."),
+        "product_list",
+        { ui: { type: "commerce_list", items }, searchTerm: ai.searchTerm, ai: { runId: ai.runId, intent: ai.intent } },
+      );
+    }
+  }
+
+  if (ai.intent === "repeat_order" || ai.intent === "repeat_basket") {
+    const repeated = await repeatLastPurchase(
+      admin,
+      session,
+      ai.intent === "repeat_basket" ? "basket" : "order",
+    );
+    await auditAiTool(
+      admin,
+      session,
+      ai,
+      ai.intent === "repeat_basket" ? "repeat_last_basket" : "repeat_last_order",
+      {},
+      { ok: !repeated.error, skipped: repeated.skipped?.length ?? 0 },
+    );
+
+    if (!repeated.error && repeated.cart) {
+      return insertAssistant(
+        admin,
+        session,
+        ai.reply || "Pronto 😊 Atualizei sua compra com os preços de hoje.",
+        "cart",
+        {
+          cart: repeated.cart,
+          skipped: repeated.skipped ?? [],
+          suggestions: ["Ver meu pedido", "Ver ofertas", "Fechar pedido"],
+          ai: { runId: ai.runId, intent: ai.intent },
+        },
+      );
+    }
+  }
+
+  return insertAssistant(
+    admin,
+    session,
+    ai.reply || "Me explica só um pouquinho melhor o que você procura?",
+    "text",
+    { ai: { runId: ai.runId, intent: ai.intent } },
+  );
+}
+
 async function saveCommerceAssistant(admin: AdminClient, session: any, text: string) {
   const normalized = normalize(text);
   const budget = extractBudget(text);
@@ -1261,6 +1609,11 @@ async function saveCommerceAssistant(admin: AdminClient, session: any, text: str
         { ui: { type: "commerce_list", items }, searchTerm: term },
       );
     }
+  }
+
+  const aiIntent = await tryAiIntentRouter(admin, session, text);
+  if (aiIntent) {
+    return applyAiIntent(admin, session, aiIntent);
   }
 
   return insertAssistant(
