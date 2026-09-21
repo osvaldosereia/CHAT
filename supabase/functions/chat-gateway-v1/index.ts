@@ -1768,6 +1768,15 @@ const coreHandler = withSupabase(
         return response({ ok: false, error: "organization_not_found" }, 404);
       }
 
+      const { data: orgSettings, error: settingsError } = await admin
+        .from("organization_settings")
+        .select("brand_name,assistant_name,locale,currency,timezone,commerce_configuration,experience_configuration")
+        .eq("organization_id", organization.id)
+        .maybeSingle();
+
+      if (settingsError) throw settingsError;
+      const brandName = orgSettings?.brand_name || organization.name;
+
       let recognizedCustomer: any = null;
       let visitorHash: string | null = null;
       if (visitorId) {
@@ -1865,7 +1874,7 @@ const coreHandler = withSupabase(
       const firstName = recognizedCustomer?.first_name || recognizedCustomer?.display_name;
       const welcome = firstName
         ? `Oi, ${firstName} 😊 Bom te ver de novo. O que você está procurando hoje?`
-        : "Oi 😊 Eu sou a assistente virtual da Dona Antônia. Posso montar seu pedido por aqui. O que você está procurando hoje?";
+        : `Oi 😊 Eu sou a assistente virtual da ${brandName}. Posso montar seu pedido por aqui. O que você está procurando hoje?`;
 
       const welcomeSuggestions = customerContext?.lastOrder
         ? ["Repetir última compra", "Ver cestas", "Ver ofertas"]
@@ -1909,8 +1918,16 @@ const coreHandler = withSupabase(
         },
         organization: {
           id: organization.id,
-          name: organization.name,
+          name: brandName,
           slug: organization.slug,
+        },
+        settings: {
+          brandName,
+          assistantName: orgSettings?.assistant_name ?? null,
+          locale: orgSettings?.locale ?? "pt-BR",
+          currency: orgSettings?.currency ?? "BRL",
+          timezone: orgSettings?.timezone ?? "America/Cuiaba",
+          experience: orgSettings?.experience_configuration ?? {},
         },
         messages: [welcomeMessage.data],
         customerContext: customerContext ? {
