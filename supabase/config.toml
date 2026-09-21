@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.chat-web-v1]
 verify_jwt = false
+
+[functions.admin-inbox-v1]
+verify_jwt = true
+
+[functions.admin-web-v1]
+verify_jwt = false
