@@ -704,13 +704,25 @@ async function startCheckout(admin: AdminClient, session: any) {
 
   const existing = await getActiveCheckout(admin, session);
   if (existing) {
+    const addressPrompt = existing.address_raw
+      ? "Quer usar o mesmo endereço da última vez?"
+      : "Agora me manda o endereço de entrega.";
+
     const prompts: Record<string, string> = {
       collect_name: "Para fechar, qual seu nome?",
       collect_phone: "Qual telefone usamos para falar com você sobre a entrega?",
-      collect_address: "Agora me manda o endereço de entrega.",
+      collect_address: addressPrompt,
       collect_payment: "Como você prefere pagar na entrega?",
       review: "Seu pedido já está pronto para revisão.",
     };
+
+    let payload: Json = {};
+    if (existing.state === "collect_address" && existing.address_raw) {
+      payload = { suggestions: ["Usar mesmo endereço", "Informar outro endereço"] };
+    } else if (existing.state === "collect_payment") {
+      payload = { suggestions: ["PIX", "Dinheiro", "Cartão de crédito", "Cartão alimentação/refeição"] };
+    }
+
     return {
       checkout: existing,
       cart,
@@ -719,12 +731,58 @@ async function startCheckout(admin: AdminClient, session: any) {
         session,
         prompts[existing.state] ?? "Vamos continuar seu pedido.",
         "text",
-        existing.state === "collect_payment"
-          ? { suggestions: ["PIX", "Dinheiro", "Cartão de crédito", "Cartão alimentação/refeição"] }
-          : {},
+        payload,
       ),
     };
   }
+
+  let customerName: string | null = null;
+  let phoneNormalized: string | null = null;
+  let savedAddress: string | null = null;
+
+  if (session.customer_id) {
+    const [customerResult, phoneResult, addressResult] = await Promise.all([
+      admin
+        .from("customers")
+        .select("display_name,first_name")
+        .eq("id", session.customer_id)
+        .eq("organization_id", session.organization_id)
+        .maybeSingle(),
+      admin
+        .from("customer_identities")
+        .select("normalized_value")
+        .eq("organization_id", session.organization_id)
+        .eq("customer_id", session.customer_id)
+        .eq("kind", "phone")
+        .order("is_primary", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("customer_addresses")
+        .select("raw_text,is_default,updated_at")
+        .eq("organization_id", session.organization_id)
+        .eq("customer_id", session.customer_id)
+        .eq("active", true)
+        .order("is_default", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    if (customerResult.error) throw customerResult.error;
+    if (phoneResult.error) throw phoneResult.error;
+    if (addressResult.error) throw addressResult.error;
+
+    customerName = customerResult.data?.display_name || customerResult.data?.first_name || null;
+    phoneNormalized = phoneResult.data?.normalized_value || null;
+    savedAddress = addressResult.data?.raw_text || null;
+  }
+
+  const initialState = !customerName
+    ? "collect_name"
+    : !phoneNormalized
+      ? "collect_phone"
+      : "collect_address";
 
   const { data: checkout, error } = await admin
     .from("checkout_sessions")
@@ -733,7 +791,10 @@ async function startCheckout(admin: AdminClient, session: any) {
       conversation_id: session.conversation_id,
       cart_id: cart.id,
       customer_id: session.customer_id,
-      state: "collect_name",
+      customer_name: customerName,
+      phone_normalized: phoneNormalized,
+      address_raw: savedAddress,
+      state: initialState,
       status: "active",
     })
     .select("*")
@@ -741,13 +802,26 @@ async function startCheckout(admin: AdminClient, session: any) {
 
   if (error) throw error;
 
+  let prompt = "Para fechar, qual seu nome?";
+  let payload: Json = {};
+
+  if (initialState === "collect_phone") {
+    prompt = "Qual telefone usamos para falar com você sobre a entrega?";
+  } else if (initialState === "collect_address" && savedAddress) {
+    prompt = "Já encontrei seu cadastro 😊 Quer usar o mesmo endereço da última vez?";
+    payload = { suggestions: ["Usar mesmo endereço", "Informar outro endereço"] };
+  } else if (initialState === "collect_address") {
+    prompt = "Já encontrei seu cadastro 😊 Agora me manda o endereço de entrega.";
+  }
+
   const message = await insertAssistant(
     admin,
     session,
-    "Para fechar, qual seu nome?",
+    prompt,
     "text",
-    {},
+    payload,
   );
+
   return { checkout, cart, message };
 }
 
@@ -1049,6 +1123,38 @@ async function handleCheckoutInput(admin: AdminClient, session: any, text: strin
   }
 
   if (checkout.state === "collect_address") {
+    const answer = normalize(text);
+
+    if (checkout.address_raw && /\b(usar mesmo|mesmo endereco|pode usar|sim pode|sim)\b/.test(answer)) {
+      await admin.from("checkout_sessions").update({
+        state: "collect_payment",
+        updated_at: new Date().toISOString(),
+      }).eq("id", checkout.id);
+
+      return insertAssistant(
+        admin,
+        session,
+        "Perfeito. Como você prefere pagar na entrega?",
+        "text",
+        { suggestions: ["PIX", "Dinheiro", "Cartão de crédito", "Cartão alimentação/refeição"] },
+      );
+    }
+
+    if (checkout.address_raw && /\b(outro endereco|informar outro|trocar endereco|novo endereco|nao)\b/.test(answer)) {
+      await admin.from("checkout_sessions").update({
+        address_raw: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", checkout.id);
+
+      return insertAssistant(
+        admin,
+        session,
+        "Claro. Me manda o novo endereço de entrega, com rua, número e bairro.",
+        "text",
+        {},
+      );
+    }
+
     const address = text.trim().replace(/\s+/g, " ").slice(0, 500);
     if (address.length < 8) {
       return insertAssistant(
