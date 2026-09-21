@@ -338,6 +338,35 @@ async function addBasket(admin: AdminClient, session: any, basketId: string) {
   if (error) throw error;
   if (!basket) return { error: "basket_not_found" };
 
+  const { data: basketItems, error: basketItemsError } = await admin
+    .from("basket_items")
+    .select("product_id,quantity,sort_order")
+    .eq("basket_id", basket.id)
+    .order("sort_order");
+
+  if (basketItemsError) throw basketItemsError;
+
+  const productIds = (basketItems ?? []).map((item: any) => item.product_id);
+  const { data: componentProducts, error: componentError } = productIds.length
+    ? await admin
+      .from("products")
+      .select("id,name,sku")
+      .in("id", productIds)
+    : { data: [], error: null };
+
+  if (componentError) throw componentError;
+  const productMap = new Map((componentProducts ?? []).map((product: any) => [product.id, product]));
+  const components = (basketItems ?? []).map((item: any) => {
+    const product: any = productMap.get(item.product_id);
+    return {
+      productId: item.product_id,
+      name: product?.name ?? "Produto",
+      sku: product?.sku ?? null,
+      quantity: Number(item.quantity),
+      sortOrder: item.sort_order,
+    };
+  });
+
   const cart = await ensureCart(admin, session);
   const { data: existing } = await admin
     .from("cart_items")
@@ -347,11 +376,14 @@ async function addBasket(admin: AdminClient, session: any, basketId: string) {
     .limit(1)
     .maybeSingle();
 
+  const metadata = { basket_components: components };
+
   if (existing) {
     const quantity = Number(existing.quantity) + 1;
     await admin.from("cart_items").update({
       quantity,
       total_cents: quantity * basket.display_price_cents,
+      metadata,
     }).eq("id", existing.id);
   } else {
     await admin.from("cart_items").insert({
@@ -363,6 +395,7 @@ async function addBasket(admin: AdminClient, session: any, basketId: string) {
       quantity: 1,
       unit_price_cents: basket.display_price_cents,
       total_cents: basket.display_price_cents,
+      metadata,
     });
   }
 
@@ -443,6 +476,410 @@ async function loadCart(admin: AdminClient, session: any) {
   if (error) throw error;
   if (!cart) return null;
   return recalcCart(admin, cart.id);
+}
+
+
+function normalizePhone(value: string): string | null {
+  let digits = value.replace(/\D/g, "");
+  if (digits.length === 10 || digits.length === 11) digits = "55" + digits;
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) return digits;
+  return null;
+}
+
+function normalizePayment(value: string): string | null {
+  const text = normalize(value);
+  if (text.includes("pix")) return "pix";
+  if (text.includes("dinheiro")) return "cash";
+  if (text.includes("aliment") || text.includes("refeic")) return "meal_card";
+  if (text.includes("credito") || text.includes("cartao")) return "credit_card";
+  return null;
+}
+
+function paymentLabel(method: string): string {
+  if (method === "pix") return "PIX";
+  if (method === "cash") return "Dinheiro";
+  if (method === "meal_card") return "Cartão alimentação/refeição";
+  if (method === "credit_card") return "Cartão de crédito";
+  return method;
+}
+
+async function getActiveCheckout(admin: AdminClient, session: any) {
+  const { data, error } = await admin
+    .from("checkout_sessions")
+    .select("*")
+    .eq("conversation_id", session.conversation_id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function startCheckout(admin: AdminClient, session: any) {
+  const cart = await loadCart(admin, session);
+  if (!cart || !cart.items?.length) return { error: "empty_cart" };
+
+  const existing = await getActiveCheckout(admin, session);
+  if (existing) {
+    const prompts: Record<string, string> = {
+      collect_name: "Para fechar, qual seu nome?",
+      collect_phone: "Qual telefone usamos para falar com você sobre a entrega?",
+      collect_address: "Agora me manda o endereço de entrega.",
+      collect_payment: "Como você prefere pagar na entrega?",
+      review: "Seu pedido já está pronto para revisão.",
+    };
+    return {
+      checkout: existing,
+      cart,
+      message: await insertAssistant(
+        admin,
+        session,
+        prompts[existing.state] ?? "Vamos continuar seu pedido.",
+        "text",
+        existing.state === "collect_payment"
+          ? { suggestions: ["PIX", "Dinheiro", "Cartão de crédito", "Cartão alimentação/refeição"] }
+          : {},
+      ),
+    };
+  }
+
+  const { data: checkout, error } = await admin
+    .from("checkout_sessions")
+    .insert({
+      organization_id: session.organization_id,
+      conversation_id: session.conversation_id,
+      cart_id: cart.id,
+      customer_id: session.customer_id,
+      state: "collect_name",
+      status: "active",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  const message = await insertAssistant(
+    admin,
+    session,
+    "Para fechar, qual seu nome?",
+    "text",
+    {},
+  );
+  return { checkout, cart, message };
+}
+
+async function confirmOrder(admin: AdminClient, session: any, checkout: any) {
+  const cart = await loadCart(admin, session);
+  if (!cart || !cart.items?.length) return { error: "empty_cart" };
+  if (!checkout.customer_id) return { error: "customer_required" };
+
+  const addressSnapshot = { rawText: checkout.address_raw };
+  const paymentSnapshot = {
+    method: checkout.payment_method,
+    label: paymentLabel(checkout.payment_method),
+  };
+
+  const { data: order, error: orderError } = await admin
+    .from("orders")
+    .insert({
+      organization_id: session.organization_id,
+      customer_id: checkout.customer_id,
+      conversation_id: session.conversation_id,
+      source_cart_id: cart.id,
+      status: "confirmed",
+      subtotal_cents: cart.subtotal_cents,
+      discount_cents: cart.discount_cents,
+      delivery_cents: 0,
+      total_cents: cart.total_cents,
+      delivery_address_snapshot: addressSnapshot,
+      payment_method_snapshot: paymentSnapshot,
+      confirmed_at: new Date().toISOString(),
+    })
+    .select("id,order_number,total_cents,confirmed_at")
+    .single();
+
+  if (orderError) throw orderError;
+
+  for (const item of cart.items) {
+    const { data: orderItem, error: itemError } = await admin
+      .from("order_items")
+      .insert({
+        organization_id: session.organization_id,
+        order_id: order.id,
+        product_id: item.product_id,
+        basket_id: item.basket_id,
+        item_kind: item.item_kind,
+        name_snapshot: item.name_snapshot,
+        sku_snapshot: item.sku_snapshot,
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+        total_cents: item.total_cents,
+        metadata: item.metadata ?? {},
+      })
+      .select("id")
+      .single();
+
+    if (itemError) throw itemError;
+
+    if (item.item_kind === "basket") {
+      const components = item.metadata?.basket_components ?? [];
+      if (Array.isArray(components) && components.length) {
+        const rows = components.map((component: any) => ({
+          organization_id: session.organization_id,
+          order_item_id: orderItem.id,
+          product_id: component.productId,
+          name_snapshot: component.name,
+          sku_snapshot: component.sku,
+          quantity: Number(component.quantity) * Number(item.quantity),
+          metadata: { basket_id: item.basket_id },
+        }));
+        const { error: componentError } = await admin
+          .from("order_item_components")
+          .insert(rows);
+        if (componentError) throw componentError;
+      }
+    }
+  }
+
+  await Promise.all([
+    admin.from("carts").update({
+      status: "converted",
+      updated_at: new Date().toISOString(),
+    }).eq("id", cart.id),
+    admin.from("checkout_sessions").update({
+      state: "confirmed",
+      status: "confirmed",
+      confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", checkout.id),
+    admin.from("customer_events").insert({
+      organization_id: session.organization_id,
+      customer_id: checkout.customer_id,
+      conversation_id: session.conversation_id,
+      event_type: "order.confirmed",
+      data: { order_id: order.id, order_number: order.order_number, total_cents: order.total_cents },
+    }),
+  ]);
+
+  const message = await insertAssistant(
+    admin,
+    session,
+    `Pedido confirmado 😊 Número ${order.order_number}. Total: R$ ${(order.total_cents / 100).toFixed(2).replace(".", ",")}.`,
+    "order",
+    {
+      order: {
+        id: order.id,
+        orderNumber: order.order_number,
+        totalCents: order.total_cents,
+        paymentMethod: paymentSnapshot,
+        address: addressSnapshot,
+      },
+    },
+  );
+
+  return { order, message };
+}
+
+async function handleCheckoutInput(admin: AdminClient, session: any, text: string) {
+  const checkout = await getActiveCheckout(admin, session);
+  if (!checkout) return null;
+
+  if (checkout.state === "collect_name") {
+    const name = text.trim().replace(/\s+/g, " ").slice(0, 120);
+    if (name.length < 2) {
+      return insertAssistant(admin, session, "Me diga seu nome, por favor.", "text", {});
+    }
+    await admin.from("checkout_sessions").update({
+      customer_name: name,
+      state: "collect_phone",
+      updated_at: new Date().toISOString(),
+    }).eq("id", checkout.id);
+    return insertAssistant(
+      admin,
+      session,
+      "Obrigada. Qual telefone usamos para falar com você sobre a entrega?",
+      "text",
+      {},
+    );
+  }
+
+  if (checkout.state === "collect_phone") {
+    const phone = normalizePhone(text);
+    if (!phone) {
+      return insertAssistant(
+        admin,
+        session,
+        "Não consegui entender o telefone. Pode me enviar com DDD? Ex.: 65 99999-9999.",
+        "text",
+        {},
+      );
+    }
+
+    const { data: identity, error: identityError } = await admin
+      .from("customer_identities")
+      .select("customer_id")
+      .eq("organization_id", session.organization_id)
+      .eq("kind", "phone")
+      .eq("normalized_value", phone)
+      .maybeSingle();
+
+    if (identityError) throw identityError;
+
+    let customerId = identity?.customer_id ?? null;
+    if (!customerId) {
+      const { data: customer, error: customerError } = await admin
+        .from("customers")
+        .insert({
+          organization_id: session.organization_id,
+          display_name: checkout.customer_name,
+          first_name: checkout.customer_name,
+          status: "active",
+        })
+        .select("id")
+        .single();
+      if (customerError) throw customerError;
+      customerId = customer.id;
+
+      const { error: identityInsertError } = await admin
+        .from("customer_identities")
+        .insert({
+          organization_id: session.organization_id,
+          customer_id: customerId,
+          kind: "phone",
+          normalized_value: phone,
+          is_primary: true,
+        });
+      if (identityInsertError) throw identityInsertError;
+
+      await admin.from("customer_events").insert({
+        organization_id: session.organization_id,
+        customer_id: customerId,
+        conversation_id: session.conversation_id,
+        event_type: "customer.created",
+        data: { source: "web_chat" },
+      });
+    }
+
+    await Promise.all([
+      admin.from("checkout_sessions").update({
+        customer_id: customerId,
+        phone_normalized: phone,
+        state: "collect_address",
+        updated_at: new Date().toISOString(),
+      }).eq("id", checkout.id),
+      admin.from("public_chat_sessions").update({ customer_id: customerId }).eq("id", session.id),
+      admin.from("conversations").update({ customer_id: customerId }).eq("id", session.conversation_id),
+      admin.from("carts").update({ customer_id: customerId }).eq("id", checkout.cart_id),
+    ]);
+
+    return insertAssistant(
+      admin,
+      { ...session, customer_id: customerId },
+      identity
+        ? `Encontrei seu cadastro 😊 Agora me manda o endereço de entrega.`
+        : "Perfeito. Agora me manda o endereço de entrega.",
+      "text",
+      {},
+    );
+  }
+
+  if (checkout.state === "collect_address") {
+    const address = text.trim().replace(/\s+/g, " ").slice(0, 500);
+    if (address.length < 8) {
+      return insertAssistant(
+        admin,
+        session,
+        "Pode me mandar o endereço mais completo, com rua, número e bairro?",
+        "text",
+        {},
+      );
+    }
+
+    await admin.from("checkout_sessions").update({
+      address_raw: address,
+      state: "collect_payment",
+      updated_at: new Date().toISOString(),
+    }).eq("id", checkout.id);
+
+    return insertAssistant(
+      admin,
+      session,
+      "Como você prefere pagar na entrega?",
+      "text",
+      { suggestions: ["PIX", "Dinheiro", "Cartão de crédito", "Cartão alimentação/refeição"] },
+    );
+  }
+
+  if (checkout.state === "collect_payment") {
+    const payment = normalizePayment(text);
+    if (!payment) {
+      return insertAssistant(
+        admin,
+        session,
+        "Você pode escolher PIX, dinheiro, cartão de crédito ou cartão alimentação/refeição.",
+        "text",
+        { suggestions: ["PIX", "Dinheiro", "Cartão de crédito", "Cartão alimentação/refeição"] },
+      );
+    }
+
+    const cart = await loadCart(admin, session);
+    await admin.from("checkout_sessions").update({
+      payment_method: payment,
+      state: "review",
+      updated_at: new Date().toISOString(),
+    }).eq("id", checkout.id);
+
+    return insertAssistant(
+      admin,
+      session,
+      `Seu pedido ficou em R$ ${((cart?.total_cents ?? 0) / 100).toFixed(2).replace(".", ",")}. Entrega em: ${checkout.address_raw}. Pagamento: ${paymentLabel(payment)}. Posso confirmar assim?`,
+      "order",
+      {
+        cart,
+        checkout: {
+          state: "review",
+          addressRaw: checkout.address_raw,
+          paymentMethod: payment,
+        },
+        suggestions: ["Confirmar pedido", "Corrigir endereço", "Cancelar"],
+      },
+    );
+  }
+
+  if (checkout.state === "review") {
+    const value = normalize(text);
+    if (value.includes("confirm")) {
+      const refreshed = await getActiveCheckout(admin, session);
+      const result = await confirmOrder(admin, session, refreshed);
+      if (result.error) {
+        return insertAssistant(admin, session, "Não consegui confirmar o pedido agora. Tente novamente.", "text", {});
+      }
+      return result.message;
+    }
+    if (value.includes("endereco") || value.includes("corrigir")) {
+      await admin.from("checkout_sessions").update({
+        state: "collect_address",
+        updated_at: new Date().toISOString(),
+      }).eq("id", checkout.id);
+      return insertAssistant(admin, session, "Claro. Me manda o endereço correto.", "text", {});
+    }
+    if (value.includes("cancel")) {
+      await admin.from("checkout_sessions").update({
+        state: "cancelled",
+        status: "cancelled",
+        updated_at: new Date().toISOString(),
+      }).eq("id", checkout.id);
+      return insertAssistant(admin, session, "Tudo bem. O fechamento foi cancelado, mas seu carrinho continua salvo.", "text", {});
+    }
+    return insertAssistant(
+      admin,
+      session,
+      "Posso confirmar esse pedido ou, se preferir, corrigir o endereço.",
+      "text",
+      { suggestions: ["Confirmar pedido", "Corrigir endereço", "Cancelar"] },
+    );
+  }
+
+  return null;
 }
 
 async function saveCommerceAssistant(admin: AdminClient, session: any, text: string) {
@@ -718,7 +1155,7 @@ const coreHandler = withSupabase(
         session,
         `Pronto. Coloquei ${result.itemName} no seu pedido 😊`,
         "cart",
-        { cart: result.cart, suggestions: ["Ver ofertas", "Ver meu pedido"] },
+        { cart: result.cart, suggestions: ["Ver ofertas", "Fechar pedido", "Ver meu pedido"] },
       );
 
       return response({ ok: true, message, cart: result.cart });
@@ -734,7 +1171,7 @@ const coreHandler = withSupabase(
         session,
         `Pronto. Adicionei ${result.itemName} ao seu pedido.`,
         "cart",
-        { cart: result.cart, suggestions: ["Continuar comprando", "Ver meu pedido"] },
+        { cart: result.cart, suggestions: ["Continuar comprando", "Fechar pedido", "Ver meu pedido"] },
       );
 
       return response({ ok: true, message, cart: result.cart });
@@ -742,6 +1179,24 @@ const coreHandler = withSupabase(
 
     if (action === "get_cart") {
       return response({ ok: true, cart: await loadCart(admin, session) });
+    }
+
+    if (action === "start_checkout") {
+      const result = await startCheckout(admin, session);
+      if (result.error === "empty_cart") {
+        return response({ ok: false, error: "empty_cart" }, 400);
+      }
+      return response({ ok: true, message: result.message, cart: result.cart });
+    }
+
+    if (action === "confirm_order") {
+      const checkout = await getActiveCheckout(admin, session);
+      if (!checkout || checkout.state !== "review") {
+        return response({ ok: false, error: "checkout_not_ready" }, 409);
+      }
+      const result = await confirmOrder(admin, session, checkout);
+      if (result.error) return response({ ok: false, error: result.error }, 400);
+      return response({ ok: true, message: result.message, order: result.order });
     }
 
     if (action === "send_message") {
@@ -802,7 +1257,10 @@ const coreHandler = withSupabase(
           }),
         ]);
 
-        assistant = await saveCommerceAssistant(admin, session, messageText);
+        assistant = await handleCheckoutInput(admin, session, messageText);
+        if (!assistant) {
+          assistant = await saveCommerceAssistant(admin, session, messageText);
+        }
       }
 
       return response({
