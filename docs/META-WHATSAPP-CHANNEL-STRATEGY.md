@@ -272,3 +272,17 @@ Recursos estruturados são atalhos contextuais.
 Meta/PapoAI fazem a interface.
 Supabase decide.
 OpenAI interpreta.
+
+
+## Estado de implementação da R4
+
+Programação concluída em 21/09/2026.
+
+- Meta suporta oficialmente imagens, áudio/voice, reply buttons, listas, Flows e typing/read receipt.
+- O PapoAI continua sendo o transport principal; não fazemos bypass direto para Meta.
+- Cada recurso depende da capability real do Agente Externo.
+- Texto está verified_lab.
+- Imagem/media_url está observed_ui e precisa teste físico.
+- Demais formatos permanecem unknown até R7.
+- Fallbacks garantem que ausência de feature nunca quebre a conversa.
+- Multimodal está implementado, mas desligado até capability + host de mídia serem homologados.

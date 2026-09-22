@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {createClient} from "npm:@supabase/supabase-js@2.112.3";
 import {
   normalizeExternalAgentPayload,
+  redactMediaRefsForStorage,
   stableProviderEventKey,
   isReservedLabHandoff,
   buildLabTextResponse,
@@ -218,7 +219,7 @@ Deno.serve(async(req:Request)=>{
     p_direction:'inbound',
     p_message_type:normalized.messageType||'text',
     p_body_text:normalized.messageText,
-    p_media_refs:normalized.mediaRefs||[],
+    p_media_refs:redactMediaRefsForStorage(normalized.mediaRefs||[]),
     p_tags:[],
     p_provider_context:{...normalized.providerContext,agent_external:true,session_key:normalized.sessionKey},
     p_referral:{provider_adapter:PROVIDER_KEY,agent_external_lab:true},
@@ -226,6 +227,7 @@ Deno.serve(async(req:Request)=>{
   });
   if(ingestError)return jsonResponse({error:'adapter_ingest_failed',correlation_id:correlationId},500);
 
+  const storedMediaRefs=redactMediaRefsForStorage(normalized.mediaRefs||[]);
   const conversationId=ingested?.conversation_id||null;
   let aiRuntimeCfg:any=null;
   let aiContextPack:any=null;
@@ -387,7 +389,7 @@ Deno.serve(async(req:Request)=>{
           correlation_id:correlationId,
           provider_event_key:providerEventKey,
           provider_session_key:normalized.sessionKey,
-          media_refs:normalized.mediaRefs||[]
+          media_refs:storedMediaRefs
         }
       });
       canonicalInboundMessageId=persisted.data?.message_id||null;

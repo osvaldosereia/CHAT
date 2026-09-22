@@ -124,3 +124,55 @@ Testes concluídos:
 - AI Runtime, Commercial Policy e runtime tools continuam OFF.
 
 Próxima rodada: **R4 — Channel Adapter Meta/PapoAI + multimodal**, executada inteira antes de avançar.
+
+
+## R4 — CONCLUÍDA
+
+Channel Adapter Meta/PapoAI e multimodal concluídos em código.
+
+Entregue:
+- Edge `papo-external-agent-v1` atualizada para v35;
+- capability matrix canônica para text, image, voice, buttons, list, flow, handoff, silent, typing, read receipt, inbound audio e inbound image;
+- resolução automática de formato com fallback;
+- texto permanece capability verificada;
+- imagem está `observed_ui`, mas continua bloqueada até verificação física;
+- botões/listas caem para texto numerado;
+- Flow cai para conversa progressiva;
+- typing/read receipt viram no-op se não comprovados;
+- contrato PapoAI aceita mensagem somente de áudio ou imagem;
+- `media_refs` estruturados no evento normalizado;
+- URLs assinadas de mídia não são persistidas;
+- host, MIME, tipo e IDs podem ser persistidos com segurança;
+- áudio: pipeline `gpt-4o-mini-transcribe` programado;
+- imagem: visão com `gpt-5.6-luna`, detail low por padrão;
+- voz: pipeline `gpt-4o-mini-tts` em Opus + Storage privado + signed URL;
+- mídia externa exige HTTPS + host previamente homologado em allowlist;
+- inbound audio/image só processam com capability verificada + feature enabled;
+- saída de imagem/voz passa pelo capability resolver;
+- preferência por áudio só pode gerar voz quando o cliente usa/pede áudio e a capability está verificada;
+- payload real de mídia passa a registrar automaticamente `observed_payload`, sem promover para verified;
+- telemetria criada para processamento multimodal e resolução de canal;
+- readiness do canal criado;
+- índice de mídia criado para a FK de message.
+
+Gates mantidos:
+- Channel Runtime OFF;
+- inbound audio OFF;
+- inbound image OFF;
+- outbound image OFF;
+- outbound voice OFF;
+- interactive OFF;
+- Flow OFF;
+- typing/read receipt OFF;
+- allowlist de mídia vazia;
+- AI Runtime OFF;
+- Commercial Policy OFF;
+- runtime tools 0.
+
+Estado físico atual:
+- text_reply: verified_lab;
+- outbound image/media: observed_ui;
+- áudio recebido/enviado: não verificado;
+- buttons/list/Flow/handoff/silent/typing/read receipt: não verificados.
+
+Próxima rodada: **R5 — Checkout, pedido e handoff completos**, executada inteira antes de avançar.

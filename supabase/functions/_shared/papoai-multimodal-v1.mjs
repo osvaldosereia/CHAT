@@ -1,16 +1,15 @@
 const clean=(v,max=4000)=>String(v??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
 
 export function mediaUrlAllowed(rawUrl,allowedHosts=[]){
-  try{
-    const u=new URL(String(rawUrl||''));
-    if(u.protocol!=='https:') return false;
-    const host=u.hostname.toLowerCase();
-    const allowed=(Array.isArray(allowedHosts)?allowedHosts:[])
-      .map(x=>String(x||'').trim().toLowerCase())
-      .filter(Boolean);
-    if(!allowed.length) return false;
-    return allowed.some(rule=>host===rule||host.endsWith('.'+rule));
-  }catch{return false;}
+  const value=String(rawUrl||'').trim();
+  const match=value.match(/^https:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
+  if(!match||match[1].includes('@')) return false;
+  const host=match[1].replace(/:\d+$/,'').toLowerCase();
+  const allowed=(Array.isArray(allowedHosts)?allowedHosts:[])
+    .map(x=>String(x||'').trim().toLowerCase())
+    .filter(Boolean);
+  if(!allowed.length) return false;
+  return allowed.some(rule=>host===rule||host.endsWith('.'+rule));
 }
 
 function filenameForMime(mime='audio/ogg'){

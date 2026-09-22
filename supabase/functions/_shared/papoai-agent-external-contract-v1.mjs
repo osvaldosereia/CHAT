@@ -9,6 +9,7 @@ const pick=(obj,paths,max=2000)=>{
   for(const path of paths){
     const raw=getPath(obj,path);
     if(raw!==undefined&&raw!==null){
+      if(typeof raw==='object') continue;
       const value=clean(raw,max);
       if(value) return value;
     }
@@ -84,11 +85,16 @@ function normalizeMediaKind(rawType,mime=''){
 function safeMediaUrl(raw){
   const value=clean(raw,4000);
   if(!value) return '';
-  try{
-    const u=new URL(value);
-    if(u.protocol!=='https:') return '';
-    return u.toString();
-  }catch{return '';}
+  const match=value.match(/^https:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
+  if(!match||match[1].includes('@')) return '';
+  return value;
+}
+
+function mediaUrlHost(raw){
+  const value=clean(raw,4000);
+  const match=value.match(/^https:\/\/([^\/?#]+)(?:[\/?#]|$)/i);
+  if(!match||match[1].includes('@')) return null;
+  return match[1].replace(/:\d+$/,'').toLowerCase();
 }
 
 export function extractMediaRefs(body={},explicitType=''){
@@ -140,6 +146,18 @@ export function extractMediaRefs(body={},explicitType=''){
   },explicitType);
 
   return refs.slice(0,5);
+}
+
+export function redactMediaRefsForStorage(refs=[]){
+  return (Array.isArray(refs)?refs:[]).slice(0,5).map(ref=>({
+    kind:clean(ref?.kind,40)||'unknown',
+    media_id:clean(ref?.media_id,500)||null,
+    mime_type:clean(ref?.mime_type,120)||null,
+    filename:clean(ref?.filename,300)||null,
+    caption:clean(ref?.caption,1000)||null,
+    has_url:Boolean(ref?.url),
+    url_host:ref?.url?mediaUrlHost(ref.url):null
+  }));
 }
 
 export function normalizeExternalAgentPayload(body={}){
