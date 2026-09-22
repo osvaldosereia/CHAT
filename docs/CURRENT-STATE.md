@@ -517,3 +517,53 @@ Correção:
 - issue: `get_basket_parameter_mismatch_fixed`.
 
 Ainda falta somente repetir uma simulação física após a correção para marcar `r8_physical_admin_smoke_verified=true`.
+
+## R8 OFICIALMENTE CONCLUÍDA / R9 LIBERADA — 22/09/2026
+
+Estado canônico:
+- provider WhatsApp atual: **PapoAI**;
+- cérebro comercial: **Dona Antônia Commerce OS**;
+- Meta Direct: **fora do escopo da fase atual**;
+- `admin-service-intelligence-v1`: **v21 ACTIVE**;
+- `papo-external-agent-v1`: **v62 ACTIVE**;
+- `get_papoai_r8_readiness_v1().ready_for_r9=true`;
+- blockers R8: **0**;
+- produção: **OFF**.
+
+Evidência física R8:
+- login/Admin real;
+- UI real no domínio Dona Antônia;
+- Simulador executado fisicamente;
+- produtos, preços, cestas, imagens e políticas reais consultados;
+- contexto real de cliente testado read-only;
+- writes/commitments bloqueados no Simulador.
+
+Homologação conversacional:
+- baseline: 85/96;
+- segunda rodada: 90/96;
+- terceira rodada após correções: **96/96**;
+- suíte de estresse expandida para **153 cenários**, incluindo erros de português, abreviações e linguagem popular;
+- falhas encontradas foram corrigidas por causa raiz;
+- runner de homologação recebeu retry/backoff apenas para falhas técnicas transitórias de modelo;
+- sobrecarga de teste é separada de regressão funcional.
+
+PapoAI-first:
+- capacidades nativas observadas no painel: condições por Mensagem da IA / Mensagem do lead; resposta texto/arquivo; template ou resposta rápida; Flow; tags; Kanban; mensagem externa; webhook; parar assistente; concluir atendimento; transferir para; delay;
+- modelos nativos/Sequência aceitam botões;
+- estratégia oficial: usar essas capacidades nativas sempre que possível, mesmo que a configuração inicial seja manual no painel PapoAI.
+
+Handoff nativo preparado:
+- frase canônica do cérebro: `Vou chamar uma pessoa da nossa equipe para continuar com você.`;
+- próxima configuração física no PapoAI: automação com condição `Mensagem da IA contém` essa frase, seguida de `Parar resposta do assistente` + `Transferir para`;
+- nenhum token/cookie/WebSocket privado será usado em produção.
+
+Documento: `docs/PAPOAI-NATIVE-AUTOMATIONS.md`.
+
+Terminologia comercial:
+- nas respostas da Dona Antônia usar **“a prazo”**;
+- o classificador pode continuar entendendo expressões populares equivalentes na entrada do cliente.
+
+R9:
+- liberada para programação;
+- ativação real de clientes ainda não autorizada;
+- próxima prioridade: piloto controlado PapoAI, automações nativas, writes gradualmente, pedido local e só depois Bling.
