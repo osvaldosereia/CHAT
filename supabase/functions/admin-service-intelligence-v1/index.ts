@@ -469,7 +469,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
       ok:true,executed:false,blocked_by_simulator:true
     }];
     return await deterministicReturn({
-      response:"O horário exato depende da rota e da operação do dia. Vou chamar alguém da equipe para confirmar essa janela com você.",
+      response:"Vou chamar uma pessoa da nossa equipe para continuar com você. O horário exato depende da rota e da operação do dia, então ela confirma essa janela com você.",
       decision:"ACT",tools,toolResults,shouldHandoff:true,salesNextStep:"handoff"
     });
   }
@@ -485,7 +485,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
       ok:true,executed:false,blocked_by_simulator:true
     }];
     return await deterministicReturn({
-      response:"Claro 😊 Vou chamar alguém da nossa equipe para continuar com você.",
+      response:"Vou chamar uma pessoa da nossa equipe para continuar com você. 😊",
       decision:"ACT",tools,toolResults,shouldHandoff:true,salesNextStep:"handoff"
     });
   }
