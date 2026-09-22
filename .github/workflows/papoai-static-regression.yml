@@ -1,0 +1,33 @@
+name: PapoAI Static Regression
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/papoai-*.mjs"
+      - "tests/papoai-*.mjs"
+      - ".github/workflows/papoai-static-regression.yml"
+  push:
+    branches:
+      - main
+      - papoai-commerce-os-live-20260921
+    paths:
+      - "supabase/functions/_shared/papoai-*.mjs"
+      - "tests/papoai-*.mjs"
+
+jobs:
+  static-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: R3 planner policy
+        run: node tests/papoai-ai-planner-r3-v1.mjs
+      - name: R4 channel adapter
+        run: node tests/papoai-channel-adapter-r4-v1.mjs
+      - name: R5 checkout helpers
+        run: node tests/papoai-checkout-r5-v1.mjs
+      - name: R6 conversation suite
+        run: node tests/papoai-r6-conversation-suite-v1.mjs

@@ -149,6 +149,8 @@ Bling não bloqueia piloto. Ativar depois de pedido local comprovado.
 
 ## R6 — Suíte de testes conversacionais
 
+**Status: CONCLUÍDA — 22/09/2026**
+
 Cenários: cliente novo, recorrente, idoso, mensagens curtas, erros de português, áudio transcrito, indeciso, mudança de ideia, “você decide”, irritado, humano.
 
 Comércio: cesta por preço, família, composição, retirar/adicionar, substituir, busca literal, semântica, produto por necessidade, oferta explícita/proativa, recusa, recompra, checkout e pedido.

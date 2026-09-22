@@ -12,7 +12,7 @@ Data: 21/09/2026
 - R3 — vendedora humanizada e Governor comercial — **CONCLUÍDA**;
 - R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa — **CONCLUÍDA**;
 - R5 — checkout, pedido e handoff completos — **CONCLUÍDA**;
-- R6 — suíte de testes conversacionais;
+- R6 — suíte de testes conversacionais — **CONCLUÍDA**;
 - R7 — homologação física PapoAI/Meta;
 - R8 — Admin mínimo do cérebro, sem inbox;
 - R9 — piloto, ativação gradual, Bling e liberação geral.

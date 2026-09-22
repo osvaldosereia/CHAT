@@ -21,6 +21,7 @@ import {
   detectCheckoutYesNo
 } from "../_shared/papoai-checkout-profile-v1.mjs";
 import {planPapoAiTurn} from "../_shared/papoai-ai-planner-v1.mjs";
+import {evaluatePlannerScenario} from "../_shared/papoai-eval-v1.mjs";
 
 const PROVIDER_KEY='papoai';
 const CHANNEL='whatsapp';
@@ -59,6 +60,126 @@ async function resolveOpenAiKey(sb:any){
   let key=Deno.env.get('OPENAI_API_KEY')||'';
   if(!key){try{const q=await sb.rpc('get_conversation_worker_provider_secret_v1');if(typeof q.data==='string')key=q.data}catch{}}
   return key;
+}
+
+async function runR6PlannerEval(sb:any,body:any){
+  const scenarioKeys=Array.isArray(body?.scenario_keys)
+    ? body.scenario_keys.map((x:any)=>String(x)).filter(Boolean).slice(0,6)
+    : [];
+  const persist=body?.persist!==false;
+
+  let scenarioQuery=sb.from('papoai_eval_scenarios')
+    .select('scenario_key,suite_version,layer,category,persona,title,input_text,context_pack,expectation,critical')
+    .eq('suite_version','r6-v1')
+    .eq('layer','planner')
+    .eq('active',true)
+    .order('scenario_key');
+  if(scenarioKeys.length)scenarioQuery=scenarioQuery.in('scenario_key',scenarioKeys);
+
+  const [{data:scenarios,error:scenarioError},{data:cfg,error:cfgError},{data:tools,error:toolsError},apiKey]=await Promise.all([
+    scenarioQuery,
+    sb.from('papoai_ai_runtime_config').select('*').eq('id',1).single(),
+    sb.rpc('get_papoai_ai_planner_tools_v1'),
+    resolveOpenAiKey(sb)
+  ]);
+
+  if(scenarioError)return {status:500,body:{error:'scenario_load_failed',detail:scenarioError.message}};
+  if(cfgError||!cfg)return {status:500,body:{error:'runtime_config_missing'}};
+  if(toolsError)return {status:500,body:{error:'planner_tools_missing'}};
+  if(!apiKey)return {status:503,body:{error:'openai_key_missing'}};
+  if(!Array.isArray(scenarios)||!scenarios.length)return {status:400,body:{error:'no_scenarios'}};
+  if(scenarios.length>6)return {status:400,body:{error:'max_6_scenarios_per_call'}};
+
+  let runId=body?.run_id?String(body.run_id):'';
+  if(persist&&!runId){
+    const ins=await sb.from('papoai_eval_runs').insert({
+      suite_version:'r6-v1',
+      mode:'planner_live',
+      status:'running',
+      model:cfg.primary_model||'gpt-5.6-terra',
+      metadata:{source:'papo-external-agent-v1:r6-eval',external_side_effect:false}
+    }).select('id').single();
+    if(ins.error)return {status:500,body:{error:'run_create_failed',detail:ins.error.message}};
+    runId=ins.data.id;
+  }
+
+  const results:any[]=[];
+  for(const scenario of scenarios){
+    const planned=await planPapoAiTurn({
+      message:scenario.input_text,
+      contextPack:{schema_version:'r6-eval-context-v1',...(scenario.context_pack||{})},
+      tools:Array.isArray(tools)?tools:[],
+      apiKey,
+      model:cfg.primary_model||'gpt-5.6-terra',
+      reasoningEffort:cfg.primary_reasoning_effort||'low',
+      maxOutputTokens:Math.min(500,Number(cfg.max_output_tokens||500))
+    });
+    const evaluated=evaluatePlannerScenario({scenario,plannerResult:planned});
+    const usage=planned?.usage||{};
+    const row:any={
+      scenario_key:scenario.scenario_key,
+      critical:Boolean(scenario.critical),
+      passed:evaluated.passed,
+      failures:evaluated.failures,
+      decision:evaluated.decision,
+      tool_keys:evaluated.tool_keys,
+      latency_ms:Number(planned?.latency_ms||0)||null,
+      input_tokens:Number(usage?.input_tokens||0)||null,
+      cached_input_tokens:Number(usage?.input_tokens_details?.cached_tokens||0)||null,
+      output_tokens:Number(usage?.output_tokens||0)||null,
+      actual:{
+        planner_ok:Boolean(planned?.ok),
+        plan:planned?.plan||null,
+        policy_adjusted:Boolean(planned?.policy_adjusted),
+        policy_violations:planned?.policy_violations||[],
+        error:planned?.error||null
+      },
+      metadata:evaluated.metadata
+    };
+    results.push(row);
+
+    if(persist&&runId){
+      const saved=await sb.from('papoai_eval_results').upsert({
+        run_id:runId,...row
+      },{onConflict:'run_id,scenario_key'});
+      if(saved.error)return {status:500,body:{error:'result_persist_failed',scenario_key:scenario.scenario_key,detail:saved.error.message}};
+    }
+  }
+
+  let summary=null;
+  if(persist&&runId){
+    const refreshed=await sb.rpc('refresh_papoai_eval_run_v1',{p_run_id:runId});
+    if(!refreshed.error)summary=refreshed.data;
+  }
+
+  const latencies=results.map(x=>Number(x.latency_ms||0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const p95=latencies.length?latencies[Math.min(latencies.length-1,Math.ceil(latencies.length*.95)-1)]:0;
+
+  return {
+    status:200,
+    body:{
+      ok:true,
+      eval_mode:'r6_planner',
+      external_side_effect:false,
+      suite_version:'r6-v1',
+      run_id:runId||null,
+      model:cfg.primary_model||'gpt-5.6-terra',
+      scenario_count:results.length,
+      passed_count:results.filter(x=>x.passed).length,
+      failed_count:results.filter(x=>!x.passed).length,
+      critical_failed_count:results.filter(x=>!x.passed&&x.critical).length,
+      batch_metrics:{
+        ask_count:results.filter(x=>x.decision==='ASK').length,
+        avg_latency_ms:latencies.length?Math.round(latencies.reduce((a,b)=>a+b,0)/latencies.length):0,
+        p95_latency_ms:p95,
+        input_tokens:results.reduce((s,x)=>s+Number(x.input_tokens||0),0),
+        cached_input_tokens:results.reduce((s,x)=>s+Number(x.cached_input_tokens||0),0),
+        output_tokens:results.reduce((s,x)=>s+Number(x.output_tokens||0),0)
+      },
+      summary,
+      results
+    }
+  };
 }
 function basketsText(items:any[]){
   const lines=(Array.isArray(items)?items:[]).map((b:any)=>`• ${b.display_name||b.name} — ${moneyBR(b.commercial_price)}`);
@@ -137,6 +258,15 @@ Deno.serve(async(req:Request)=>{
 
   const {data:expected,error:keyError}=await sb.rpc('get_papoai_agent_external_lab_key_v1');
   if(keyError||!expected)return jsonResponse({error:'webhook_not_configured',correlation_id:correlationId},503);
+
+  if((req.headers.get('x-papo-r6-eval')||'').trim()==='1'){
+    const supplied=(req.headers.get('x-api-key')||'').trim();
+    if(!safeEqual(supplied,String(expected))){
+      return jsonResponse({error:'unauthorized',correlation_id:correlationId},401);
+    }
+    const evaluated=await runR6PlannerEval(sb,body);
+    return jsonResponse({...evaluated.body,correlation_id:correlationId},evaluated.status);
+  }
 
   const suppliedResponseToken=(req.headers.get('x-papo-response-token')||'')
     .trim()

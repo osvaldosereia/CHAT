@@ -144,9 +144,12 @@ export async function planPapoAiTurn({
     'Nunca faça oferta proativa durante checkout, confirmação, atendimento humano ou após recusa recente.',
     'Uma oferta deve parecer ajuda comercial contextual, não propaganda aleatória.',
     'Se o cliente já demonstrou decisão de compra, avance para ação/carrinho/checkout em vez de continuar explicando.',
+    'Se o cliente pedir explicitamente para repetir a última compra ou cesta, chame repeat_last_purchase imediatamente. Essa tool apenas prepara a proposta com condições atuais; não faça uma pergunta de confirmação antes dela.',
+    'Para troca delegada como "tira o arroz e você decide", chame recommend_replacement diretamente com source_query. Essa tool já resolve o item no carrinho; não chame get_cart antes apenas para localizar o produto.',
     'Use tools para dados atuais. Nunca invente preço, estoque, total, composição, pedido, endereço ou histórico.',
     'Preço, estoque, descontos, totais e mutações pertencem ao Supabase, não ao seu cálculo.',
     'Em tool_calls use somente tool_key existente em available_tools.',
+    'Copie tool_key EXATAMENTE como aparece em available_tools. Nunca acrescente domínio ou prefixo: use set_payment_method, nunca checkout.set_payment_method.',
     'arguments_json deve ser JSON válido em uma única string e obedecer ao input_schema.',
     'response_draft deve ser curto, natural, caloroso e objetivo. Não pareça URA e não exagere em emojis.',
     'reason deve ser curta e operacional; não revele cadeia de raciocínio.'
@@ -191,9 +194,30 @@ export async function planPapoAiTurn({
       };
     }
 
+    const canonicalToolKeys=new Set(arr(tools).map(x=>String(x?.tool_key||'')).filter(Boolean));
+    const toolKeyViolations=[];
+    if(Array.isArray(rawPlan?.tool_calls)){
+      rawPlan.tool_calls=rawPlan.tool_calls.map((call)=>{
+        const original=String(call?.tool_key||'');
+        if(canonicalToolKeys.has(original))return call;
+        const suffix=original.includes('.')?original.split('.').pop():'';
+        if(suffix&&canonicalToolKeys.has(suffix)){
+          toolKeyViolations.push('tool_key_domain_prefix_normalized');
+          return {...call,tool_key:suffix};
+        }
+        return call;
+      });
+    }
+
     const normalized=normalizePapoAiCommercialPlan({
       plan:rawPlan,contextPack,message
     });
+    if(toolKeyViolations.length){
+      normalized.policy_adjusted=true;
+      normalized.policy_violations=[
+        ...new Set([...(normalized.policy_violations||[]),...toolKeyViolations])
+      ];
+    }
 
     return {
       ok:true,

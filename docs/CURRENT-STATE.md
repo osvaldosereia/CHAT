@@ -231,3 +231,40 @@ Gates continuam OFF:
 - runtime tools.
 
 Próxima rodada: **R6 — suíte de testes conversacionais**, executada inteira antes de avançar.
+
+
+## R6 — CONCLUÍDA
+
+Suíte conversacional completa concluída.
+
+- planner real: **24/24** cenários aprovados;
+- falhas críticas: **0**;
+- ASK desnecessário: **0**;
+- tool accuracy: **100%**;
+- handoff: **2/2**;
+- alucinação comercial: **0**;
+- latência média do planner: **2.990 ms**;
+- p95: **4.324 ms**;
+- tokens: **60.648 input / 3.450 output**;
+- determinístico: **24/24 assertions**;
+- jornada transacional com rollback: aprovada;
+- busca atualizada para `r6-tiered-v1`;
+- catálogo validado com **1.415 produtos vendáveis**;
+- **9 cestas ativas / 0 vazias**;
+- Edge `papo-external-agent-v1`: **v40**;
+- eval interno protegido pela chave de laboratório;
+- migration R6 registrada no Supabase;
+- workflow estático de regressão adicionado.
+
+Bugs reais encontrados e corrigidos:
+- falsos positivos por ingredientes na busca;
+- tokenização de consulta;
+- tool key com prefixo inventado;
+- confirmação redundante na recompra;
+- get_cart desnecessário na troca delegada.
+
+Readiness: `get_papoai_r6_readiness_v1()` retorna **ready_for_r7=true**.
+
+Todos os gates de produção continuam OFF.
+
+Próxima rodada: **R7 — homologação física PapoAI/Meta**.
