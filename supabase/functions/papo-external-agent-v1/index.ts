@@ -435,6 +435,32 @@ function parseMentionedPrice(message:any){
   const n=Number(m[1]);
   return Number.isFinite(n)?n:null;
 }
+
+function levenshteinDistance(a:any,b:any){
+  const x=String(a??'').slice(0,80),y=String(b??'').slice(0,80);
+  if(x===y)return 0;
+  if(!x.length)return y.length;
+  if(!y.length)return x.length;
+  const prev=Array.from({length:y.length+1},(_,i)=>i);
+  const curr=new Array(y.length+1).fill(0);
+  for(let i=1;i<=x.length;i++){
+    curr[0]=i;
+    for(let j=1;j<=y.length;j++){
+      const cost=x[i-1]===y[j-1]?0:1;
+      curr[j]=Math.min(curr[j-1]+1,prev[j]+1,prev[j-1]+cost);
+    }
+    for(let j=0;j<=y.length;j++)prev[j]=curr[j];
+  }
+  return prev[y.length];
+}
+function tokenSimilarity(a:any,b:any){
+  const x=String(a??''),y=String(b??'');
+  if(!x||!y)return 0;
+  if(x===y)return 1;
+  const max=Math.max(x.length,y.length);
+  if(max<=2)return 0;
+  return Math.max(0,1-(levenshteinDistance(x,y)/max));
+}
 function resolvePendingProductChoiceText(message:any,pending:any){
   const items=Array.isArray(pending?.payload?.candidates)?pending.payload.candidates:[];
   if(!items.length)return {status:'none'};
@@ -445,7 +471,7 @@ function resolvePendingProductChoiceText(message:any,pending:any){
     || m.match(/\b(?:opcao|numero|n)\s*(\d{1,2})\b/i);
   if(numberMatch){
     const idx=Number(numberMatch[1]);
-    if(idx>=1&&idx<=items.length)return {status:'resolved',index:idx,item:items[idx-1],method:'number'};
+    if(idx>=1&&idx<=items.length)return {status:'resolved',index:idx,item:items[idx-1],method:'number',confidence:1};
     return {status:'out_of_range',candidate_count:items.length};
   }
 
@@ -459,45 +485,125 @@ function resolvePendingProductChoiceText(message:any,pending:any){
     const name=foldProductText(item?.name||'');
     const brand=foldProductText(item?.brand||'');
     const searchable=(name+' '+brand).trim();
-    let tokenHits=0;
-    for(const t of tokens)if(searchable.includes(t))tokenHits++;
+    const words=searchable.split(' ').filter((x:string)=>x.length>=2);
+
+    let exactHits=0;
+    let fuzzyHits=0;
+    let simTotal=0;
+    for(const t of tokens){
+      if(searchable.includes(t)){
+        exactHits++;
+        fuzzyHits++;
+        simTotal+=1;
+        continue;
+      }
+      let best=0;
+      for(const w of words){
+        const sim=tokenSimilarity(t,w);
+        if(sim>best)best=sim;
+      }
+      simTotal+=best;
+      if(best>=0.78)fuzzyHits++;
+    }
+
+    const avgSimilarity=tokens.length?simTotal/tokens.length:0;
+    const strongName=tokens.length>0&&exactHits===tokens.length;
+    const fuzzyName=tokens.length>0&&fuzzyHits===tokens.length&&avgSimilarity>=0.82;
+
     const p=Number(item?.commercial_price??item?.offer_price??item?.regular_price??0);
     const priceDiff=price===null?null:Math.abs(p-price);
-    const priceMatch=price!==null&&priceDiff!==null&&priceDiff<=0.55;
-    const strongName=tokens.length>0&&tokenHits===tokens.length;
-    const score=tokenHits*10+(strongName?25:0)+(priceMatch?30:0)-(priceDiff===null?0:Math.min(priceDiff,9));
-    return {item,index:index+1,score,tokenHits,strongName,priceMatch,priceDiff};
-  }).filter((x:any)=>x.tokenHits>0||x.priceMatch);
+    const priceTolerance=price===null?null:Math.max(0.55,Math.min(1.50,p*0.03));
+    const priceMatch=price!==null&&priceDiff!==null&&priceTolerance!==null&&priceDiff<=priceTolerance;
 
-  scored.sort((a:any,b:any)=>b.score-a.score||Number(a.priceDiff??99)-Number(b.priceDiff??99));
+    const score=
+      exactHits*20+
+      fuzzyHits*8+
+      (strongName?35:0)+
+      (fuzzyName&&!strongName?18:0)+
+      (priceMatch?35:0)+
+      Math.round(avgSimilarity*10)-
+      (priceDiff===null?0:Math.min(priceDiff,9));
+
+    return {
+      item,index:index+1,score,exactHits,fuzzyHits,avgSimilarity,strongName,fuzzyName,
+      priceMatch,priceDiff,priceTolerance
+    };
+  }).filter((x:any)=>x.exactHits>0||x.fuzzyName||x.priceMatch);
+
+  scored.sort((a:any,b:any)=>
+    b.score-a.score
+    || Number(a.priceDiff??99)-Number(b.priceDiff??99)
+    || b.avgSimilarity-a.avgSimilarity
+  );
   if(!scored.length)return {status:'none'};
 
   if(price!==null){
-    const close=scored.filter((x:any)=>x.priceMatch&&x.tokenHits>0);
+    const close=scored.filter((x:any)=>x.priceMatch&&(x.strongName||x.fuzzyName));
     if(close.length===1){
-      return {status:'resolved',index:close[0].index,item:close[0].item,method:'name_price_close'};
+      const confidence=close[0].strongName?0.98:Math.min(0.94,0.84+close[0].avgSimilarity*0.1);
+      return {status:'resolved',index:close[0].index,item:close[0].item,method:close[0].strongName?'name_price_close':'fuzzy_name_price_close',confidence};
     }
     if(close.length>1){
       return {status:'ambiguous',matches:close.slice(0,4).map((x:any)=>({index:x.index,item:x.item}))};
     }
 
-    const named=scored.filter((x:any)=>x.tokenHits>0);
+    const named=scored.filter((x:any)=>x.strongName||x.fuzzyName);
     if(named.length===1){
-      return {status:'confirm_candidate',index:named[0].index,item:named[0].item,mentioned_price:price};
+      return {
+        status:'confirm_candidate',
+        index:named[0].index,
+        item:named[0].item,
+        mentioned_price:price,
+        confidence:named[0].strongName?0.82:0.72
+      };
     }
     if(named.length>1){
       const closest=[...named].sort((a:any,b:any)=>Number(a.priceDiff??99)-Number(b.priceDiff??99));
-      if(Number(closest[0]?.priceDiff??99)<=3 && Number(closest[1]?.priceDiff??99)-Number(closest[0]?.priceDiff??99)>=1){
-        return {status:'confirm_candidate',index:closest[0].index,item:closest[0].item,mentioned_price:price};
+      const firstDiff=Number(closest[0]?.priceDiff??99);
+      const secondDiff=Number(closest[1]?.priceDiff??99);
+      if(firstDiff<=3 && secondDiff-firstDiff>=1){
+        return {
+          status:'confirm_candidate',
+          index:closest[0].index,
+          item:closest[0].item,
+          mentioned_price:price,
+          confidence:closest[0].strongName?0.82:0.72
+        };
       }
       return {status:'ambiguous',matches:closest.slice(0,4).map((x:any)=>({index:x.index,item:x.item}))};
     }
   }
 
-  if(scored.length===1||scored[0].score>=scored[1].score+12){
-    return {status:'resolved',index:scored[0].index,item:scored[0].item,method:'name_match'};
+  const exactNamed=scored.filter((x:any)=>x.strongName);
+  if(exactNamed.length===1){
+    return {status:'resolved',index:exactNamed[0].index,item:exactNamed[0].item,method:'name_match',confidence:0.96};
   }
-  const top=scored.filter((x:any)=>x.score>=scored[0].score-5).slice(0,4);
+
+  if(scored.length===1&&scored[0].fuzzyName){
+    return {
+      status:'confirm_candidate',
+      index:scored[0].index,
+      item:scored[0].item,
+      confidence:Math.min(0.88,Math.max(0.70,scored[0].avgSimilarity))
+    };
+  }
+
+  if(scored.length>1){
+    const gap=scored[0].score-scored[1].score;
+    if(scored[0].strongName&&gap>=16){
+      return {status:'resolved',index:scored[0].index,item:scored[0].item,method:'name_match',confidence:0.94};
+    }
+    if(scored[0].fuzzyName&&scored[0].avgSimilarity>=0.90&&gap>=18){
+      return {
+        status:'confirm_candidate',
+        index:scored[0].index,
+        item:scored[0].item,
+        confidence:0.86
+      };
+    }
+  }
+
+  const top=scored.filter((x:any)=>x.score>=scored[0].score-6).slice(0,4);
   return {status:'ambiguous',matches:top.map((x:any)=>({index:x.index,item:x.item}))};
 }
 
