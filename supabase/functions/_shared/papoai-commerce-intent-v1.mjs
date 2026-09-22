@@ -26,7 +26,7 @@ export function deterministicCommerceIntent(message){
   if(/^(10|decimo|décimo|decima|décima|o decimo|o décimo|a decima|a décima)$/i.test(m))return {intent:'select_product_choice',basket:'',query:'',source_query:'',replacement_query:'',quantity:10};
   if(/^(sim|s|pode|pode sim|confirmo|confirma|isso|isso mesmo|ok|okay|beleza|pode trocar|troca)$/i.test(m))return {intent:'confirm_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(
-    /\b(formas?\s+d[eo]?\s*pagamento|forma\s+de\s+pagar|como\s+(?:posso|pode|podemos|voc[eê]s?\s+aceitam?)\s+pagar|aceita(?:m)?\s+(?:pix|cart[aã]o|dinheiro|boleto)|30\s+dias|boleto|parcelamento|parcela(?:m|do|r)?|quantas\s+vezes|sem\s+juros|vende(?:m)?\s+(?:pra|para|a)\s+prazo)\b/.test(m)
+    /\b(formas?\s+d[eo]?\s*pagamento|forma\s+de\s+pagar|como\s+(?:posso|pode|podemos|voc[eê]s?\s+aceitam?)\s+pagar|aceita(?:m)?\s+(?:pix|cart[aã]o|dinheiro|boleto|alimenta[cç][aã]o|refei[cç][aã]o)|passa(?:m)?\s+(?:pix|cart[aã]o|alimenta[cç][aã]o|refei[cç][aã]o|alelo|sodexo|puxee|caju|flash|ifood)|30\s*dias?|30d|boleto|parcelamento|parcela(?:m|do|r)?|quantas\s+vezes|qts?\s+vezes|sem\s+juros|vende(?:m)?\s+(?:pra|para|a)\s+prazo|fiado|pagar\s+(?:no|o)?\s*m[eê]s\s+que\s+vem|paga(?:r)?\s+m[eê]s\s+q\s+vem|anota\s+pra\s+(?:eu\s+)?pagar)\b/.test(m)
   )return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\bpix\b/.test(m))return {intent:'set_payment_method',basket:'',query:'pix',source_query:'',replacement_query:'',quantity:0};
   if(/\b(dinheiro|cash)\b/.test(m))return {intent:'set_payment_method',basket:'',query:'dinheiro',source_query:'',replacement_query:'',quantity:0};
@@ -43,10 +43,25 @@ export function deterministicCommerceIntent(message){
     const source=(mm?.[1]||'').replace(/\b(voce decide|você decide|pode decidir|escolhe pra mim|escolha pra mim|voce escolhe|você escolhe)\b/g,'').trim();
     if(source)return {intent:'delegated_value_replacement',basket:'',query:'',source_query:source,replacement_query:'',quantity:0};
   }
-  if(/\b(quais|qual|ver|mostrar|tem|t[eê]m)\b.*\bcestas?\b|\bcestas?\b.*\b(quais|ver|mostrar|tem|t[eê]m)\b/.test(m))return {intent:'list_baskets',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
-  const basketMatch=m.match(/\b(econ[oô]mica|mini|pequena|m[eé]dia|grande)\s+bonini\b/);
-  if(basketMatch&&/\b(vem|cont[eé]m|produtos?|itens?|dentro)\b/.test(m))return {intent:'basket_detail',basket:basketMatch[0],query:'',source_query:'',replacement_query:'',quantity:0};
+  if(/\b(cesta\s+grande|grande\s+cesta)\b/.test(m)
+     && !/\b(bonini|koblenz)\b/.test(m)
+     && /\b(vem|cont[eé]m|produtos?|itens?|dentro|foto|imagem|valor|pre[cç]o|quanto|qual)\b/.test(m)){
+    return {intent:'basket_disambiguate',basket:'grande',query:'grande',source_query:'',replacement_query:'',quantity:0};
+  }
+  if(/\b(quais|qual|ver|mostrar|tem|t[eê]m|manda)\b.*\bcestas?\b|\bcestas?\b.*\b(quais|ver|mostrar|tem|t[eê]m|manda)\b/.test(m))return {intent:'list_baskets',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  const basketMatch=m.match(/\b(econ[oô]mica|mini|pequena|m[eé]dia|grande)\s+(bonini|koblenz)\b/);
+  if(basketMatch&&/\b(vem|cont[eé]m|produtos?|itens?|dentro|foto|imagem|mostrar|mostra|manda|valor|pre[cç]o|quanto|tem)\b/.test(m))return {intent:'basket_detail',basket:basketMatch[0],query:'',source_query:'',replacement_query:'',quantity:0};
   if(basketMatch&&/\b(quero|escolho|vou querer|pegar|comprar)\b/.test(m))return {intent:'start_basket',basket:basketMatch[0],query:'',source_query:'',replacement_query:'',quantity:0};
+
+  const addQuantity=m.match(/\b(?:bota|coloca|coloque|adiciona|adicione|acrescenta|acrescente|poe|p[oõ]e)\s+(?:mais\s+)?(\d+)\s+(?:de\s+)?(.+?)\s*$/);
+  if(addQuantity)return {
+    intent:'set_addon_quantity',
+    basket:'',
+    query:addQuantity[2].trim(),
+    source_query:'',
+    replacement_query:'',
+    quantity:Number(addQuantity[1]||1)
+  };
   if(/\b(ofertas?|promo[cç][aã]o|promo[cç][oõ]es)\b/.test(m))return {intent:'offers',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
 
   const delegatedReplacement=m.match(/\b(?:troca|trocar|tira|tirar|retira|retirar|remove|remover)\s+(?:o|a|os|as)?\s*([^,.!?]+?)\s+(?:por|e coloca|e poe|e põe)\s+(?:outra coisa|algo diferente|o que voce quiser|o que você quiser)\b/);
@@ -81,7 +96,7 @@ export async function classifyCommerceIntent({message,history,apiKey,model='gpt-
   const schema={
     type:'object',additionalProperties:false,
     properties:{
-      intent:{type:'string',enum:['greeting','list_baskets','basket_detail','start_basket','repeat_last_purchase','search_products','select_product_choice','delegated_value_replacement','offers','cart_state','cart_summary','checkout_readiness','customer_context','set_basket_quantity','set_addon_quantity','replace_basket_item','payment_info','set_payment_method','confirm_pending','cancel_pending','handoff','general']},
+      intent:{type:'string',enum:['greeting','list_baskets','basket_disambiguate','basket_detail','start_basket','repeat_last_purchase','search_products','select_product_choice','delegated_value_replacement','offers','cart_state','cart_summary','checkout_readiness','customer_context','set_basket_quantity','set_addon_quantity','replace_basket_item','payment_info','set_payment_method','confirm_pending','cancel_pending','handoff','general']},
       basket:{type:'string'},
       query:{type:'string'},
       source_query:{type:'string'},
@@ -101,7 +116,7 @@ export async function classifyCommerceIntent({message,history,apiKey,model='gpt-
         'Para uma saudação simples use greeting.',
         'Para perguntas de produto use search_products e coloque em query o que o cliente procura.',
         'Se o cliente escolher uma opção numerada mostrada anteriormente use select_product_choice e coloque o número da opção em quantity.',
-        'Para conteúdo de cesta use basket_detail. Para escolher cesta use start_basket.',
+        'Para conteúdo, preço, foto ou itens de uma cesta com nome identificável use basket_detail. Para escolher cesta use start_basket. Se o cliente disser apenas cesta grande sem informar Bonini ou Koblenz, use basket_disambiguate.',
         'Para repetir a última compra ou última cesta do cliente use repeat_last_purchase.',
         'Para retirar/aumentar item que já faz parte da cesta use set_basket_quantity: source_query é o produto e quantity é a quantidade final desejada.',
         'Para adicionar um produto novo ao pedido use set_addon_quantity: query é o produto desejado e quantity é a quantidade final pedida.',
