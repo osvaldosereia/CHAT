@@ -348,3 +348,22 @@ Próximo passo obrigatório:
 - só então R7 pode ficar `ready_for_r8=true`.
 
 Não reabrir investigação de imagem/áudio salvo se houver regressão; esses itens já foram resolvidos.
+
+
+## R7 — BLOQUEIO FÍSICO FINAL DO HANDOFF — 22/09/2026 09:15 Cuiabá
+
+- Edge `papo-external-agent-v1`: **v53 ACTIVE**;
+- core: **4/5**;
+- único pendente: `agent_external.handoff`;
+- duas tentativas físicas com `handoff=true` não colocaram o PapoAI em atendimento humano;
+- takeover manual foi comprovado e, nesse estado, o Agent External deixa de receber novos turnos;
+- DevTools confirmou que o botão **Iniciar Atendimento** usa WebSocket autenticado com evento `assign_session` e resposta `assign_session_success`;
+- o evento inclui `session_uid` e o `user_id` do operador que assumiu;
+- não há credencial/API server-side do PapoAI configurada no Supabase;
+- não será usado token de navegador nem API privada do frontend como dependência de produção;
+- fail-safe local da v53 impede a IA de continuar após solicitação de handoff;
+- produção continua OFF;
+- `ready_for_r8=false`.
+
+Bloqueio externo necessário para concluir R7:
+obter do PapoAI o contrato oficial/server-side para takeover humano de uma sessão do **Agente Externo**, ou confirmação formal de que esse recurso não é suportado nesse contrato.
