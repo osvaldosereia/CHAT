@@ -474,3 +474,22 @@ Produção continua OFF.
 - blocker de ativação restante: apenas `production_activation_not_authorized`.
 
 Próxima etapa: **R8 — Admin mínimo do cérebro, separado, sem inbox/chat**.
+
+
+## R8 — ADMIN MÍNIMO — 22/09/2026
+
+Programação concluída, aguardando somente smoke físico.
+
+- `admin-service-intelligence-v1`: **v8 ACTIVE**;
+- `admin-pin-auth-v1`: **v6 ACTIVE**;
+- UI do Commerce OS embutida no bundle;
+- áreas: Overview, Intelligence, Knowledge, Products, Customers/Memory, Orders, Health, Simulator;
+- simulator = sem efeitos colaterais e sem writes;
+- versionamento + rollback implementados;
+- RLS/service-role-only nas novas tabelas;
+- production gates continuam OFF;
+- `get_papoai_r8_readiness_v1().programming_complete=true`;
+- blocker único: `r8_physical_admin_smoke_pending`;
+- `ready_for_r9=false` até o smoke.
+
+Documento canônico: `docs/R8-ADMIN.md`.
