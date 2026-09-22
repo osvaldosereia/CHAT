@@ -433,8 +433,8 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     if(!items.length){
       responseText="Não encontrei esse produto disponível agora. Se quiser, me diga outra marca, tamanho ou tipo que eu procuro uma alternativa.";
     }else{
-      const rows=items.slice(0,6).map((x:any)=>`• ${x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`);
-      responseText="Encontrei estas opções:\n"+rows.join("\n");
+      const rows=items.slice(0,6).map((x:any)=>`🛒 ${x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`);
+      responseText="🛒 Encontrei estas opções:\n\n"+rows.join("\n\n");
       if(items.length>1)responseText+="\n\nSe quiser, me diga qual delas você prefere.";
       else responseText+="\n\nQuer que eu adicione ao pedido?";
     }
@@ -449,7 +449,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     const rr=await r8ReadTool(sb,"search_baskets",{},conversationId,context);
     const items=Array.isArray(rr?.result)?rr.result:[];
     const response=items.length
-      ? "Temos estas cestas: "+items.map((x:any)=>`${x?.display_name||x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`).join("; ")+"."
+      ? "🧺 Cestas disponíveis\n\n"+items.map((x:any)=>`🧺 ${x?.display_name||x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`).join("\n\n")+"\n\nQuer ver o que vem em alguma delas? Me diga o nome da cesta."
       : "Não encontrei cestas disponíveis agora.";
     const tools=[{tool_key:"search_baskets",arguments_json:"{}"}];
     const toolResults=[{tool_key:"search_baskets",operation_kind:"read",arguments:{},...rr}];
@@ -462,7 +462,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     const rr=await r8ReadTool(sb,"get_offers",{limit:4},conversationId,context);
     const items=Array.isArray(rr?.result?.items)?rr.result.items:[];
     const response=items.length
-      ? "Estas são algumas ofertas de hoje: "+items.map((x:any)=>`${x?.name} — R$ ${Number(x?.commercial_price||x?.offer_price||0).toFixed(2).replace(".",",")}`).join("; ")+"."
+      ? "🔥 Ofertas de hoje\n\n"+items.map((x:any)=>`🔥 ${x?.name} — R$ ${Number(x?.commercial_price||x?.offer_price||0).toFixed(2).replace(".",",")}`).join("\n\n")
       : "Não encontrei ofertas disponíveis agora.";
     const tools=[{tool_key:"get_offers",arguments_json:JSON.stringify({limit:4})}];
     const toolResults=[{tool_key:"get_offers",operation_kind:"read",arguments:{limit:4},...rr}];
@@ -502,8 +502,8 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
       if(wantsPhoto&&b?.image_url){
         responseText=`Claro! Aqui está a ${b?.display_name||b?.name||basket}.`;
       }else{
-        const itemText=items.map((x:any)=>`${Number(x?.quantity||1)}x ${x?.name||"item"}`).join(", ");
-        responseText=`${b?.display_name||b?.name||basket} custa R$ ${Number(b?.commercial_price||0).toFixed(2).replace(".",",")} e vem com: ${itemText}.`;
+        const itemText=items.map((x:any)=>`• ${Number(x?.quantity||1)}x ${x?.name||"item"}`).join("\n\n");
+        responseText=`🧺 ${b?.display_name||b?.name||basket}\n💰 R$ ${Number(b?.commercial_price||0).toFixed(2).replace(".",",")}\n\n${itemText}`;
       }
     }else{
       responseText="Não consegui localizar essa cesta pelo nome. Me diga se é Bonini ou Koblenz.";
