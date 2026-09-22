@@ -14,7 +14,7 @@ Data: 21/09/2026
 - R5 — checkout, pedido e handoff completos — **CONCLUÍDA**;
 - R6 — suíte de testes conversacionais — **CONCLUÍDA**;
 - R7 — homologação física PapoAI/Meta — **CONCLUÍDA — 5/5 CORE; handoff assistido homologado**;
-- R8 — Admin mínimo do cérebro, sem inbox;
+- R8 — Admin mínimo do cérebro, sem inbox — **CONCLUÍDA**;
 - R9 — piloto, ativação gradual, Bling e liberação geral.
 
 Plano detalhado:
@@ -43,10 +43,17 @@ Produção permanece OFF.
 
 ### Estado R8 — 22/09/2026
 - programação: concluída;
-- Admin Edge: v9;
+- smoke físico: concluído;
+- Admin Edge: v21;
 - PIN Auth: v6;
-- 8 áreas implementadas;
-- simulator safe/no-write;
-- versionamento/rollback: pronto;
-- único blocker: `r8_physical_admin_smoke_pending`;
-- `ready_for_r9=false` até a prova física.
+- Admin/Simulador/Homologação operacionais;
+- suíte principal: 96/96 verde;
+- `ready_for_r9=true`;
+- produção continua OFF.
+
+### Estado R9 — 22/09/2026
+- liberada para programação;
+- provider canônico: PapoAI;
+- prioridade: recursos nativos do PapoAI + piloto controlado;
+- Meta Direct fora do escopo da fase atual;
+- nenhuma ativação real de clientes sem gate explícito.
