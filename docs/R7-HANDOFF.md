@@ -164,3 +164,32 @@ Enquanto a resposta não chega:
 - produção OFF;
 - R8 não iniciada;
 - continuar apenas pre-activation cleanup/hardening/documentação.
+
+
+## Estratégia alternativa oficial — Handoff Assistido — 22/09/2026
+
+Decisão: não bloquear mais o avanço esperando indefinidamente por um contrato server-side do PapoAI.
+
+Novo contrato operacional:
+1. IA decide/recebe pedido de atendimento humano;
+2. sistema cria `human_handoffs`;
+3. conversa canônica entra em `mode=human` e `human_required=true`;
+4. IA fica silenciosa por precedência humana absoluta;
+5. handoff recebe `provider_session_uid` e link direto da conversa no PapoAI;
+6. operador abre o link e clica **Iniciar Atendimento**;
+7. para devolver à IA, o handoff precisa ser resolvido explicitamente e a conversa retomada.
+
+Implementação:
+- `queue_papoai_assisted_handoff_v1`;
+- `get_papoai_assisted_handoff_queue_v1`;
+- `complete_papoai_assisted_handoff_v1`;
+- `queue_papoai_commerce_handoff_v1` agora delega para o modo assistido e infere o `session_uid`;
+- Edge `papo-external-agent-v1` **v54 ACTIVE**;
+- comando R7 `TESTE_HANDOFF_DONA_ANTONIA` agora cria a fila assistida e pausa localmente a IA.
+
+Importante:
+- takeover automático do PapoAI continua não comprovado e não será fingido;
+- WebSocket privado `assign_session` continua proibido como dependência de produção;
+- o core R7 de handoff será homologado pelo fluxo assistido completo: fila + pausa IA + takeover manual real no PapoAI.
+
+Produção continua OFF até R7 concluir.
