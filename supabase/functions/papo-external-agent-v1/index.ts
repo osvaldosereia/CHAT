@@ -1571,8 +1571,29 @@ Deno.serve(async(req:Request)=>{
       if(!pendingChoiceQ.error&&pendingChoiceQ.data){
         pendingProductChoice=pendingChoiceQ.data;
         const selectedItem=pendingProductChoice?.payload?.selected_item||null;
+        const proposedItem=pendingProductChoice?.payload?.proposed_candidate||null;
+        const awaitingCandidateConfirmation=pendingProductChoice?.payload?.awaiting_selection_confirmation===true;
+        const foldedCurrent=foldProductText(normalized.messageText);
         if(selectedItem&&isExplicitPhotoRequest(normalized.messageText)){
           intent={intent:'selected_product_photo',source:'pending_product_choice'};
+        }else if(
+          proposedItem
+          && awaitingCandidateConfirmation
+          && /^(sim|s|isso|isso mesmo|esse|essa|pode|pode sim|ok|certo|exato)$/i.test(foldedCurrent)
+        ){
+          pendingChoiceResolution={
+            status:'resolved',
+            index:Number(pendingProductChoice?.payload?.proposed_index||0),
+            item:proposedItem,
+            method:'confirmed_candidate'
+          };
+          intent={intent:'identify_product_choice',source:'pending_product_choice_confirmation'};
+        }else if(
+          proposedItem
+          && awaitingCandidateConfirmation
+          && /^(nao|não|n|outro|outra|nao e|não e|não é)$/i.test(foldedCurrent)
+        ){
+          intent={intent:'product_choice_reask',source:'pending_product_choice_confirmation'};
         }else{
           pendingChoiceResolution=resolvePendingProductChoiceText(normalized.messageText,pendingProductChoice);
           if(pendingChoiceResolution?.status==='resolved'){
@@ -2031,7 +2052,10 @@ Deno.serve(async(req:Request)=>{
           selected_index:Number(resolved.index||0),
           selected_item:selected,
           selection_method:String(resolved.method||'contextual'),
-          selected_at:new Date().toISOString()
+          selected_at:new Date().toISOString(),
+          awaiting_selection_confirmation:false,
+          proposed_candidate:null,
+          proposed_index:null
         };
         await sb.from('papoai_commerce_pending_actions')
           .update({payload:nextPayload,updated_at:new Date().toISOString()})
@@ -2047,12 +2071,34 @@ Deno.serve(async(req:Request)=>{
     }else if(intent.intent==='confirm_product_choice_candidate'&&conversationId){
       const candidate=pendingChoiceResolution?.item||null;
       if(candidate){
+        if(pendingProductChoice?.id){
+          await sb.from('papoai_commerce_pending_actions')
+            .update({
+              payload:{
+                ...(pendingProductChoice.payload||{}),
+                proposed_candidate:candidate,
+                proposed_index:Number(pendingChoiceResolution?.index||0),
+                awaiting_selection_confirmation:true,
+                proposed_at:new Date().toISOString()
+              },
+              updated_at:new Date().toISOString()
+            })
+            .eq('id',pendingProductChoice.id);
+        }
         text=`Você quis dizer **${candidate.name} — ${moneyBR(candidate.commercial_price??candidate.offer_price??candidate.regular_price)}**?`;
         result={items:[candidate],candidate};
       }else{
         text='Não consegui confirmar qual item você quis dizer. Pode me passar o número da opção?';
         result={items:[]};
       }
+    }else if(intent.intent==='product_choice_reask'&&conversationId){
+      const count=Array.isArray(pendingProductChoice?.payload?.candidates)
+        ? pendingProductChoice.payload.candidates.length
+        : 0;
+      text=count
+        ? `Tudo bem. Me diga o **número do produto** na lista, de 1 a ${count}.`
+        : 'Tudo bem. Me diga novamente qual produto você procura.';
+      result={items:[]};
     }else if(intent.intent==='clarify_product_choice'&&conversationId){
       const matches=Array.isArray(pendingChoiceResolution?.matches)?pendingChoiceResolution.matches:[];
       const rows=matches.map((x:any)=>`${x.index}. ${x.item?.name} — ${moneyBR(x.item?.commercial_price??x.item?.offer_price??x.item?.regular_price)}`);
