@@ -697,3 +697,36 @@ Versões:
 
 Princípio de arquitetura:
 estado de conversa e seleção de catálogo são estado operacional seguro e não devem depender do gate de escrita comercial do carrinho/pedido.
+
+
+## CATÁLOGO V2 — PUBLICAÇÃO FINAL DO BLOCO — 22/09/2026
+
+Versões publicadas:
+- papo-external-agent-v1: v74 ACTIVE;
+- admin-service-intelligence-v1: v30 ACTIVE.
+
+Validação automática:
+- suíte pilot_catalog_regression_v2: 3/3 aprovados;
+- 0 falhas;
+- 0 erros;
+- continuidade Grande → Bonini aprovada;
+- busca "miojo" aprovada;
+- busca "quais sabao em po voces tem" aprovada.
+
+Banco real:
+- "sabao em po" retorna 15 itens ativos/relevantes no estado atual;
+- frase conversacional completa também retorna os 15 itens corretos após stopwords;
+- "miojo" normaliza para "lamen" e retorna produto compatível.
+
+Apresentação:
+- listas de produtos: até 20;
+- numeradas;
+- nome + preço;
+- uma linha visual separada por item, com linha em branco para preservar renderização no PapoAI/WhatsApp;
+- fotos opt-in após escolha ou pedido explícito;
+- básicos (arroz, feijão, açúcar, sal, óleo, café): sem oferta proativa de foto.
+
+Estado comercial:
+- piloto segue read-only para carrinho/pedido;
+- Bling desligado;
+- seleção/lista é estado conversacional seguro e pode persistir sem habilitar escrita comercial.
