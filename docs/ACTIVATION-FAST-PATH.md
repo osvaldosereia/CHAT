@@ -87,3 +87,27 @@ Se passar:
 - preços/estoque/totais continuam autoridade do Supabase;
 - writes exigem confirmação/políticas do Commerce OS;
 - humano tem precedência absoluta.
+
+
+## Smoke R8 — correção do Simulador — 22/09/2026
+
+Primeiro smoke físico:
+- UI renderizou corretamente;
+- login Admin funcionou;
+- planner executou;
+- decisão/tools/contexto/métricas foram exibidos;
+- foi detectado erro de contrato no READ `get_basket`.
+
+Causa:
+- RPC real: `get_papoai_commerce_basket_detail_v1(p_basket_query text)`;
+- Simulador enviava `p_basket`.
+
+Correção:
+- parâmetro alterado para `p_basket_query`;
+- `admin-service-intelligence-v1` promovida para **v10 ACTIVE**;
+- todos os 11 READs do Simulador tiveram assinatura revisada;
+- teste interno read-only com dados reais passou;
+- `r8_simulator_read_contract_verified=true`;
+- issue: `get_basket_parameter_mismatch_fixed`.
+
+Ainda falta somente repetir uma simulação física após a correção para marcar `r8_physical_admin_smoke_verified=true`.
