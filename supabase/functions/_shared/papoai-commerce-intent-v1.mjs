@@ -10,6 +10,96 @@ function finalText(data){
     .trim();
 }
 
+function historyRole(item){
+  const raw=String(item?.role??item?.direction??'').toLowerCase();
+  if(raw==='assistant'||raw==='outbound')return 'assistant';
+  if(raw==='user'||raw==='inbound')return 'user';
+  return raw;
+}
+function historyContent(item){
+  return clean(item?.content??item?.text??item?.body_text??'',700);
+}
+function canonicalBasketName(raw){
+  return clean(raw,80).toLowerCase()
+    .replace(/\beconomica\b/g,'econômica')
+    .replace(/\bmedia\b/g,'média');
+}
+export function contextualCommerceIntent(message,history=[]){
+  const m=clean(message,160).toLowerCase();
+  if(!m)return null;
+  const recent=arr(history).slice(-16);
+  let assistantIndex=-1;
+  for(let i=recent.length-1;i>=0;i--){
+    if(historyRole(recent[i])==='assistant'&&historyContent(recent[i])){
+      assistantIndex=i;
+      break;
+    }
+  }
+  if(assistantIndex<0)return null;
+
+  const lastAssistant=historyContent(recent[assistantIndex]);
+  const lastLower=lastAssistant.toLowerCase();
+  const choicePrompt=/\b(qual delas|qual voc[eê] quer|qual prefere|voc[eê] quer a|me diga o nome da cesta|quer ver o que vem)\b/.test(lastLower);
+  if(!choicePrompt)return null;
+
+  const matches=[...lastLower.matchAll(/\b(econ[oô]mica|mini|pequena|m[eé]dia|grande)\s+(bonini|koblenz)\b/g)];
+  const candidates=[];
+  for(const mm of matches){
+    const name=canonicalBasketName(mm[0]);
+    if(name&&!candidates.includes(name))candidates.push(name);
+  }
+  if(!candidates.length)return null;
+
+  let previousUser='';
+  for(let i=assistantIndex-1;i>=0;i--){
+    if(historyRole(recent[i])==='user'){
+      previousUser=historyContent(recent[i]).toLowerCase();
+      break;
+    }
+  }
+  const desiredIntent=/\b(quero|vou querer|comprar|compra|pegar|adiciona|adicione|monta|montar|fecha|fechar)\b/.test(previousUser)
+    ? 'start_basket'
+    : 'basket_detail';
+
+  const direct=canonicalBasketName(m);
+  if(candidates.includes(direct)){
+    return {intent:desiredIntent,basket:direct,query:'',source_query:'',replacement_query:'',quantity:0,source:'contextual_followup'};
+  }
+
+  const family=m.match(/^(?:a\s+|o\s+)?(bonini|koblenz)$/i)?.[1]?.toLowerCase();
+  if(family){
+    const filtered=candidates.filter(x=>x.endsWith(' '+family));
+    if(filtered.length===1){
+      return {intent:desiredIntent,basket:filtered[0],query:'',source_query:'',replacement_query:'',quantity:0,source:'contextual_followup'};
+    }
+  }
+
+  const scaleRaw=m.match(/^(?:a\s+|o\s+)?(econ[oô]mica|mini|pequena|m[eé]dia|grande)$/i)?.[1];
+  if(scaleRaw){
+    const scale=canonicalBasketName(scaleRaw);
+    const filtered=candidates.filter(x=>x.startsWith(scale+' '));
+    if(filtered.length===1){
+      return {intent:desiredIntent,basket:filtered[0],query:'',source_query:'',replacement_query:'',quantity:0,source:'contextual_followup'};
+    }
+  }
+
+  const ordinalMap=new Map([
+    ['1',1],['primeiro',1],['primeira',1],['o primeiro',1],['a primeira',1],
+    ['2',2],['segundo',2],['segunda',2],['o segundo',2],['a segunda',2],
+    ['3',3],['terceiro',3],['terceira',3],['o terceiro',3],['a terceira',3]
+  ]);
+  const selected=ordinalMap.get(m);
+  if(selected&&candidates[selected-1]){
+    return {intent:desiredIntent,basket:candidates[selected-1],query:'',source_query:'',replacement_query:'',quantity:0,source:'contextual_followup'};
+  }
+
+  if(candidates.length===1&&/^(sim|s|isso|isso mesmo|essa|esse|pode|pode sim|ok|beleza)$/i.test(m)){
+    return {intent:desiredIntent,basket:candidates[0],query:'',source_query:'',replacement_query:'',quantity:0,source:'contextual_followup'};
+  }
+
+  return null;
+}
+
 export function deterministicCommerceIntent(message){
   const m=clean(message,500).toLowerCase();
   if(!m)return null;
@@ -159,6 +249,8 @@ export function deterministicCommerceIntent(message){
 }
 
 export async function classifyCommerceIntent({message,history,apiKey,model='gpt-5.6-luna'}){
+  const contextual=contextualCommerceIntent(message,history);
+  if(contextual)return contextual;
   const det=deterministicCommerceIntent(message);
   if(det)return {...det,source:'deterministic'};
   if(!apiKey)return {intent:'general',basket:'',query:clean(message,160),source_query:'',replacement_query:'',quantity:0,source:'fallback'};
