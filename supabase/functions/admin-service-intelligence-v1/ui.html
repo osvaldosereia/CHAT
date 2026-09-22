@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Dona Antônia · Commerce OS</title>
+<style>
+:root{--bg:#f6f7f4;--card:#fff;--ink:#172019;--muted:#667168;--line:#e4e8e3;--brand:#246b42;--brand2:#e8f4ec;--warn:#8a5a12;--warnbg:#fff4dc;--danger:#a53030;--dangerbg:#fff0f0;--ok:#1c6b43;--okbg:#e9f6ee;--shadow:0 12px 32px rgba(22,42,29,.07)}
+*{box-sizing:border-box}body{margin:0;font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.app{min-height:100vh;display:grid;grid-template-columns:248px 1fr}
+.sidebar{position:sticky;top:0;height:100vh;padding:24px 16px;background:#173e2b;color:#fff;display:flex;flex-direction:column;gap:22px}
+.brand{display:flex;gap:12px;align-items:center;padding:0 8px}.brandmark{width:40px;height:40px;border-radius:14px;background:#fff;color:#173e2b;display:grid;place-items:center;font-weight:900}.brand b{display:block;font-size:16px}.brand small{opacity:.72}
+.nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:#dbe9e0;text-align:left;padding:10px 12px;border-radius:10px}.nav button:hover,.nav button.active{background:rgba(255,255,255,.13);color:#fff}.nav .sep{height:1px;background:rgba(255,255,255,.12);margin:8px}
+.sidefoot{margin-top:auto;font-size:12px;color:#bcd0c3;padding:8px}.sidefoot strong{color:#fff}
+.main{min-width:0}.topbar{height:72px;padding:0 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);background:rgba(246,247,244,.94);backdrop-filter:blur(12px);position:sticky;top:0;z-index:5}
+.topbar h1{font-size:20px;margin:0}.topbar .sub{color:var(--muted);font-size:13px}.userbox{display:flex;gap:10px;align-items:center}.pill{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:var(--brand2);color:var(--brand)}
+.content{padding:26px 28px 48px;max-width:1500px}.screen{display:none}.screen.active{display:block}.section-title{display:flex;align-items:end;justify-content:space-between;gap:16px;margin:0 0 18px}.section-title h2{margin:0;font-size:24px}.section-title p{margin:4px 0 0;color:var(--muted)}
+.grid{display:grid;gap:16px}.kpis{grid-template-columns:repeat(5,minmax(0,1fr))}.two{grid-template-columns:1.1fr .9fr}.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:18px}.card h3{margin:0 0 14px;font-size:15px}.kpi strong{font-size:28px;display:block;letter-spacing:-.03em}.kpi span{color:var(--muted);font-size:12px}
+.status{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:999px;font-weight:700;font-size:12px}.status.ok{background:var(--okbg);color:var(--ok)}.status.warn{background:var(--warnbg);color:var(--warn)}.status.bad{background:var(--dangerbg);color:var(--danger)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}.stack{display:grid;gap:10px}.row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}.muted{color:var(--muted)}.small{font-size:12px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:12px;color:var(--muted);font-weight:700}td{font-size:13px}.money{text-align:right;white-space:nowrap}
+.btn{border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 12px;color:var(--ink);font-weight:700}.btn:hover{border-color:#b9c4bb}.btn.primary{background:var(--brand);color:#fff;border-color:var(--brand)}.btn.danger{color:var(--danger);border-color:#efcaca}.btn.sm{padding:6px 9px;font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{display:grid;gap:6px}.field label{font-size:12px;color:var(--muted);font-weight:700}.field input,.field select,.field textarea,.search{width:100%;border:1px solid #d6ddd7;background:#fff;border-radius:10px;padding:10px 11px;outline:none}.field textarea{min-height:88px;resize:vertical}.field input:focus,.field select:focus,.field textarea:focus,.search:focus{border-color:#68a47e;box-shadow:0 0 0 3px rgba(36,107,66,.09)}
+.full{grid-column:1/-1}.code{font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f4f6f3;border:1px solid var(--line);border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto}
+.result{border-left:4px solid var(--brand);background:#fbfdfb;border-radius:10px;padding:14px}.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.tabs button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 10px}.tabs button.active{background:var(--brand2);border-color:#acd0b8;color:var(--brand);font-weight:700}
+.list{display:grid;gap:8px}.item{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}.item:hover{border-color:#c4cec6}.item .head{display:flex;justify-content:space-between;gap:12px}.item h4{margin:0 0 3px;font-size:14px}.item p{margin:4px 0;color:var(--muted)}
+.thumb{width:48px;height:48px;object-fit:contain;border:1px solid var(--line);border-radius:10px;background:#fff}.productline{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center}.hidden{display:none!important}
+.login{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#143b29,#275d3f)}.loginbox{width:min(420px,92vw);background:#fff;border-radius:20px;padding:30px;box-shadow:0 30px 80px rgba(0,0,0,.25)}.loginbox h1{margin:8px 0 8px;font-size:26px}.loginbox p{color:var(--muted);margin:0 0 22px}.pin{font-size:24px;letter-spacing:.35em;text-align:center}.error{color:var(--danger);font-size:13px;margin-top:10px}.loader{display:inline-block;width:18px;height:18px;border:2px solid #d9e4dc;border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;right:24px;bottom:24px;background:#172019;color:#fff;padding:11px 14px;border-radius:10px;box-shadow:var(--shadow);z-index:50}.warnbox{border:1px solid #ecd59e;background:var(--warnbg);padding:12px;border-radius:10px;color:#6d4a12}
+@media(max-width:1050px){.app{grid-template-columns:78px 1fr}.brand .txt,.nav button span,.sidefoot{display:none}.sidebar{padding:20px 10px}.nav button{text-align:center}.kpis,.three{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+@media(max-width:720px){.app{display:block}.sidebar{height:auto;position:static;display:block;padding:10px}.brand{display:none}.nav{display:flex;overflow:auto}.nav button{min-width:max-content}.main{width:100%}.topbar{padding:0 16px}.content{padding:18px 14px}.kpis,.three,.formgrid{grid-template-columns:1fr}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="login" class="login">
+  <div class="loginbox">
+    <div class="brandmark">DA</div>
+    <h1>Commerce OS</h1>
+    <p>Admin do cérebro comercial da Dona Antônia. Não é uma caixa de entrada.</p>
+    <form id="loginForm">
+      <div class="field"><label>PIN administrativo</label><input id="pin" class="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="••••••"></div>
+      <button class="btn primary" style="width:100%;margin-top:14px" type="submit">Entrar</button>
+      <div id="loginError" class="error"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+<aside class="sidebar">
+  <div class="brand"><div class="brandmark">DA</div><div class="txt"><b>Dona Antônia</b><small>Commerce OS</small></div></div>
+  <nav class="nav" id="nav">
+    <button data-screen="overview" class="active">◎ <span>Visão geral</span></button>
+    <button data-screen="intelligence">✦ <span>Inteligência</span></button>
+    <button data-screen="knowledge">▤ <span>Conhecimento</span></button>
+    <button data-screen="products">▦ <span>Produtos</span></button>
+    <button data-screen="customers">♙ <span>Clientes e memória</span></button>
+    <button data-screen="orders">✓ <span>Pedidos</span></button>
+    <div class="sep"></div>
+    <button data-screen="health">♡ <span>Saúde</span></button>
+    <button data-screen="simulator">▶ <span>Simulador</span></button>
+  </nav>
+  <div class="sidefoot"><strong>R8 Admin</strong><br>Produção continua protegida por gate.</div>
+</aside>
+<main class="main">
+<header class="topbar"><div><h1 id="pageTitle">Visão geral</h1><div class="sub" id="pageSub">Estado do cérebro comercial</div></div><div class="userbox"><span id="prodPill" class="status warn"><i class="dot"></i> Produção OFF</span><span id="userName" class="pill">Admin</span><button id="logout" class="btn sm">Sair</button></div></header>
+<div class="content">
+
+<section id="overview" class="screen active">
+  <div class="section-title"><div><h2>Visão geral</h2><p>O que está funcionando agora e o que ainda bloqueia produção.</p></div><button class="btn" onclick="loadOverview()">Atualizar</button></div>
+  <div id="kpis" class="grid kpis"></div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="card"><h3>Readiness de ativação</h3><div id="activation"></div></div>
+    <div class="card"><h3>R7 / Canal</h3><div id="r7status"></div></div>
+  </div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="card"><h3>Pedidos recentes</h3><div id="recentOrders"></div></div>
+    <div class="card"><h3>Planner recente</h3><div id="recentPlanner"></div></div>
+  </div>
+</section>
+
+<section id="intelligence" class="screen">
+  <div class="section-title"><div><h2>Inteligência</h2><p>Modelos, limites e comportamento. Gates de produção não podem ser ligados aqui.</p></div><button class="btn" onclick="loadIntelligence()">Recarregar</button></div>
+  <div id="intelCards" class="grid two"></div>
+  <div class="card" style="margin-top:16px"><h3>Preços dos modelos — estimativa de custo</h3><div id="priceProfiles"></div></div>
+  <div class="card" style="margin-top:16px"><h3>Histórico / rollback</h3><div class="actions"><select id="versionArea" class="search" style="max-width:260px"><option value="config:ai">IA</option><option value="config:brain">Cérebro</option><option value="config:commercial">Política comercial</option><option value="config:channel">Canal</option></select><button class="btn" onclick="loadVersions()">Carregar versões</button></div><div id="versions" style="margin-top:12px"></div></div>
+</section>
+
+<section id="knowledge" class="screen">
+  <div class="section-title"><div><h2>Conhecimento</h2><p>Regras e conteúdos usados para orientar o atendimento.</p></div></div>
+  <div class="tabs" id="knowledgeTabs"><button data-type="knowledge" class="active">Conhecimento</button><button data-type="guidance">Orientações</button><button data-type="procedure">Procedimentos</button></div>
+  <div class="grid two">
+    <div class="card"><div class="actions"><input id="knowledgeSearch" class="search" placeholder="Buscar..."><button class="btn" onclick="loadKnowledge()">Buscar</button><button class="btn primary" onclick="newKnowledge()">Novo</button></div><div id="knowledgeList" class="list" style="margin-top:14px"></div></div>
+    <div class="card"><h3 id="knowledgeEditorTitle">Editor</h3><div id="knowledgeEditor" class="muted">Selecione um item ou crie um novo.</div></div>
+  </div>
+</section>
+
+<section id="products" class="screen">
+  <div class="section-title"><div><h2>Produtos</h2><p>Veja o que a IA conhece sobre cada produto e ajuste o conhecimento comercial.</p></div></div>
+  <div class="grid two">
+    <div class="card"><div class="actions"><input id="productSearch" class="search" placeholder="Nome, marca ou EAN"><button class="btn" onclick="loadProducts()">Buscar</button></div><div id="productList" class="list" style="margin-top:14px"></div></div>
+    <div class="card"><h3>Conhecimento comercial</h3><div id="productEditor" class="muted">Selecione um produto.</div></div>
+  </div>
+</section>
+
+<section id="customers" class="screen">
+  <div class="section-title"><div><h2>Clientes e memória</h2><p>Contexto útil e não sensível usado na personalização.</p></div></div>
+  <div class="grid two">
+    <div class="card"><div class="actions"><input id="customerSearch" class="search" placeholder="Nome ou telefone"><button class="btn" onclick="loadCustomers()">Buscar</button></div><div id="customerList" class="list" style="margin-top:14px"></div></div>
+    <div class="card"><h3>Detalhes e memória</h3><div id="customerDetail" class="muted">Selecione um cliente.</div></div>
+  </div>
+</section>
+
+<section id="orders" class="screen">
+  <div class="section-title"><div><h2>Pedidos</h2><p>Observação da conversão e sincronização. Sem comandos de Bling nesta etapa.</p></div><button class="btn" onclick="loadOrders()">Atualizar</button></div>
+  <div class="card"><div id="ordersTable"></div></div>
+</section>
+
+<section id="health" class="screen">
+  <div class="section-title"><div><h2>Saúde</h2><p>Readiness, erros e fila de atendimento humano.</p></div><button class="btn" onclick="loadHealth()">Atualizar</button></div>
+  <div class="grid two">
+    <div class="card"><h3>Gates e erros</h3><div id="healthGates"></div></div>
+    <div class="card"><h3>Handoff assistido</h3><div id="handoffQueue"></div></div>
+  </div>
+</section>
+
+<section id="simulator" class="screen">
+  <div class="section-title"><div><h2>Simulador</h2><p>O mesmo planner do Commerce OS, mas sem executar writes ou compromissos.</p></div></div>
+  <div class="grid two">
+    <div class="card">
+      <div class="field"><label>Mensagem do cliente</label><textarea id="simMessage" placeholder="Ex.: quero um shampoo para cabelo crespo"></textarea></div>
+      <div class="field" style="margin-top:10px"><label>Telefone opcional — usa contexto real do cliente</label><input id="simPhone" placeholder="+55..."></div>
+      <button id="runSim" class="btn primary" style="margin-top:14px" onclick="runSimulator()">Simular atendimento</button>
+      <div class="warnbox" style="margin-top:14px"><b>Modo seguro:</b> tools de leitura podem consultar dados reais; qualquer tool de escrita é bloqueada pelo simulador.</div>
+    </div>
+    <div class="card"><h3>Resposta</h3><div id="simResponse" class="muted">Execute uma simulação.</div></div>
+  </div>
+  <div class="grid two" style="margin-top:16px">
+    <div class="card"><h3>Decisão, tools e métricas</h3><div id="simMeta"></div></div>
+    <div class="card"><h3>Contexto usado</h3><div id="simContext" class="code">—</div></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Histórico recente</h3><div id="simHistory"></div></div>
+</section>
+
+</div>
+</main>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script type="module">
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2.58.0";
+const SUPABASE_URL="https://ssbesxgaijknwsjbsbcz.supabase.co";
+const SUPABASE_KEY="sb_publishable_tFXHtH0HCXZepVtwgKElIg_DxS76Gu8";
+const API=SUPABASE_URL+"/functions/v1/admin-service-intelligence-v1";
+const PIN_API=SUPABASE_URL+"/functions/v1/admin-pin-auth-v1";
+const sb=createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+let knowledgeType="knowledge",knowledgeItems=[],products=[],customers=[],selectedCustomer=null;
+const $=s=>document.querySelector(s), esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+const money=v=>Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+const num=v=>Number(v||0).toLocaleString("pt-BR");
+const date=v=>v?new Date(v).toLocaleString("pt-BR"):"—";
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.remove("hidden");setTimeout(()=>t.classList.add("hidden"),2600)}
+async function token(){const {data}=await sb.auth.getSession();return data.session?.access_token||""}
+async function api(action,body={}){const t=await token();const res=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+t},body:JSON.stringify({action,...body})});const d=await res.json().catch(()=>({ok:false,error:"invalid_response"}));if(res.status===401){showLogin();throw new Error("Sessão expirada")}if(!res.ok||d.ok===false)throw new Error(d.detail||d.error||"Falha");return d}
+function showLogin(){ $("#login").classList.remove("hidden");$("#app").classList.add("hidden") }
+function showApp(){ $("#login").classList.add("hidden");$("#app").classList.remove("hidden") }
+async function boot(){const {data}=await sb.auth.getSession();if(!data.session){showLogin();return}showApp();$("#userName").textContent=data.session.user.email||"Admin";await loadOverview()}
+$("#loginForm").addEventListener("submit",async e=>{e.preventDefault();$("#loginError").textContent="";const pin=$("#pin").value.trim();try{const r=await fetch(PIN_API,{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY},body:JSON.stringify({pin})});const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||"PIN inválido");const v=await sb.auth.verifyOtp({token_hash:d.token_hash,type:d.verification_type||"email"});if(v.error)throw v.error;showApp();$("#userName").textContent=v.data.user?.email||"Admin";await loadOverview()}catch(err){$("#loginError").textContent=err.message||"Não foi possível entrar."}});
+$("#logout").onclick=async()=>{await sb.auth.signOut();showLogin()};
+const titles={overview:["Visão geral","Estado do cérebro comercial"],intelligence:["Inteligência","Modelos, limites e comportamento"],knowledge:["Conhecimento","Regras e conteúdo"],products:["Produtos","Conhecimento comercial"],customers:["Clientes e memória","Personalização segura"],orders:["Pedidos","Conversão e sincronização"],health:["Saúde","Gates, erros e handoff"],simulator:["Simulador","Teste sem efeitos colaterais"]};
+$("#nav").addEventListener("click",async e=>{const b=e.target.closest("button[data-screen]");if(!b)return;document.querySelectorAll("#nav button").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".screen").forEach(x=>x.classList.toggle("active",x.id===b.dataset.screen));$("#pageTitle").textContent=titles[b.dataset.screen][0];$("#pageSub").textContent=titles[b.dataset.screen][1];const fn={overview:loadOverview,intelligence:loadIntelligence,knowledge:loadKnowledge,products:loadProducts,customers:loadCustomers,orders:loadOrders,health:loadHealth,simulator:loadSimHistory}[b.dataset.screen];if(fn)await fn()});
+window.loadOverview=async()=>{try{const d=await api("r8_overview");$("#kpis").innerHTML=[["Produtos vendáveis",d.counts.sellable_products],["Clientes ativos",d.counts.active_customers],["Conversas 24h",d.counts.conversations_24h],["Pedidos 7d",d.counts.orders_7d],["Handoffs pendentes",d.counts.pending_handoffs]].map(x=>`<div class="card kpi"><strong>${num(x[1])}</strong><span>${x[0]}</span></div>`).join("");const a=d.activation||{},ready=a.ready_for_production===true;$("#prodPill").className="status "+(ready?"ok":"warn");$("#prodPill").innerHTML='<i class="dot"></i> '+(ready?"Produção pronta":"Produção OFF");$("#activation").innerHTML=`<div class="stack"><div class="row"><span>Dados</span><b>${a.data_ready?"OK":"Pendente"}</b></div><div class="row"><span>Transporte</span><b>${a.transport_ready?"OK":"Pendente"}</b></div><div class="row"><span>Segurança</span><b>${a.safety_ready?"OK":"Pendente"}</b></div><div class="row"><span>R7</span><b>${a.r7_ready_for_r8?"OK":"Pendente"}</b></div><div><span class="muted small">Bloqueios</span><div style="margin-top:6px">${(a.blockers||[]).length?(a.blockers||[]).map(x=>`<span class="status warn" style="margin:2px">${esc(x)}</span>`).join(""):'<span class="status ok">Nenhum</span>'}</div></div></div>`;const r=d.r7||{};$("#r7status").innerHTML=`<div class="stack"><div class="row"><span>Core</span><b>${r.latest_run?.core_verified||0}/${r.latest_run?.core_total||0}</b></div><div class="row"><span>Status</span><span class="status ${r.ready_for_r8?"ok":"warn"}"><i class="dot"></i>${r.ready_for_r8?"Concluída":"Pendente"}</span></div><div class="row"><span>Próxima ação</span><b>${esc(r.next_required_action||"—")}</b></div></div>`;renderOrders(d.recent_orders||[],"#recentOrders");$("#recentPlanner").innerHTML=(d.recent_planner_runs||[]).map(x=>`<div class="row"><span><b>${esc(x.decision||"—")}</b><br><span class="small muted">${date(x.created_at)}</span></span><span>${x.success?'<span class="status ok">OK</span>':'<span class="status bad">Erro</span>'}</span></div>`).join("")||'<span class="muted">Sem execuções recentes.</span>'}catch(e){toast(e.message)}};
+const field=(id,label,val,type="text")=>`<div class="field"><label>${label}</label><input data-key="${id}" type="${type}" value="${esc(val??"")}"></div>`;
+window.loadIntelligence=async()=>{try{const d=await api("r8_intelligence"),c=d.configs;const defs=[["ai","IA / modelos",c.ai,[["primary_model","Modelo principal"],["utility_model","Modelo utilitário"],["primary_reasoning_effort","Raciocínio principal"],["max_context_bytes","Limite de contexto","number"],["max_output_tokens","Máx. tokens de saída","number"],["max_tool_calls","Máx. tools","number"]]],["brain","Cérebro comercial",c.brain,[["max_history_messages","Histórico máximo","number"],["max_product_results","Produtos por busca","number"],["offers_enabled","Ofertas","checkbox"],["upsell_enabled","Upsell","checkbox"]]],["commercial","Política comercial",c.commercial,[["max_segmenting_questions","Máx. perguntas","number"],["max_recommendations","Máx. recomendações","number"],["max_proactive_offers_per_cart","Ofertas proativas/carrinho","number"],["rejection_cooldown_days","Cooldown após recusa","number"],["strong_min_discount_percent","Desconto forte %","number"],["strong_min_discount_amount","Desconto forte R$","number"]]],["channel","Canal / mídia",c.channel,[["transcription_model","Transcrição"],["vision_model","Visão"],["vision_detail","Detalhe visão"],["tts_model","TTS"],["tts_voice","Voz"],["max_audio_bytes","Máx. áudio bytes","number"],["max_image_bytes","Máx. imagem bytes","number"]]]];$("#intelCards").innerHTML=defs.map(([area,title,obj,fields])=>`<div class="card" data-config="${area}"><h3>${title}</h3><div class="formgrid">${fields.map(([k,l,t])=>t==="checkbox"?`<label class="field"><span>${l}</span><input data-key="${k}" type="checkbox" ${obj?.[k]?"checked":""}></label>`:field(k,l,obj?.[k],t||"text")).join("")}</div><button class="btn primary" style="margin-top:14px" onclick="saveConfig('${area}')">Salvar</button></div>`).join("");$("#priceProfiles").innerHTML=`<table><thead><tr><th>Modelo</th><th>Input / 1M</th><th>Cached / 1M</th><th>Output / 1M</th><th>Fonte</th></tr></thead><tbody>${(c.prices||[]).map(p=>`<tr><td><b>${esc(p.model)}</b></td><td>$${p.input_usd_per_million}</td><td>$${p.cached_input_usd_per_million}</td><td>$${p.output_usd_per_million}</td><td class="muted">${esc(p.source_note||"")}</td></tr>`).join("")}</tbody></table>`}catch(e){toast(e.message)}};
+window.saveConfig=async area=>{const box=document.querySelector('[data-config="'+area+'"]'),patch={};box.querySelectorAll("[data-key]").forEach(el=>patch[el.dataset.key]=el.type==="checkbox"?el.checked:(el.type==="number"?Number(el.value):el.value));try{await api("r8_save_config",{area,patch});toast("Configuração salva");await loadIntelligence()}catch(e){toast(e.message)}};
+window.loadVersions=async()=>{try{const d=await api("r8_versions",{entity_type:$("#versionArea").value});$("#versions").innerHTML=(d.versions||[]).map(v=>`<div class="row"><span><b>#${v.id}</b> · ${date(v.created_at)}<br><span class="small muted">${esc(v.action)} ${v.note?"· "+esc(v.note):""}</span></span><button class="btn sm" onclick="rollback(${v.id})">Restaurar</button></div>`).join("")||'<span class="muted">Sem versões ainda.</span>'}catch(e){toast(e.message)}};
+window.rollback=async id=>{if(!confirm("Restaurar esta configuração? O estado atual será versionado antes do rollback."))return;try{await api("r8_rollback_config",{version_id:id});toast("Rollback concluído");await loadIntelligence();await loadVersions()}catch(e){toast(e.message)}};
+$("#knowledgeTabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;knowledgeType=b.dataset.type;document.querySelectorAll("#knowledgeTabs button").forEach(x=>x.classList.toggle("active",x===b));loadKnowledge()};
+window.loadKnowledge=async()=>{try{const d=await api("list",{type:knowledgeType,q:$("#knowledgeSearch").value});knowledgeItems=d.items||[];$("#knowledgeList").innerHTML=knowledgeItems.map((x,i)=>`<button class="item" style="text-align:left" onclick="editKnowledge(${i})"><div class="head"><h4>${esc(x.title||"Sem título")}</h4><span class="status ${x.status==="published"?"ok":"warn"}">${esc(x.status||"draft")}</span></div><p>${esc((x.content||x.instruction||x.trigger_description||"").slice(0,130))}</p></button>`).join("")||'<span class="muted">Nada encontrado.</span>'}catch(e){toast(e.message)}};
+window.newKnowledge=()=>editKnowledge(-1);
+window.editKnowledge=i=>{const x=i>=0?knowledgeItems[i]:{};const keyName=knowledgeType==="knowledge"?"knowledge_key":knowledgeType==="guidance"?"rule_key":"procedure_key";const mainName=knowledgeType==="knowledge"?"content":knowledgeType==="guidance"?"instruction":"trigger_description";$("#knowledgeEditor").innerHTML=`<div class="formgrid"><div class="field"><label>Chave</label><input id="keKey" value="${esc(x[keyName]||"")}"></div><div class="field"><label>Status</label><select id="keStatus"><option>draft</option><option ${x.status==="published"?"selected":""}>published</option><option ${x.status==="archived"?"selected":""}>archived</option></select></div><div class="field full"><label>Título</label><input id="keTitle" value="${esc(x.title||"")}"></div><div class="field full"><label>Conteúdo / instrução</label><textarea id="keMain">${esc(x[mainName]||"")}</textarea></div><div class="field"><label>Prioridade</label><input id="kePriority" type="number" value="${x.priority??50}"></div>${knowledgeType==="knowledge"?'<div class="field"><label>Categoria</label><input id="keCategory" value="'+esc(x.category||"")+'"></div>':""}</div><button class="btn primary" style="margin-top:14px" id="keSave">Salvar</button>`;$("#keSave").onclick=async()=>{const body={action:"save",type:knowledgeType,id:x.id||null,status:$("#keStatus").value,title:$("#keTitle").value,priority:Number($("#kePriority").value)};body[keyName]=$("#keKey").value;body[mainName]=$("#keMain").value;if(knowledgeType==="knowledge"){body.category=$("#keCategory").value;body.keywords=x.keywords||[];body.channel_scope=x.channel_scope||["whatsapp"]}if(knowledgeType==="guidance"){body.intent_scope=x.intent_scope||[];body.stage_scope=x.stage_scope||[];body.channel_scope=x.channel_scope||["whatsapp"];body.behavior_tags=x.behavior_tags||[]}if(knowledgeType==="procedure"){body.steps=x.steps||[];body.allowed_actions=x.allowed_actions||[];body.confirmation_actions=x.confirmation_actions||[]}try{await api("save",body);toast("Conhecimento salvo");loadKnowledge()}catch(e){toast(e.message)}}};
+window.loadProducts=async()=>{try{const d=await api("r8_products",{q:$("#productSearch").value,limit:30});products=d.products||[];$("#productList").innerHTML=products.map((p,i)=>`<button class="item productline" style="text-align:left" onclick="editProduct(${i})"><img class="thumb" src="${esc(p.image_url||"")}" onerror="this.style.visibility='hidden'"><span><b>${esc(p.name)}</b><br><span class="small muted">${esc(p.brand||"")} · ${esc(p.category||"")}</span></span><span><b>${money(p.offer_price??p.price)}</b><br><span class="small muted">Est. ${num(p.stock)}</span></span></button>`).join("")||'<span class="muted">Nada encontrado.</span>'}catch(e){toast(e.message)}};
+window.editProduct=i=>{const p=products[i],k=p.sales_knowledge||{};$("#productEditor").innerHTML=`<div class="productline"><img class="thumb" src="${esc(p.image_url||"")}"><div><b>${esc(p.name)}</b><br><span class="small muted">${esc(p.gtin||"Sem EAN")}</span></div><b>${money(p.offer_price??p.price)}</b></div><div class="field" style="margin-top:14px"><label>Termos de busca (um por linha)</label><textarea id="pkTerms">${esc((k.search_terms||[]).join("\n"))}</textarea></div><div class="field"><label>Casos de uso</label><textarea id="pkUses">${esc((k.use_cases||[]).join("\n"))}</textarea></div><div class="field"><label>Públicos / necessidades</label><textarea id="pkAudiences">${esc((k.audiences||[]).join("\n"))}</textarea></div><div class="field"><label>Aliases</label><textarea id="pkAliases">${esc((k.aliases||[]).join("\n"))}</textarea></div><button class="btn primary" style="margin-top:12px" onclick="saveProductKnowledge('${p.id}',${i})">Salvar conhecimento</button>`};
+window.saveProductKnowledge=async(id,i)=>{const k=products[i].sales_knowledge||{},lines=id=>$(id).value.split(/\n+/).map(x=>x.trim()).filter(Boolean);try{await api("r8_product_knowledge_save",{product_id:id,search_terms:lines("#pkTerms"),use_cases:lines("#pkUses"),audiences:lines("#pkAudiences"),aliases:lines("#pkAliases"),cautions:k.cautions||[],attributes:k.attributes||{},confidence:k.confidence??1,catalog_search_text:k.catalog_search_text||"",enrichment_status:"manual"});toast("Conhecimento do produto salvo");loadProducts()}catch(e){toast(e.message)}};
+window.loadCustomers=async()=>{try{const d=await api("r8_customers",{q:$("#customerSearch").value});customers=d.customers||[];$("#customerList").innerHTML=customers.map((c,i)=>`<button class="item" style="text-align:left" onclick="openCustomer(${i})"><div class="head"><h4>${esc(c.name||"Cliente")}</h4><span>${num(c.order_count||0)} pedidos</span></div><p>${esc(c.primary_whatsapp_e164||"")} · LTV ${money(c.lifetime_value||0)}</p></button>`).join("")||'<span class="muted">Nada encontrado.</span>'}catch(e){toast(e.message)}};
+window.openCustomer=async i=>{selectedCustomer=customers[i];try{const d=await api("r8_customer_detail",{customer_id:selectedCustomer.id});$("#customerDetail").innerHTML=`<div><b>${esc(d.customer?.name||"Cliente")}</b><br><span class="small muted">${esc(d.customer?.primary_whatsapp_e164||"")}</span></div><h4>Memórias</h4><div class="list">${(d.memories||[]).map(m=>`<div class="item"><b>${esc(m.memory_key)}</b><p>${esc(m.memory_value)}</p><span class="small muted">${esc(m.source_kind)} · confiança ${m.confidence}</span></div>`).join("")||'<span class="muted">Nenhuma memória registrada.</span>'}</div><hr style="border:0;border-top:1px solid var(--line);margin:16px 0"><div class="field"><label>Nova memória declarada</label><input id="memKey" placeholder="ex.: prefere_marca_cafe"></div><div class="field"><label>Valor</label><textarea id="memValue" placeholder="Informação não sensível confirmada pelo cliente"></textarea></div><button class="btn primary" style="margin-top:10px" onclick="saveMemory()">Salvar memória</button>`}catch(e){toast(e.message)}};
+window.saveMemory=async()=>{try{await api("r8_customer_memory_save",{customer_id:selectedCustomer.id,memory_key:$("#memKey").value,memory_value:$("#memValue").value});toast("Memória salva");openCustomer(customers.findIndex(x=>x.id===selectedCustomer.id))}catch(e){toast(e.message)}};
+function renderOrders(items,target){$(target).innerHTML=items.length?`<table><thead><tr><th>Pedido</th><th>Status</th><th>Origem</th><th class="money">Total</th></tr></thead><tbody>${items.map(o=>`<tr><td><b>${esc(o.order_number||String(o.id).slice(0,8))}</b><br><span class="small muted">${date(o.created_at)}</span></td><td>${esc(o.status||"—")}</td><td>${esc(o.source||"—")}</td><td class="money">${money(o.total)}</td></tr>`).join("")}</tbody></table>`:'<span class="muted">Sem pedidos.</span>'}
+window.loadOrders=async()=>{try{const d=await api("r8_orders");renderOrders(d.orders||[],"#ordersTable")}catch(e){toast(e.message)}};
+window.loadHealth=async()=>{try{const d=await api("r8_health"),a=d.activation||{};$("#healthGates").innerHTML=`<div class="stack"><div class="row"><span>R7</span><span class="status ${d.r7?.ready_for_r8?"ok":"warn"}">${d.r7?.ready_for_r8?"5/5 OK":"Pendente"}</span></div><div class="row"><span>Produção autorizada</span><b>${a.production_activation_authorized?"SIM":"NÃO"}</b></div><div class="row"><span>Planner · erros 24h</span><b>${d.errors_24h.planner}</b></div><div class="row"><span>Tools · erros 24h</span><b>${d.errors_24h.tools}</b></div><div class="row"><span>Simulador · erros 24h</span><b>${d.errors_24h.simulator}</b></div><div><span class="small muted">Blockers</span><div style="margin-top:7px">${(a.blockers||[]).map(x=>`<span class="status warn" style="margin:2px">${esc(x)}</span>`).join("")||'<span class="status ok">Nenhum</span>'}</div></div></div>`;const q=d.handoff_queue?.items||[];$("#handoffQueue").innerHTML=q.length?q.map(h=>`<div class="item"><div class="head"><h4>${esc(h.customer_name||"Cliente")}</h4><span class="status warn">${esc(h.status)}</span></div><p>${esc(h.summary||h.reason||"")}</p><div class="actions">${h.provider_url?`<a class="btn sm" target="_blank" rel="noopener" href="${esc(h.provider_url)}">Abrir no PapoAI</a>`:""}<button class="btn sm" onclick="claimHandoff('${h.handoff_id}')">Assumir</button><button class="btn sm" onclick="completeHandoff('${h.handoff_id}')">Concluir / voltar IA</button></div></div>`).join(""):'<span class="muted">Nenhum atendimento aguardando humano.</span>'}catch(e){toast(e.message)}};
+window.claimHandoff=async id=>{try{await api("r8_handoff_claim",{handoff_id:id});toast("Handoff assumido");loadHealth()}catch(e){toast(e.message)}};
+window.completeHandoff=async id=>{if(!confirm("Confirme somente depois de devolver a conversa para IA no PapoAI."))return;try{await api("r8_handoff_complete",{handoff_id:id,notes:"Concluído pelo Admin R8"});toast("Handoff concluído");loadHealth()}catch(e){toast(e.message)}};
+window.runSimulator=async()=>{const b=$("#runSim");b.disabled=true;b.innerHTML='<span class="loader"></span> Simulando...';try{const d=await api("r8_simulator",{message:$("#simMessage").value,phone:$("#simPhone").value});$("#simResponse").innerHTML=`<div class="result"><b>${esc(d.response||"Sem resposta")}</b></div>`;$("#simMeta").innerHTML=`<div class="stack"><div class="row"><span>Decisão</span><b>${esc(d.decision||"—")}</b></div><div class="row"><span>Oportunidade</span><b>${esc(d.commercial_opportunity||"none")}</b></div><div class="row"><span>Etapa</span><b>${esc(d.journey_stage||"—")}</b></div><div class="row"><span>Modelo</span><b>${esc(d.metrics?.model||"—")}</b></div><div class="row"><span>Latência</span><b>${num(d.metrics?.latency_ms)} ms</b></div><div class="row"><span>Tokens</span><b>${num(d.metrics?.input_tokens)} in · ${num(d.metrics?.output_tokens)} out</b></div><div class="row"><span>Custo estimado</span><b>${d.metrics?.estimated_cost_usd==null?"—":"$"+Number(d.metrics.estimated_cost_usd).toFixed(6)}</b></div></div><h4>Tools propostas</h4><div class="code">${esc(JSON.stringify(d.tools||[],null,2))}</div><h4>Resultados de leitura</h4><div class="code">${esc(JSON.stringify(d.tool_results||[],null,2))}</div>`;$("#simContext").textContent=JSON.stringify(d.context||{},null,2);loadSimHistory()}catch(e){toast(e.message)}finally{b.disabled=false;b.textContent="Simular atendimento"}};
+window.loadSimHistory=async()=>{try{const d=await api("r8_simulator_history");$("#simHistory").innerHTML=(d.runs||[]).map(r=>`<div class="row"><span><b>${esc(r.input_text.slice(0,80))}</b><br><span class="small muted">${esc(r.decision||"—")} · ${date(r.created_at)}</span></span><span>${r.success?'<span class="status ok">OK</span>':'<span class="status bad">Erro</span>'}</span></div>`).join("")||'<span class="muted">Sem simulações.</span>'}catch(e){toast(e.message)}};
+boot();
+</script>
+</body></html>
