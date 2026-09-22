@@ -730,3 +730,84 @@ Estado comercial:
 - piloto segue read-only para carrinho/pedido;
 - Bling desligado;
 - seleção/lista é estado conversacional seguro e pode persistir sem habilitar escrita comercial.
+
+
+## CHECKPOINT NOVO CHAT — 22/09/2026 — PILOTO PAPOAI
+
+### Estado técnico atual
+- Repositório: osvaldosereia/CHAT
+- Branch: papoai-commerce-os-live-20260921
+- Supabase: ssbesxgaijknwsjbsbcz
+- PapoAI continua provider canônico do WhatsApp.
+- Meta Direct continua fora do escopo atual.
+- Produção geral NÃO liberada.
+- Piloto real controlado ativo somente para o telefone de teste informado pelo usuário.
+- O PapoAI entrega esse contato como +556598150975; o número informado pelo usuário foi +5565998150975. As duas formas foram consideradas/autorizadas no piloto.
+- Um bloqueio antigo em blocked_internal_phones foi removido somente para esse contato de teste.
+- Um human_handoff antigo basket_flow_failed de 11/09 foi encerrado somente nessa conversa; conversa retomada em mode=ai.
+- write_enabled=false.
+- Bling queue=false.
+- learning enqueue=false.
+- leitura e IA ativas no piloto.
+- handoff nativo PapoAI ainda precisa de teste físico.
+
+### Versões publicadas
+- admin-service-intelligence-v1: v27 ACTIVE
+- papo-external-agent-v1: v69 ACTIVE
+
+### Testes físicos já comprovados
+- piloto responde de verdade no WhatsApp.
+- saudação reconhece cliente conhecido pelo nome.
+- lista de cestas e preços enviada.
+- continuidade de conversa corrigida:
+  pergunta: "O que vem na cesta grande?"
+  IA: "Temos Grande Koblenz e Grande Bonini. Qual delas você quer ver?"
+  cliente: "Bonini"
+  agora deve virar Grande Bonini, não busca de produto Bonini.
+- cenário de regressão criado: ctx_basket_01.
+- teste ctx_basket_01 passou 1/1, sem falha e sem erro.
+- command bus Supabase → webhook de entrada PapoAI foi comprovado em modo Teste com HTTP 200 e campos command/customer.name/customer.phone/reason.
+- webhook de entrada PapoAI oferece ações nativas como parar assistente, transferir atendente, tags, funil, mensagem, concluir atendimento etc.
+- handoff físico por automação/webhook ainda pendente.
+
+### Últimos bugs observados no piloto
+1. Busca por "miojo" retornou produtos errados. Precisa corrigir busca/sinônimos/ranking.
+2. Áudio já transcrito/interpretado pelo PapoAI foi tratado depois como "áudio não habilitado". Precisa aceitar a transcrição do provider como texto válido.
+3. Formatação: toda resposta com nome + valor de produtos deve ser lista vertical, um item por bloco/linha, com respiro.
+4. Busca de produtos deve retornar mais resultados: até 20 itens quando fizer sentido, em vez de apenas 3–6.
+5. Seleção de produto após lista precisa aceitar:
+   - número do item;
+   - nome parcial;
+   - nome + preço aproximado (ex.: "omo de 19 reais" deve casar com OMO R$ 18,90);
+   - quando houver dúvida, confirmar "é este?" em vez de escolher errado.
+6. Depois da escolha, a IA pode oferecer foto do produto selecionado.
+7. Fotos não devem ser enviadas automaticamente em excesso.
+8. Regra desejada de foto:
+   - produtos básicos e muito conhecidos (arroz, feijão, açúcar, sal, óleo, café etc.) normalmente sem foto;
+   - produtos fora da cesta básica / menos óbvios podem ter foto oferecida;
+   - enviar foto quando cliente pedir ou quando o item já estiver escolhido e a foto ajudar a confirmar.
+9. Não usar emojis em excesso; usar ícones leves para leitura no WhatsApp.
+
+### Próxima etapa obrigatória
+Antes de programar a nova rodada de seleção/listagem/fotos, pesquisar fontes profissionais sobre:
+- conversational commerce;
+- product search e ranking;
+- entity resolution/fuzzy matching;
+- multi-turn context;
+- disambiguation;
+- confidence thresholds;
+- product selection by ordinal/name/price;
+- when to show product media in chat commerce;
+- WhatsApp conversational UX.
+
+Depois adaptar ao Dona Antônia e só então programar.
+
+### Objetivo imediato
+Deixar o atendimento básico realmente utilizável para venda no WhatsApp antes de avançar para pós-venda/CRM:
+- listas legíveis;
+- catálogo correto;
+- contexto multi-turno;
+- escolha robusta;
+- fotos inteligentes;
+- carrinho/personalização depois;
+- handoff físico depois.
