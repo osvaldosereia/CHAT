@@ -1286,6 +1286,18 @@ Deno.serve(async(req:Request)=>{
       const localPauseUntil=lab?.metadata?.expires_at
         ? String(lab.metadata.expires_at)
         : new Date(Date.now()+60*60*1000).toISOString();
+      let assistedHandoff:any=null;
+      if(conversationId){
+        try{
+          const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+            p_conversation_id:conversationId,
+            p_reason:'r7_assisted_handoff',
+            p_summary:'R7: transferência assistida para atendimento humano no PapoAI.',
+            p_priority:2
+          });
+          if(!queued.error)assistedHandoff=queued.data||null;
+        }catch{}
+      }
       try{
         await sb.from('channel_provider_agent_lab_sessions').update({
           status:'paused',
@@ -1297,11 +1309,16 @@ Deno.serve(async(req:Request)=>{
         await recordR7Case(sb,r7RunId,'handoff','attempted',{
           correlation_id:correlationId,
           local_fail_safe_paused:true,
-          local_pause_until:localPauseUntil
-        },'r7_handoff_probe');
+          local_pause_until:localPauseUntil,
+          assisted_handoff:true,
+          assisted_handoff_id:assistedHandoff?.handoff_id||null,
+          provider_url:assistedHandoff?.provider_url||null,
+          provider_automatic_takeover:false,
+          operator_action_required:true
+        },'r7_assisted_handoff_probe');
       }
       processingStatus='handoff';responseKind='handoff';
-      responseBody=buildLabHandoffResponse({text:'Vou transferir este teste para atendimento humano.',sessionKey:normalized.sessionKey,correlationId,reason:'lab_reserved_command'});
+      responseBody=buildLabHandoffResponse({text:'Vou chamar uma pessoa da nossa equipe para continuar com você.',sessionKey:normalized.sessionKey,correlationId,reason:'assisted_manual_handoff'});
     }else if(elapsed>=timeoutMs){
       processingStatus='handoff';responseKind='handoff';
       responseBody=buildLabHandoffResponse({text:'O teste demorou além do limite. Vou transferir para atendimento humano.',sessionKey:normalized.sessionKey,correlationId,reason:'lab_timeout'});
