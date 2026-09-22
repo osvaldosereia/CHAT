@@ -24,7 +24,14 @@ export function deterministicCommerceIntent(message){
   if(/^(8|oitavo|oitava|o oitavo|a oitava)$/i.test(m))return {intent:'select_product_choice',basket:'',query:'',source_query:'',replacement_query:'',quantity:8};
   if(/^(9|nono|nona|o nono|a nona)$/i.test(m))return {intent:'select_product_choice',basket:'',query:'',source_query:'',replacement_query:'',quantity:9};
   if(/^(10|decimo|décimo|decima|décima|o decimo|o décimo|a decima|a décima)$/i.test(m))return {intent:'select_product_choice',basket:'',query:'',source_query:'',replacement_query:'',quantity:10};
-  if(/^(sim|s|pode|pode sim|confirmo|confirma|isso|isso mesmo|ok|okay|beleza|pode trocar|troca)$/i.test(m))return {intent:'confirm_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(/^(sim|s|pode|pode sim|confirmo|confirma|isso|isso mesmo|ok|okay|beleza|pode trocar|troca)$/i.test(m)
+     || /\b(?:sim|pode|ok|confirmo)\b.*\b(?:confirma|confirmar|fecha|fechar)\b.*\b(?:pedido|compra)?\b/.test(m)
+     || /\b(?:confirma|confirmar)\b.*\b(?:pedido|compra)\b/.test(m)){
+    return {intent:'confirm_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  }
+  if(/\bfiado\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:passa|aceita|aceitam)\b.*\b(?:alimenta[cç][aã]o|refei[cç][aã]o|alelo|sodexo|puxee|caju|flash|ifood)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:anota|pagar|paga)\b.*\b(?:m[eê]s\s+(?:que|q)\s+vem|30\s*dias?|30d)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(
     /\b(formas?\s+d[eo]?\s*pagamento|forma\s+de\s+pagar|como\s+(?:posso|pode|podemos|voc[eê]s?\s+aceitam?)\s+pagar|aceita(?:m)?\s+(?:pix|cart[aã]o|dinheiro|boleto|alimenta[cç][aã]o|refei[cç][aã]o)|passa(?:m)?\s+(?:pix|cart[aã]o|alimenta[cç][aã]o|refei[cç][aã]o|alelo|sodexo|puxee|caju|flash|ifood)|30\s*dias?|30d|boleto|parcelamento|parcela(?:m|do|r)?|quantas\s+vezes|qts?\s+vezes|sem\s+juros|vende(?:m)?\s+(?:pra|para|a)\s+prazo|fiado|pagar\s+(?:no|o)?\s*m[eê]s\s+que\s+vem|paga(?:r)?\s+m[eê]s\s+q\s+vem|anota\s+pra\s+(?:eu\s+)?pagar)\b/.test(m)
   )return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
@@ -62,6 +69,21 @@ export function deterministicCommerceIntent(message){
     replacement_query:'',
     quantity:Number(addQuantity[1]||1)
   };
+
+  const removeBasketItem=m.match(/\b(?:tira|tirar|retira|retirar|remove|remover)\s+(?:o|a|os|as)?\s*([^,.!?]+?)(?:\s+(?:da|do)\s+(?:cesta|pedido))?\s*$/);
+  if(removeBasketItem){
+    const source=String(removeBasketItem[1]||'')
+      .replace(/\s+(?:da|do)\s+(?:cesta|pedido)\s*$/,'')
+      .trim();
+    if(source)return {
+      intent:'set_basket_quantity',
+      basket:'',
+      query:'',
+      source_query:source,
+      replacement_query:'',
+      quantity:0
+    };
+  }
   if(/\b(ofertas?|promo[cç][aã]o|promo[cç][oõ]es)\b/.test(m))return {intent:'offers',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
 
   const delegatedReplacement=m.match(/\b(?:troca|trocar|tira|tirar|retira|retirar|remove|remover)\s+(?:o|a|os|as)?\s*([^,.!?]+?)\s+(?:por|e coloca|e poe|e põe)\s+(?:outra coisa|algo diferente|o que voce quiser|o que você quiser)\b/);
