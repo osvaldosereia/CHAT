@@ -7,7 +7,7 @@ Data do checkpoint: 22/09/2026 08:40 (America/Cuiaba)
 - GitHub: `osvaldosereia/CHAT`
 - Branch: `papoai-commerce-os-live-20260921`
 - Supabase: `ssbesxgaijknwsjbsbcz`
-- Edge: `papo-external-agent-v1` **v52**
+- Edge: `papo-external-agent-v1` **v53**
 - Run R7: `44d24129-b4a0-40b9-8b2d-2ed196614dbe`
 - Adapter PapoAI: `88761df6-abe7-4759-826c-995d7c557cec`
 
@@ -118,3 +118,30 @@ Diagnóstico de integração:
 - próximo diagnóstico: capturar a requisição real feita pela UI do PapoAI ao clicar em **Iniciar Atendimento**, para descobrir se existe ação HTTP automatizável de takeover.
 
 Produção continua OFF e `ready_for_r8=false`.
+
+
+## Diagnóstico 22/09/2026 09:15 — contrato real do takeover manual
+
+Captura física do DevTools/Socket do PapoAI mostrou o mecanismo real usado pela UI ao clicar em **Iniciar Atendimento**:
+
+- transporte: WebSocket autenticado da sessão do navegador;
+- evento enviado pela UI: `assign_session`;
+- campos observados: `session_uid` e `user_id`;
+- resposta do servidor: `assign_session_success`;
+- o `user_id` é o operador humano autenticado que clicou para assumir;
+- não foi observado endpoint REST/server-side documentado para executar a mesma ação;
+- pesquisas públicas não localizaram documentação oficial do PapoAI para takeover server-side do Agent External.
+
+Decisão de engenharia:
+- **não** reutilizar token/cookie/WebSocket da sessão do navegador no Supabase;
+- **não** fixar `user_id` de operador em produção;
+- **não** depender de protocolo interno/privado do frontend do PapoAI;
+- manter fail-safe da Edge v53: após solicitação de handoff, nossa IA pausa localmente;
+- manter fila interna `human_handoffs`/precedência humana do Commerce OS;
+- takeover automático no inbox do PapoAI continua **não homologado**.
+
+Bloqueio único restante da R7:
+- obter do PapoAI um contrato server-side/documentado para transferir/atribuir uma sessão do Agent External a humano/equipe **ou** confirmar oficialmente que essa automação não é suportada;
+- até isso, `handoff` permanece `attempted`, R7 segue 4/5 core e `ready_for_r8=false`.
+
+Não repetir testes de texto, imagem, áudio, silent ou chave.
