@@ -24,9 +24,309 @@ function r8Patch(area:string,input:any){const cfg=R8_CONFIGS[area],out:any={};if
 async function r8Configs(sb:any){const [ai,brain,commercial,channel,prices]=await Promise.all([sb.from("papoai_ai_runtime_config").select("*").eq("id",1).maybeSingle(),sb.from("papoai_commerce_brain_config").select("*").eq("id",1).maybeSingle(),sb.from("papoai_commercial_policy_config").select("*").eq("id",1).maybeSingle(),sb.from("papoai_channel_runtime_config").select("*").eq("id",1).maybeSingle(),sb.from("papoai_model_price_profiles").select("*").order("model")]);return {ai:ai.data,brain:brain.data,commercial:commercial.data,channel:channel.data,prices:prices.data||[]}}
 async function r8Overview(sb:any){const since24=new Date(Date.now()-86400000).toISOString(),since7=new Date(Date.now()-7*86400000).toISOString();const [activation,r7,products,customers,convs,orders,handoffs,planner,recent]=await Promise.all([sb.rpc("get_papoai_commerce_activation_readiness_v1"),sb.rpc("get_papoai_r7_readiness_v1"),sb.from("products").select("id",{count:"exact",head:true}).eq("is_active",true).eq("physically_verified",true).gt("stock",0).gt("price",0),sb.from("customers").select("id",{count:"exact",head:true}).eq("is_active",true),sb.from("conversations").select("id",{count:"exact",head:true}).gte("updated_at",since24),sb.from("orders").select("id",{count:"exact",head:true}).gte("created_at",since7),sb.from("human_handoffs").select("id",{count:"exact",head:true}).in("status",["open","claimed"]),sb.from("papoai_ai_planner_runs").select("id,success,decision,commercial_opportunity,latency_ms,input_tokens,cached_input_tokens,output_tokens,created_at").order("created_at",{ascending:false}).limit(12),sb.from("orders").select("id,order_number,status,total,source,created_at").order("created_at",{ascending:false}).limit(8)]);return {activation:activation.data||{},r7:r7.data||{},counts:{sellable_products:products.count||0,active_customers:customers.count||0,conversations_24h:convs.count||0,orders_7d:orders.count||0,pending_handoffs:handoffs.count||0},recent_orders:recent.data||[],recent_planner_runs:planner.data||[]}}
 async function r8Health(sb:any){const since=new Date(Date.now()-86400000).toISOString();const [activation,r7,r6,channel,pe,te,se,hq]=await Promise.all([sb.rpc("get_papoai_commerce_activation_readiness_v1"),sb.rpc("get_papoai_r7_readiness_v1"),sb.rpc("get_papoai_r6_readiness_v1"),sb.rpc("get_papoai_channel_readiness_v1"),sb.from("papoai_ai_planner_runs").select("id",{count:"exact",head:true}).eq("success",false).gte("created_at",since),sb.from("papoai_ai_tool_audit").select("id",{count:"exact",head:true}).eq("success",false).gte("created_at",since),sb.from("papoai_admin_simulator_runs").select("id",{count:"exact",head:true}).eq("success",false).gte("created_at",since),sb.rpc("get_papoai_assisted_handoff_queue_v1")]);return {activation:activation.data||{},r7:r7.data||{},r6:r6.data||{},channel:channel.data||{},errors_24h:{planner:pe.count||0,tools:te.count||0,simulator:se.count||0},handoff_queue:hq.data||{ok:true,count:0,items:[]}}}
-async function r8ReadTool(sb:any,key:string,args:any,conversationId:string|null){try{if(key==="search_products"){if(conversationId){const q=await sb.rpc("search_papoai_commerce_products_for_customer_v2",{p_conversation_id:conversationId,p_query:clean(args?.query,200),p_limit:Math.max(1,Math.min(12,Number(args?.limit||3))),p_max_price:args?.max_price??null,p_preference:["best_match","lowest_price","usual"].includes(args?.preference)?args.preference:"best_match"});return {ok:!q.error,result:q.data,error:q.error?.message||null}}const q=await sb.rpc("search_whatsapp_sellable_products_v1",{p_query:clean(args?.query,200),p_limit:Math.max(1,Math.min(12,Number(args?.limit||3)))});return {ok:!q.error,result:q.data,error:q.error?.message||null}}if(key==="search_baskets"){const q=await sb.rpc("get_papoai_commerce_basket_catalog_v1");return {ok:!q.error,result:q.data,error:q.error?.message||null}}if(key==="get_basket"){const q=await sb.rpc("get_papoai_commerce_basket_detail_v1",{p_basket_query:clean(args?.basket,180)});return {ok:!q.error,result:q.data,error:q.error?.message||null}}if(key==="get_product"&&uuid(args?.product_id)){const q=await sb.rpc("get_papoai_commerce_product_v1",{p_product_id:uuid(args.product_id)});return {ok:!q.error,result:q.data,error:q.error?.message||null}}if(!conversationId)return {ok:false,skipped:true,reason:"conversation_required"};const m:any={identify_customer:["get_papoai_commerce_customer_snapshot_v2",{p_conversation_id:conversationId}],get_customer_context:["get_papoai_commerce_customer_context_v3",{p_conversation_id:conversationId}],get_cart:["get_papoai_commerce_cart_state_v1",{p_conversation_id:conversationId}],get_checkout_next_step:["get_papoai_checkout_next_step_v1",{p_conversation_id:conversationId}],preview_order:["get_papoai_order_preview_v2",{p_conversation_id:conversationId,p_payment_method:args?.payment_method||null}],get_offers:["get_papoai_commerce_offers_v1",{p_conversation_id:conversationId,p_limit:Math.max(1,Math.min(10,Number(args?.limit||4)))}],recommend_replacement:["recommend_papoai_commerce_value_replacement_v1",{p_conversation_id:conversationId,p_source_query:clean(args?.source_query,180),p_limit:Math.max(1,Math.min(3,Number(args?.limit||3)))}]};if(!m[key])return {ok:false,skipped:true,reason:"write_or_unsupported_tool"};const q=await sb.rpc(m[key][0],m[key][1]);return {ok:!q.error,result:q.data,error:q.error?.message||null}}catch(e){return {ok:false,error:clean((e as Error)?.message,300)}}}
-async function r8FinalDraft(apiKey:string,model:string,message:string,plan:any,toolResults:any[]){if(!apiKey||!toolResults.length)return {text:plan?.response_draft||"",usage:null,latency_ms:0};const st=Date.now();try{const res=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},body:JSON.stringify({model,store:false,max_output_tokens:400,reasoning:{effort:"low"},instructions:"Redija a resposta final da atendente Dona Antônia em português brasileiro. Seja natural, curta e objetiva. Use somente fatos presentes nos resultados das tools. Nunca invente preço, estoque, total, produto, pedido ou dados do cliente. Não mencione ferramentas, JSON, sistema interno ou simulação.",input:[{role:"user",content:[{type:"input_text",text:JSON.stringify({message,plan,tool_results:toolResults})}]}],text:{verbosity:"low"}}),signal:AbortSignal.timeout(15000)});const data=await res.json().catch(()=>({}));if(!res.ok)return {text:plan?.response_draft||"",usage:data?.usage||null,latency_ms:Date.now()-st,error:"final_http_"+res.status};return {text:r8OutputText(data)||plan?.response_draft||"",usage:data?.usage||null,latency_ms:Date.now()-st}}catch(e){return {text:plan?.response_draft||"",usage:null,latency_ms:Date.now()-st,error:clean((e as Error)?.message,200)}}}
-async function r8Simulator(sb:any,actorId:string,body:any){const started=Date.now(),message=clean(body?.message,2000);if(!message)return {status:400,body:{ok:false,error:"message_required"}};let customerId=uuid(body?.customer_id)||null,conversationId=uuid(body?.conversation_id)||null;const phone=clean(body?.phone,40).replace(/[^\d+]/g,"");if(!customerId&&phone){const d=phone.replace(/\D/g,""),n=d.startsWith("55")?("+"+d):("+55"+d),q=await sb.from("customers").select("id").eq("primary_whatsapp_e164",n).maybeSingle();customerId=q.data?.id||null}if(!conversationId&&customerId){const q=await sb.from("conversations").select("id").eq("customer_id",customerId).order("updated_at",{ascending:false}).limit(1).maybeSingle();conversationId=q.data?.id||null}let context:any;if(conversationId){const q=await sb.rpc("get_papoai_ai_context_pack_v3",{p_conversation_id:conversationId,p_current_message:message});if(q.error)return {status:400,body:{ok:false,error:"context_failed",detail:q.error.message}};context=q.data||{}}else context={ok:true,schema_version:"papoai-admin-simulator-v1",current_message:message,conversation:{mode:"ai",stage:"new",response_preference:"auto"},customer_summary:{known_customer:false,personalization_available:false,direct_preferences:[],soft_preferences:[],frequent_products:[]},cart:{has_cart:false},checkout:{complete:false,question_count:0},pending_action:null,journey:{stage:"discovery",reason:"admin_simulator"},governor:{clarification_count:0,delegated:false},commercial:{opportunity:"none",reason:"simulator_default",candidate:null,recent_rejection:false,proactive_offer_count:0,max_proactive_offers_per_cart:1},human_precedence:{human_active:false,reason:"simulator"},policies:{max_segmenting_questions:2,delegation_means_recommend:true,ai_may_calculate_totals:false,commercial_calculation_authority:"supabase",full_catalog_in_context:false,full_history_in_context:false,sensitive_customer_fields_in_context:false},recent_messages:[],context_budget:{bytes:0,limit_bytes:18000,within_budget:true,recent_message_limit:0}};const [cfgQ,toolsQ,key]=await Promise.all([sb.from("papoai_ai_runtime_config").select("*").eq("id",1).single(),sb.rpc("get_papoai_ai_planner_tools_v1"),r8OpenAiKey(sb)]);if(cfgQ.error||!cfgQ.data)return {status:500,body:{ok:false,error:"runtime_config_missing"}};if(toolsQ.error)return {status:500,body:{ok:false,error:"tools_missing"}};if(!key)return {status:503,body:{ok:false,error:"openai_key_missing"}};const model=cfgQ.data.primary_model||"gpt-5.6-terra";const planned=await planPapoAiTurn({message,contextPack:context,tools:Array.isArray(toolsQ.data)?toolsQ.data:[],apiKey:key,model,reasoningEffort:cfgQ.data.primary_reasoning_effort||"low",maxOutputTokens:Math.min(800,Number(cfgQ.data.max_output_tokens||500))});const tr:any[]=[];for(const call of Array.isArray(planned?.plan?.tool_calls)?planned.plan.tool_calls.slice(0,6):[]){let a:any={};try{a=JSON.parse(String(call?.arguments_json||"{}"))}catch{}const tool=(Array.isArray(toolsQ.data)?toolsQ.data:[]).find((t:any)=>t?.tool_key===call?.tool_key);if(tool?.operation_kind==="read"){const rr=await r8ReadTool(sb,String(call.tool_key||""),a,conversationId);tr.push({tool_key:call.tool_key,operation_kind:"read",arguments:a,...rr})}else tr.push({tool_key:call?.tool_key||"",operation_kind:tool?.operation_kind||"unknown",arguments:a,ok:true,executed:false,blocked_by_simulator:true})}const final=planned?.ok?await r8FinalDraft(key,model,message,planned.plan,tr):{text:"",usage:null,latency_ms:0};const u1=planned?.usage||{},u2=final?.usage||{},input=Number(u1?.input_tokens||0)+Number(u2?.input_tokens||0),cached=Number(u1?.input_tokens_details?.cached_tokens||0)+Number(u2?.input_tokens_details?.cached_tokens||0),output=Number(u1?.output_tokens||0)+Number(u2?.output_tokens||0),pq=await sb.from("papoai_model_price_profiles").select("*").eq("model",model).maybeSingle(),price=pq.data;let cost:number|null=null;if(price){const nc=Math.max(0,input-cached);cost=(nc*Number(price.input_usd_per_million||0)+cached*Number(price.cached_input_usd_per_million||0)+output*Number(price.output_usd_per_million||0))/1000000}const cb=new TextEncoder().encode(JSON.stringify(context)).length,success=planned?.ok===true,row:any={actor_user_id:actorId,customer_id:customerId,conversation_id:conversationId,input_text:message,model,decision:planned?.plan?.decision||null,commercial_opportunity:planned?.plan?.commercial_opportunity||null,journey_stage:planned?.plan?.journey_stage||null,sales_next_step:planned?.plan?.sales_next_step||null,proposed_tool_calls:planned?.plan?.tool_calls||[],tool_results:tr,response_text:final?.text||planned?.plan?.response_draft||null,context_snapshot:context,context_bytes:cb,input_tokens:input,cached_input_tokens:cached,output_tokens:output,estimated_cost_usd:cost,latency_ms:Date.now()-started,success,error_code:success?null:String(planned?.error||"planner_failed")};const saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();return {status:200,body:{ok:success,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||null,response:row.response_text,decision:row.decision,confidence:planned?.plan?.confidence??null,commercial_opportunity:row.commercial_opportunity,journey_stage:row.journey_stage,sales_next_step:row.sales_next_step,should_handoff:Boolean(planned?.plan?.should_handoff),question:planned?.plan?.question||"",tools:row.proposed_tool_calls,tool_results:tr,context,metrics:{model,input_tokens:input,cached_input_tokens:cached,output_tokens:output,estimated_cost_usd:cost,latency_ms:row.latency_ms,context_bytes:cb},policy:{adjusted:Boolean(planned?.policy_adjusted),violations:planned?.policy_violations||[]},external_side_effect:false,writes_executed:false}}}
+async function r8ReadTool(sb:any,key:string,args:any,conversationId:string|null,context:any){
+  try{
+    if(key==="search_products"){
+      const q=await sb.rpc("search_papoai_commerce_products_v1",{
+        p_query:clean(args?.query,200),
+        p_limit:Math.max(1,Math.min(12,Number(args?.limit||3)))
+      });
+      return {
+        ok:!q.error,
+        result:q.data?.items||[],
+        search_meta:q.data?{
+          normalized_query:q.data.normalized_query||null,
+          count:q.data.count||0,
+          ranking_version:q.data.ranking_version||null
+        }:null,
+        error:q.error?.message||null
+      };
+    }
+    if(key==="search_baskets"){
+      const q=await sb.rpc("get_papoai_commerce_basket_catalog_v1");
+      return {ok:!q.error,result:q.data,error:q.error?.message||null};
+    }
+    if(key==="get_basket"){
+      const [detail,catalog]=await Promise.all([
+        sb.rpc("get_papoai_commerce_basket_detail_v1",{p_basket_query:clean(args?.basket,180)}),
+        sb.rpc("get_papoai_commerce_basket_catalog_v1")
+      ]);
+      let result=detail.data||null;
+      if(result?.found&&result?.basket&&Array.isArray(catalog.data)){
+        const match=catalog.data.find((x:any)=>
+          String(x?.id||"")===String(result.basket.id||"")
+          || String(x?.name||"").toLowerCase()===String(result.basket.name||"").toLowerCase()
+        );
+        if(match?.image_url){
+          result={...result,basket:{...result.basket,image_url:match.image_url}};
+        }
+      }
+      return {ok:!detail.error,result,error:detail.error?.message||null};
+    }
+    if(key==="get_product"&&uuid(args?.product_id)){
+      const q=await sb.rpc("get_papoai_commerce_product_v1",{p_product_id:uuid(args.product_id)});
+      return {ok:!q.error,result:q.data,error:q.error?.message||null};
+    }
+    if(key==="identify_customer"){
+      const s=context?.customer_summary||{};
+      return {ok:true,result:{
+        known_customer:Boolean(s.known_customer),
+        customer_id:s.customer_id||null,
+        first_name:s.first_name||null,
+        order_count:Number(s.order_count||0),
+        read_only:true
+      }};
+    }
+    if(key==="get_customer_context"){
+      return {ok:true,result:{...(context?.customer_summary||{}),read_only:true}};
+    }
+    if(key==="get_cart"){
+      return {ok:true,result:{...(context?.cart||{has_cart:false}),read_only:true}};
+    }
+    if(key==="get_checkout_next_step"){
+      const cart=context?.cart||{has_cart:false};
+      const checkout=context?.checkout||{};
+      const result=!cart?.has_cart
+        ? {step:"cart_missing",ready:false,read_only:true}
+        : !checkout?.payment_method
+          ? {
+              step:"collect_payment",
+              ready:false,
+              question_count:Number(checkout?.question_count||0),
+              prompt:"Como você prefere pagar? Pode ser Pix, dinheiro, cartão de crédito ou cartão alimentação/refeição.",
+              read_only:true
+            }
+          : {
+              step:"simulator_readonly",
+              ready:false,
+              payment_method:checkout.payment_method,
+              reason:"full checkout mutation is intentionally disabled in simulator",
+              read_only:true
+            };
+      return {ok:true,result};
+    }
+    if(key==="preview_order"){
+      return {ok:true,result:{
+        ready:false,
+        cart:context?.cart||{has_cart:false},
+        checkout:context?.checkout||{},
+        payment_method:args?.payment_method||context?.checkout?.payment_method||null,
+        writes_performed:false,
+        simulator_read_only:true
+      }};
+    }
+    if(key==="get_offers"){
+      const limit=Math.max(1,Math.min(10,Number(args?.limit||4)));
+      const q=await sb.from("products")
+        .select("id,name,brand,category,price,offer_price,stock,image_url")
+        .eq("is_active",true)
+        .eq("physically_verified",true)
+        .eq("is_offer",true)
+        .gt("stock",0)
+        .gt("offer_price",0)
+        .order("sort_order",{ascending:true,nullsFirst:false})
+        .limit(limit);
+      const items=(q.data||[])
+        .filter((x:any)=>Number(x.offer_price||0)<=Number(x.price||0))
+        .map((x:any)=>({
+          product_id:x.id,name:x.name,brand:x.brand,category:x.category,
+          regular_price:x.price,offer_price:x.offer_price,commercial_price:x.offer_price,
+          stock:x.stock,image_url:x.image_url
+        }));
+      return {ok:!q.error,result:{ok:!q.error,count:items.length,items,personalized:false,read_only:true},error:q.error?.message||null};
+    }
+    if(key==="recommend_replacement"){
+      if(!conversationId)return {ok:false,skipped:true,reason:"conversation_required"};
+      const q=await sb.rpc("recommend_papoai_commerce_value_replacement_v1",{
+        p_conversation_id:conversationId,
+        p_source_query:clean(args?.source_query,180),
+        p_limit:Math.max(1,Math.min(3,Number(args?.limit||3)))
+      });
+      return {ok:!q.error,result:q.data,error:q.error?.message||null};
+    }
+    return {ok:false,skipped:true,reason:"write_or_unsupported_tool"};
+  }catch(e){
+    return {ok:false,error:clean((e as Error)?.message,300)};
+  }
+}
+async function r8FinalDraft(apiKey:string,model:string,message:string,plan:any,toolResults:any[]){
+  if(!apiKey||!toolResults.length)return {text:plan?.response_draft||"",usage:null,latency_ms:0};
+  const st=Date.now();
+  try{
+    const res=await fetch("https://api.openai.com/v1/responses",{
+      method:"POST",
+      headers:{Authorization:"Bearer "+apiKey,"Content-Type":"application/json"},
+      body:JSON.stringify({
+        model,store:false,max_output_tokens:400,reasoning:{effort:"low"},
+        instructions:[
+          "Redija a resposta final da atendente Dona Antônia em português brasileiro.",
+          "Seja natural, curta e objetiva.",
+          "Use somente fatos presentes nos resultados das tools.",
+          "Nunca invente preço, estoque, total, produto, pedido ou dados do cliente.",
+          "Se o cliente pediu foto ou imagem e o resultado contém image_url, diga que a imagem está disponível e será mostrada; nunca diga que não conseguiu acessar.",
+          "Não mencione ferramentas, JSON, sistema interno ou simulação."
+        ].join(" "),
+        input:[{role:"user",content:[{type:"input_text",text:JSON.stringify({message,plan,tool_results:toolResults})}]}],
+        text:{verbosity:"low"}
+      }),
+      signal:AbortSignal.timeout(15000)
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok)return {text:plan?.response_draft||"",usage:data?.usage||null,latency_ms:Date.now()-st,error:"final_http_"+res.status};
+    return {text:r8OutputText(data)||plan?.response_draft||"",usage:data?.usage||null,latency_ms:Date.now()-st};
+  }catch(e){
+    return {text:plan?.response_draft||"",usage:null,latency_ms:Date.now()-st,error:clean((e as Error)?.message,200)};
+  }
+}
+function r8MediaPreview(message:string,toolResults:any[]){
+  if(!/(foto|imagem|mostrar|mostra|mande|manda|ver\s+(a|uma)?\s*(foto|imagem))/i.test(message))return null;
+  for(const tr of toolResults||[]){
+    const r=tr?.result;
+    if(r?.basket?.image_url)return {url:r.basket.image_url,label:r.basket.display_name||r.basket.name||"Cesta",kind:"basket"};
+    if(Array.isArray(r)){
+      const x=r.find((v:any)=>v?.image_url);
+      if(x)return {url:x.image_url,label:x.name||"Produto",kind:"product"};
+    }
+    if(Array.isArray(r?.items)){
+      const x=r.items.find((v:any)=>v?.image_url);
+      if(x)return {url:x.image_url,label:x.name||"Produto",kind:"product"};
+    }
+    if(r?.image_url)return {url:r.image_url,label:r.name||"Produto",kind:"product"};
+  }
+  return null;
+}
+async function r8Simulator(sb:any,actorId:string,body:any){
+  const started=Date.now(),message=clean(body?.message,2000);
+  if(!message)return {status:400,body:{ok:false,error:"message_required"}};
+
+  let customerId=uuid(body?.customer_id)||null;
+  let conversationId=uuid(body?.conversation_id)||null;
+  const phone=clean(body?.phone,40).replace(/[^\d+]/g,"");
+
+  if(!customerId&&phone){
+    const d=phone.replace(/\D/g,"");
+    const n=d.startsWith("55")?("+"+d):("+55"+d);
+    const q=await sb.from("customers").select("id").eq("primary_whatsapp_e164",n).maybeSingle();
+    customerId=q.data?.id||null;
+  }
+  if(!conversationId&&customerId){
+    const q=await sb.from("conversations")
+      .select("id")
+      .eq("customer_id",customerId)
+      .order("updated_at",{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    conversationId=q.data?.id||null;
+  }
+
+  const [contextQ,knowledgeQ,cfgQ,toolsQ,key]=await Promise.all([
+    sb.rpc("get_papoai_admin_simulator_context_v1",{
+      p_message:message,
+      p_customer_id:customerId,
+      p_conversation_id:conversationId
+    }),
+    sb.rpc("search_service_knowledge_text_v1",{p_query:message,p_limit:4}),
+    sb.from("papoai_ai_runtime_config").select("*").eq("id",1).single(),
+    sb.rpc("get_papoai_ai_planner_tools_v1"),
+    r8OpenAiKey(sb)
+  ]);
+
+  if(contextQ.error)return {status:400,body:{ok:false,error:"context_failed",detail:contextQ.error.message}};
+  if(cfgQ.error||!cfgQ.data)return {status:500,body:{ok:false,error:"runtime_config_missing"}};
+  if(toolsQ.error)return {status:500,body:{ok:false,error:"tools_missing"}};
+  if(!key)return {status:503,body:{ok:false,error:"openai_key_missing"}};
+
+  const serviceKnowledge=knowledgeQ.error?[]:(knowledgeQ.data||[]);
+  const context={
+    ...(contextQ.data||{}),
+    service_knowledge:serviceKnowledge,
+    service_intelligence:{
+      ...((contextQ.data||{})?.service_intelligence||{}),
+      enabled:true,
+      retrieval:"admin_simulator_published_knowledge",
+      simulation_only:true,
+      knowledge:serviceKnowledge
+    }
+  };
+
+  const model=cfgQ.data.primary_model||"gpt-5.6-terra";
+  const planned=await planPapoAiTurn({
+    message,
+    contextPack:context,
+    tools:Array.isArray(toolsQ.data)?toolsQ.data:[],
+    apiKey:key,
+    model,
+    reasoningEffort:cfgQ.data.primary_reasoning_effort||"low",
+    maxOutputTokens:Math.min(800,Number(cfgQ.data.max_output_tokens||500))
+  });
+
+  const tr:any[]=[];
+  for(const call of Array.isArray(planned?.plan?.tool_calls)?planned.plan.tool_calls.slice(0,6):[]){
+    let args:any={};
+    try{args=JSON.parse(String(call?.arguments_json||"{}"))}catch{}
+    const tool=(Array.isArray(toolsQ.data)?toolsQ.data:[]).find((t:any)=>t?.tool_key===call?.tool_key);
+    if(tool?.operation_kind==="read"){
+      const rr=await r8ReadTool(sb,String(call.tool_key||""),args,conversationId,context);
+      tr.push({tool_key:call.tool_key,operation_kind:"read",arguments:args,...rr});
+    }else{
+      tr.push({
+        tool_key:call?.tool_key||"",
+        operation_kind:tool?.operation_kind||"unknown",
+        arguments:args,ok:true,executed:false,blocked_by_simulator:true
+      });
+    }
+  }
+
+  const mediaPreview=r8MediaPreview(message,tr);
+  const final=planned?.ok
+    ? await r8FinalDraft(key,model,message,planned.plan,tr)
+    : {text:"",usage:null,latency_ms:0};
+
+  let responseText=final?.text||planned?.plan?.response_draft||"";
+  if(mediaPreview&&/(não consegui|nao consegui|não foi possível|nao foi possivel)/i.test(responseText)){
+    responseText="Claro! Aqui está "+mediaPreview.label+".";
+  }
+
+  const u1=planned?.usage||{},u2=final?.usage||{};
+  const input=Number(u1?.input_tokens||0)+Number(u2?.input_tokens||0);
+  const cached=Number(u1?.input_tokens_details?.cached_tokens||0)+Number(u2?.input_tokens_details?.cached_tokens||0);
+  const output=Number(u1?.output_tokens||0)+Number(u2?.output_tokens||0);
+  const pq=await sb.from("papoai_model_price_profiles").select("*").eq("model",model).maybeSingle();
+  const price=pq.data;
+  let cost:number|null=null;
+  if(price){
+    const nc=Math.max(0,input-cached);
+    cost=(nc*Number(price.input_usd_per_million||0)+cached*Number(price.cached_input_usd_per_million||0)+output*Number(price.output_usd_per_million||0))/1000000;
+  }
+
+  const cb=new TextEncoder().encode(JSON.stringify(context)).length;
+  const success=planned?.ok===true;
+  const row:any={
+    actor_user_id:actorId,customer_id:customerId,conversation_id:conversationId,input_text:message,
+    model,decision:planned?.plan?.decision||null,commercial_opportunity:planned?.plan?.commercial_opportunity||null,
+    journey_stage:planned?.plan?.journey_stage||null,sales_next_step:planned?.plan?.sales_next_step||null,
+    proposed_tool_calls:planned?.plan?.tool_calls||[],tool_results:tr,response_text:responseText,
+    context_snapshot:context,context_bytes:cb,input_tokens:input,cached_input_tokens:cached,output_tokens:output,
+    estimated_cost_usd:cost,latency_ms:Date.now()-started,success,
+    error_code:success?null:String(planned?.error||"planner_failed")
+  };
+  const saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();
+
+  return {status:200,body:{
+    ok:success,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||null,
+    response:responseText,decision:row.decision,confidence:planned?.plan?.confidence??null,
+    commercial_opportunity:row.commercial_opportunity,journey_stage:row.journey_stage,
+    sales_next_step:row.sales_next_step,should_handoff:Boolean(planned?.plan?.should_handoff),
+    question:planned?.plan?.question||"",tools:row.proposed_tool_calls,tool_results:tr,context,
+    media_preview:mediaPreview,
+    metrics:{
+      model,input_tokens:input,cached_input_tokens:cached,output_tokens:output,
+      estimated_cost_usd:cost,latency_ms:row.latency_ms,context_bytes:cb
+    },
+    policy:{adjusted:Boolean(planned?.policy_adjusted),violations:planned?.policy_violations||[]},
+    external_side_effect:false,writes_executed:false,context_mode:"strict_read_only"
+  }};
+}
 
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
