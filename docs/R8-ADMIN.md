@@ -14,7 +14,7 @@ Admin próprio do Commerce OS, separado do inbox/chat do PapoAI, para observar, 
 - produção continua OFF.
 
 ## Runtime
-- `admin-service-intelligence-v1`: **v9 ACTIVE**;
+- `admin-service-intelligence-v1`: **v10 ACTIVE**;
 - `admin-pin-auth-v1`: **v6 ACTIVE**;
 - UI publicada como página estática do site oficial em `https://donaantonia.com.br/admin/commerce-os/`;
 - autenticação reutiliza Supabase Auth + `admin_users`;
@@ -96,3 +96,27 @@ Correção aplicada:
 - POST continua sendo a API autenticada;
 - readiness atualizado para exigir `r8_admin_ui_hosted=true`, não HTML embutido na Edge;
 - blocker continua somente `r8_physical_admin_smoke_pending`.
+
+
+## Smoke R8 — correção do Simulador — 22/09/2026
+
+Primeiro smoke físico:
+- UI renderizou corretamente;
+- login Admin funcionou;
+- planner executou;
+- decisão/tools/contexto/métricas foram exibidos;
+- foi detectado erro de contrato no READ `get_basket`.
+
+Causa:
+- RPC real: `get_papoai_commerce_basket_detail_v1(p_basket_query text)`;
+- Simulador enviava `p_basket`.
+
+Correção:
+- parâmetro alterado para `p_basket_query`;
+- `admin-service-intelligence-v1` promovida para **v10 ACTIVE**;
+- todos os 11 READs do Simulador tiveram assinatura revisada;
+- teste interno read-only com dados reais passou;
+- `r8_simulator_read_contract_verified=true`;
+- issue: `get_basket_parameter_mismatch_fixed`.
+
+Ainda falta somente repetir uma simulação física após a correção para marcar `r8_physical_admin_smoke_verified=true`.
