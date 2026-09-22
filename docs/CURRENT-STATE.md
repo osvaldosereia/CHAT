@@ -842,3 +842,18 @@ Política de desenvolvimento a partir deste ponto:
 - programar por blocos amplos;
 - evitar bateria repetitiva de testes durante cada pequena alteração;
 - executar apenas smoke/regressão curta ao final de cada bloco, salvo bug real novo.
+
+
+## SELEÇÃO DE PRODUTO V2.2 — 22/09/2026
+
+Bloco implementado sem nova bateria extensa de testes:
+- `papo-external-agent-v1`: **v75 ACTIVE**;
+- escolha por número continua determinística;
+- escolha por nome agora tolera pequenos erros de digitação;
+- nome + preço aproximado continua tendo prioridade alta;
+- tolerância de preço é limitada e proporcional, com teto;
+- fuzzy sozinho não executa escolha arriscada: quando a confiança não é alta, responde com confirmação do candidato;
+- ambiguidades continuam retornando lista curta para o cliente escolher;
+- `write_enabled=false`, Bling OFF e learning OFF permanecem intactos.
+
+Política: busca pode ser tolerante para encontrar candidatos; execução/seleção deve ser conservadora para não escolher produto errado.
