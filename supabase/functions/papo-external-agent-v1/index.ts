@@ -1995,11 +1995,72 @@ Deno.serve(async(req:Request)=>{
           text+='\n\n(Nesta homologação a aplicação da troca ainda está desativada.)';
         }
       }
+    }else if(intent.intent==='identify_product_choice'&&conversationId&&pendingProductChoice){
+      const resolved=pendingChoiceResolution;
+      const selected=resolved?.item||null;
+      if(!selected){
+        text='Não consegui identificar qual item da lista você escolheu. Pode me passar o número da opção?';
+      }else{
+        const nextPayload={
+          ...(pendingProductChoice.payload||{}),
+          selected_index:Number(resolved.index||0),
+          selected_item:selected,
+          selection_method:String(resolved.method||'contextual'),
+          selected_at:new Date().toISOString()
+        };
+        await sb.from('papoai_commerce_pending_actions')
+          .update({payload:nextPayload,updated_at:new Date().toISOString()})
+          .eq('id',pendingProductChoice.id);
+
+        result={selected,items:[selected],force_media_url:null};
+        text=`✅ Entendi: **${selected.name}** — **${moneyBR(selected.commercial_price??selected.offer_price??selected.regular_price)}**.`;
+        if(!isBasicStapleProduct(selected)&&selected?.image_url){
+          text+='\n\nSe quiser conferir antes, posso mandar a foto desse produto.';
+        }
+        text+='\n\nQuer seguir com esse item?';
+      }
+    }else if(intent.intent==='clarify_product_choice'&&conversationId){
+      const matches=Array.isArray(pendingChoiceResolution?.matches)?pendingChoiceResolution.matches:[];
+      const rows=matches.map((x:any)=>`${x.index}. ${x.item?.name} — ${moneyBR(x.item?.commercial_price??x.item?.offer_price??x.item?.regular_price)}`);
+      text=rows.length
+        ? `Encontrei mais de uma opção parecida:\n\n${rows.join('\n')}\n\nQual delas você quer? Pode responder pelo número.`
+        : 'Encontrei mais de uma opção parecida. Pode me passar o número do produto na lista?';
+      result={items:matches.map((x:any)=>x.item)};
+    }else if(intent.intent==='product_choice_out_of_range'){
+      text=`Essa opção não existe nessa lista. Escolha um número de **1 a ${pendingChoiceResolution?.candidate_count||20}**.`;
+      result={items:[]};
+    }else if(intent.intent==='selected_product_photo'&&conversationId&&pendingProductChoice){
+      const selected=pendingProductChoice?.payload?.selected_item||null;
+      if(selected?.image_url){
+        text=`📷 Aqui está **${selected.name}** — **${moneyBR(selected.commercial_price??selected.offer_price??selected.regular_price)}**.`;
+        result={selected,items:[selected],force_media_url:selected.image_url};
+      }else{
+        text='Esse produto não tem uma foto disponível no catálogo agora.';
+        result={selected,items:selected?[selected]:[]};
+      }
     }else if(intent.intent==='search_products'&&conversationId){
       const governorEnabled=commerceCfg?.metadata?.conversation_governor_enabled===true;
       const productQuery=intent.query||normalized.messageText;
+      const catalogList=isCatalogListRequest(normalized.messageText);
 
-      if(governorEnabled){
+      if(catalogList){
+        const q=await sb.rpc('execute_papoai_commerce_command_v1',{
+          p_conversation_id:conversationId,
+          p_command:{type:'propose_product_choice',query:productQuery,limit:20}
+        });
+        if(q.error)throw q.error;
+        const choices=Array.isArray(q.data?.candidates)?q.data.candidates:[];
+        result={...(q.data||{}),items:choices};
+        if(!choices.length){
+          text='Não encontrei esse produto disponível agora. Se quiser, me diga outra marca, tamanho ou tipo.';
+        }else if(choices.length===1){
+          const p=choices[0];
+          text=`🛒 Encontrei:\n\n1. ${p.name} — ${moneyBR(p.commercial_price)}\n\nQuer esse item?`;
+          if(!isBasicStapleProduct(p)&&p?.image_url)text+=' Se quiser conferir, posso mandar a foto.';
+        }else{
+          text=`🛒 Encontrei ${choices.length} opções:\n\n${numberedProductsText(choices,20)}\n\nResponda com o **número da opção**. Se preferir, pode escrever o nome e um valor aproximado, por exemplo: “OMO de 19 reais”.`;
+        }
+      }else if(governorEnabled){
         const broadQ=await sb.rpc('search_papoai_commerce_products_for_customer_v1',{
           p_conversation_id:conversationId,
           p_query:productQuery,
@@ -2083,7 +2144,7 @@ Deno.serve(async(req:Request)=>{
       }else{
         const q=await sb.rpc('execute_papoai_commerce_command_v1',{
           p_conversation_id:conversationId,
-          p_command:{type:'propose_product_choice',query:productQuery,limit:3}
+          p_command:{type:'propose_product_choice',query:productQuery,limit:5}
         });
         if(q.error)throw q.error;
         const choices=Array.isArray(q.data?.candidates)?q.data.candidates:[];
@@ -2094,13 +2155,13 @@ Deno.serve(async(req:Request)=>{
           const p=choices[0];
           text=`Encontrei **${p.name}** por **${moneyBR(p.commercial_price)}**. Quer que eu adicione ao pedido?`;
         }else{
-          text=`Encontrei estas opções:\n\n${numberedProductsText(choices)}\n\nQual você prefere? Pode responder **1, 2 ou 3**.`;
+          text=`Encontrei estas opções:\n\n${numberedProductsText(choices,5)}\n\nQual você prefere? Pode responder pelo **número da opção**.`;
         }
       }
     }else if(intent.intent==='search_products'){
-      const q=await sb.rpc('search_papoai_commerce_products_v1',{p_query:intent.query||normalized.messageText,p_limit:3});
+      const q=await sb.rpc('search_papoai_commerce_products_v1',{p_query:intent.query||normalized.messageText,p_limit:20});
       result=q.data;
-      text=productsText(result?.items||[]);
+      text=productsText(result?.items||[],20);
     }else if(intent.intent==='select_product_choice'&&conversationId){
       if(commerceCfg?.write_enabled!==true){
         text='A escolha foi entendida, mas a gravação do carrinho ainda está desativada nesta homologação.';
@@ -2419,7 +2480,11 @@ Deno.serve(async(req:Request)=>{
     }
 
     if(!responseBody){
-      const mediaUrl=result?.image_url||result?.basket?.image_url||(result?.items?.length===1?result.items[0]?.image_url:null)||null;
+      const explicitMedia=isExplicitPhotoRequest(normalized.messageText);
+      const mediaUrl=result?.force_media_url
+        ||(explicitMedia
+          ? (result?.image_url||result?.basket?.image_url||(result?.items?.length===1?result.items[0]?.image_url:null)||null)
+          : null);
       responseBody=commerceTextResponse({text,mediaUrl,sessionKey:normalized.sessionKey,correlationId});
     }
   }
