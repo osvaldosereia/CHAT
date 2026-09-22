@@ -30,6 +30,10 @@ export function deterministicCommerceIntent(message){
     return {intent:'confirm_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   }
   if(/\bfiado\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:pix|cart[aã]o(?:\s+de\s+cr[eé]dito)?|cr[eé]dito|d[eé]bito|dinheiro|alimenta[cç][aã]o|refei[cç][aã]o)\b.*\b(?:pode|aceita|passa|funciona)\??$/.test(m))
+    return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:pode|aceita|passa)\b.*\b(?:pix|cart[aã]o|cr[eé]dito|d[eé]bito|dinheiro|alimenta[cç][aã]o|refei[cç][aã]o)\b/.test(m))
+    return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:tem\s+como|aceita|aceitam|passa|passam|posso|pode)\b.*\b(?:d[eé]bito|debito)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:anota|anotar)\b.*\b(?:pago|pagar)\b.*\b(?:dps|depois)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:passa|aceita|aceitam)\b.*\b(?:alimenta[cç][aã]o|refei[cç][aã]o|alelo|sodexo|puxee|caju|flash|ifood)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
@@ -44,7 +48,7 @@ export function deterministicCommerceIntent(message){
   if(
     /^(?:n[aã]o|nao|n)?[\s,.-]*(?:cancela|cancelar|deixa|deixa\s+pra\s+l[aá]|deixa\s+isso|esquece|n[aã]o\s+quero\s+mais)(?:[\s,.!-].*)?$/i.test(m)
   )return {intent:'cancel_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
-  if(/\b(repete|repetir|repetir a|quero a mesma|mesma cesta|mesmo pedido|ultima cesta|última cesta|ultimo pedido|último pedido)\b/.test(m))return {intent:'repeat_last_purchase',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(/\b(repete|repetir|repetir a|quero a mesma|mesma cesta|mesmo pedido|ultima cesta|última cesta|ultimo pedido|último pedido|comprar de novo|compra de novo|quero comprar de novo)\b/.test(m))return {intent:'repeat_last_purchase',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(
     /\b(fecha|fechar|finaliza|finalizar|conclui|concluir)\b.*\b(pedido|compra|cesta)\b/.test(m)
     || /\b(pedido|compra|cesta)\b.*\b(fecha|fechar|finaliza|finalizar|conclui|concluir)\b/.test(m)
@@ -56,7 +60,12 @@ export function deterministicCommerceIntent(message){
     /\b(?:entrega|entregar|chega|chegar)\b/.test(m)
     && /\b(?:amanh[aã]\s+cedo|amanh[aã]\s+(?:de\s+)?manh[aã]|amanh[aã]\s+(?:a|à)\s+tarde|hoje\s+cedo|hoje\s+(?:de\s+)?manh[aã]|hoje\s+(?:a|à)\s+tarde|que\s+horas?|hor[aá]rio|janela|antes\s+das|depois\s+das|[àa]s?\s*\d{1,2}(?::\d{2})?\s*h?)\b/.test(m)
   )return {intent:'delivery_schedule',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
-  if(/\b(atendente|humano|pessoa|falar com algu[eé]m|vendedor(?:a)?|algu[eé]m da equipe|gente de verdade)\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(
+    /\b(?:entrega|entregar|frete|taxa\s+de\s+entrega|chega|chegar|manda(?:r)?\s+(?:pra|para)|delivery)\b/.test(m)
+    || /\b(?:cuiab[aá]|cba|v[aá]rzea\s+grande|vg|chapada\s+dos\s+guimar[aã]es|cpa|cristo\s+rei|shopping\s+pantanal)\b/.test(m)
+       && /\b(?:entrega|manda|chega|frete)\b/.test(m)
+  )return {intent:'delivery_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(atendente|humano|pessoa|falar com algu[eé]m|vendedor(?:a)?|algu[eé]m da equipe|gente de verdade|quero fala?r? com gente|falar com gente|n[aã]o quero falar com rob[oô]|sem rob[oô])\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(voce decide|você decide|pode decidir|escolhe pra mim|escolha pra mim|voce escolhe|você escolhe)\b/.test(m)
      && /\b(tira|tirar|retira|retirar|remove|remover|troca|trocar)\b/.test(m)){
     const mm=m.match(/\b(?:tira|tirar|retira|retirar|remove|remover|troca|trocar)\s+(?:o|a|os|as)?\s*([^,.;!?]+?)(?:\s+e\s+|\s+por\s+|$)/);
@@ -107,7 +116,7 @@ export function deterministicCommerceIntent(message){
       quantity:0
     };
   }
-  if(/\b(ofertas?|promo[cç][aã]o|promo[cç][oõ]es)\b/.test(m))return {intent:'offers',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(/\b(ofertas?|promo[cç][aã]o|promo[cç][oõ]es|descontos?|promo)\b/.test(m))return {intent:'offers',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
 
   const delegatedReplacement=m.match(/\b(?:troca|trocar|tira|tirar|retira|retirar|remove|remover)\s+(?:o|a|os|as)?\s*([^,.!?]+?)\s+(?:por|e coloca|e poe|e põe)\s+(?:outra coisa|algo diferente|o que voce quiser|o que você quiser)\b/);
   if(delegatedReplacement)return {
@@ -129,6 +138,20 @@ export function deterministicCommerceIntent(message){
     quantity:0
   };
 
+  if(/\b(?:voce sabe quem eu sou|você sabe quem eu sou|sabe quem eu sou|o que eu costumo comprar|oq eu costumo comprar|meu hist[oó]rico|minhas compras)\b/.test(m))
+    return {intent:'customer_context',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+
+  if(/\b(?:senha|chave api|api key|service[_ -]?role|token|segredo|credencial|pre[cç]o de custo|custo dos produtos|custo do arroz|ignora (?:as |suas )?regras|finge que sou administrador|vende sem cobrar|confirma sem pagar|desconto de 50|desconto de 90)\b/.test(m))
+    return {intent:'safety_policy',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+
+  if(/\b(?:vc vende mercado|voc[eê]s vendem mercado|como funciona ai|como funciona a[ií]|o que voc[eê]s vendem|como comprar|tem loja|posso retirar)\b/.test(m))
+    return {intent:'business_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+
+  if(
+    /\b(?:tem|t[eê]m|vende|vendem|quanto|qto|qual|quais|pre[cç]o|preco|procuro|queria|quero)\b/.test(m)
+    || /\b(?:rexona|arroz|aroz|leite|omo|shampoo|shampu|caf[eé]|a[cç][uú]car|sab[aã]o|detergente|colgate|papel\s+higi[eê]nico|feij[aã]o|amaciante|sabonete|saboneti|[oó]leo)\b/.test(m)
+  )return {intent:'search_products',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+
   return null;
 }
 
@@ -141,7 +164,7 @@ export async function classifyCommerceIntent({message,history,apiKey,model='gpt-
   const schema={
     type:'object',additionalProperties:false,
     properties:{
-      intent:{type:'string',enum:['greeting','list_baskets','basket_disambiguate','basket_detail','delivery_schedule','start_basket','repeat_last_purchase','search_products','select_product_choice','delegated_value_replacement','offers','cart_state','cart_summary','checkout_readiness','customer_context','set_basket_quantity','set_addon_quantity','replace_basket_item','payment_info','set_payment_method','confirm_pending','cancel_pending','handoff','general']},
+      intent:{type:'string',enum:['greeting','list_baskets','basket_disambiguate','basket_detail','delivery_schedule','delivery_info','business_info','safety_policy','start_basket','repeat_last_purchase','search_products','select_product_choice','delegated_value_replacement','offers','cart_state','cart_summary','checkout_readiness','customer_context','set_basket_quantity','set_addon_quantity','replace_basket_item','payment_info','set_payment_method','confirm_pending','cancel_pending','handoff','general']},
       basket:{type:'string'},
       query:{type:'string'},
       source_query:{type:'string'},
