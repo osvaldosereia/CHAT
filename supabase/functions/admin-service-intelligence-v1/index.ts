@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { planPapoAiTurn } from "../_shared/papoai-ai-planner-v1.mjs";
+import { deterministicCommerceIntent } from "../_shared/papoai-commerce-intent-v1.mjs";
 
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type","Access-Control-Allow-Methods":"GET,POST,OPTIONS"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...CORS,"Content-Type":"application/json","Cache-Control":"no-store"}});
@@ -309,17 +310,27 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
   const paymentPolicy=Array.isArray(serviceKnowledge)
     ? serviceKnowledge.find((x:any)=>x?.key==="payment_baseline")
     : null;
-  if(context?.service_intelligence?.topic==="payment"&&paymentPolicy?.content){
-    const responseText=String(paymentPolicy.content)
-      .replace(/\s*Nunca invente[\s\S]*$/i,"")
-      .trim();
+  const deterministicIntent=deterministicCommerceIntent(message);
+
+  const deterministicReturn=async({
+    response,
+    decision="RESPOND",
+    tools=[],
+    toolResults=[],
+    mediaPreview=null,
+    model="deterministic-router",
+    salesNextStep="answer_need",
+    question="",
+    shouldHandoff=false
+  }:any)=>{
     const latency=Date.now()-started;
+    const contextBytes=new TextEncoder().encode(JSON.stringify(context)).length;
     const row:any={
       actor_user_id:actorId,customer_id:customerId,conversation_id:conversationId,input_text:message,
-      model:"deterministic-policy",decision:"RESPOND",commercial_opportunity:"none",
-      journey_stage:context?.journey?.stage||"discovery",sales_next_step:"answer_need",
-      proposed_tool_calls:[],tool_results:[],response_text:responseText,
-      context_snapshot:context,context_bytes:new TextEncoder().encode(JSON.stringify(context)).length,
+      model,decision,commercial_opportunity:"none",
+      journey_stage:context?.journey?.stage||"discovery",sales_next_step:salesNextStep,
+      proposed_tool_calls:tools,tool_results:toolResults,response_text:response,
+      context_snapshot:context,context_bytes:contextBytes,
       input_tokens:0,cached_input_tokens:0,output_tokens:0,estimated_cost_usd:0,
       latency_ms:latency,success:true,error_code:null
     };
@@ -329,13 +340,118 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     }
     return {status:200,body:{
       ok:true,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||new Date().toISOString(),
-      response:responseText,decision:"RESPOND",confidence:1,
-      commercial_opportunity:"none",journey_stage:row.journey_stage,sales_next_step:"answer_need",
-      should_handoff:false,question:"",tools:[],tool_results:[],context,media_preview:null,
-      metrics:{model:"deterministic-policy",input_tokens:0,cached_input_tokens:0,output_tokens:0,estimated_cost_usd:0,latency_ms:latency,context_bytes:row.context_bytes},
+      response,decision,confidence:1,
+      commercial_opportunity:"none",journey_stage:row.journey_stage,sales_next_step:salesNextStep,
+      should_handoff:shouldHandoff,question,tools,tool_results:toolResults,context,
+      media_preview:mediaPreview,
+      metrics:{model,input_tokens:0,cached_input_tokens:0,output_tokens:0,estimated_cost_usd:0,latency_ms:latency,context_bytes:contextBytes},
       policy:{adjusted:false,violations:[]},
       external_side_effect:false,writes_executed:false,context_mode:"strict_read_only"
     }};
+  };
+
+  if(deterministicIntent?.intent==="payment_info"&&paymentPolicy?.content){
+    const responseText=String(paymentPolicy.content)
+      .replace(/\s*Nunca invente[\s\S]*$/i,"")
+      .trim();
+    return await deterministicReturn({
+      response:responseText,
+      decision:"RESPOND",
+      model:"deterministic-policy",
+      salesNextStep:"answer_need"
+    });
+  }
+
+  if(deterministicIntent?.intent==="basket_disambiguate"){
+    const rr=await r8ReadTool(sb,"search_baskets",{},conversationId,context);
+    const catalog=Array.isArray(rr?.result)?rr.result:[];
+    const scale=String(deterministicIntent?.basket||deterministicIntent?.query||"").toLowerCase();
+    const matches=catalog.filter((x:any)=>String(x?.name||x?.display_name||"").toLowerCase().includes(scale));
+    const names=matches.slice(0,4).map((x:any)=>x?.display_name||x?.name).filter(Boolean);
+    const responseText=names.length>1
+      ? `Temos ${names.join(" e ")}. Qual delas você quer ver?`
+      : names.length===1
+        ? `Você quer a ${names[0]}?`
+        : "Temos mais de uma cesta. Você quer Bonini ou Koblenz?";
+    const tools=[{tool_key:"search_baskets",arguments_json:"{}"}];
+    const toolResults=[{tool_key:"search_baskets",operation_kind:"read",arguments:{},...rr}];
+    return await deterministicReturn({
+      response:responseText,decision:"ASK",tools,toolResults,
+      question:responseText,salesNextStep:"clarify_basket"
+    });
+  }
+
+  if(deterministicIntent?.intent==="basket_detail"){
+    const basket=String(deterministicIntent?.basket||deterministicIntent?.query||"").trim();
+    const rr=await r8ReadTool(sb,"get_basket",{basket},conversationId,context);
+    const detail=rr?.result||{};
+    const b=detail?.basket||{};
+    const items=Array.isArray(detail?.items)?detail.items:[];
+    const wantsPhoto=/(foto|imagem|mostrar|mostra|manda)/i.test(message);
+    let responseText="";
+    if(detail?.found){
+      if(wantsPhoto&&b?.image_url){
+        responseText=`Claro! Aqui está a ${b?.display_name||b?.name||basket}.`;
+      }else{
+        const itemText=items.map((x:any)=>`${Number(x?.quantity||1)}x ${x?.name||"item"}`).join(", ");
+        responseText=`${b?.display_name||b?.name||basket} custa R$ ${Number(b?.commercial_price||0).toFixed(2).replace(".",",")} e vem com: ${itemText}.`;
+      }
+    }else{
+      responseText="Não consegui localizar essa cesta pelo nome. Me diga se é Bonini ou Koblenz.";
+    }
+    const tools=[{tool_key:"get_basket",arguments_json:JSON.stringify({basket})}];
+    const toolResults=[{tool_key:"get_basket",operation_kind:"read",arguments:{basket},...rr}];
+    const mediaPreview=r8MediaPreview(message,toolResults);
+    return await deterministicReturn({
+      response:responseText,
+      decision:detail?.found?"ACT":"ASK",
+      tools,toolResults,mediaPreview,
+      question:detail?.found?"":"Qual cesta você quer ver?",
+      salesNextStep:detail?.found?"answer_need":"clarify_basket"
+    });
+  }
+
+  if(deterministicIntent?.intent==="set_payment_method"&&context?.cart?.has_cart){
+    const payment=String(deterministicIntent?.query||"").trim();
+    const tools=[{tool_key:"set_payment_method",arguments_json:JSON.stringify({payment_method:payment})}];
+    const toolResults=[{
+      tool_key:"set_payment_method",operation_kind:"write",
+      arguments:{payment_method:payment},ok:true,executed:false,blocked_by_simulator:true
+    }];
+    return await deterministicReturn({
+      response:`Perfeito, pagamento por ${payment}. Posso seguir para a confirmação do pedido.`,
+      decision:"ACT",tools,toolResults,salesNextStep:"prepare_confirmation"
+    });
+  }
+
+  if(deterministicIntent?.intent==="set_addon_quantity"&&context?.cart?.has_cart){
+    const query=String(deterministicIntent?.query||message).trim();
+    const quantity=Math.max(1,Number(deterministicIntent?.quantity||1));
+    const rr=await r8ReadTool(sb,"search_products",{query,limit:4},conversationId,context);
+    const items=Array.isArray(rr?.result)?rr.result:[];
+    const readCall={tool_key:"search_products",arguments_json:JSON.stringify({query,limit:4})};
+    const toolResults:any[]=[{tool_key:"search_products",operation_kind:"read",arguments:{query,limit:4},...rr}];
+    if(items.length===1){
+      const selected=items[0];
+      const writeCall={tool_key:"add_cart_item",arguments_json:JSON.stringify({product_id:selected.product_id||selected.id,quantity})};
+      toolResults.push({
+        tool_key:"add_cart_item",operation_kind:"write",
+        arguments:{product_id:selected.product_id||selected.id,quantity},
+        ok:true,executed:false,blocked_by_simulator:true
+      });
+      return await deterministicReturn({
+        response:`Certo. Vou acrescentar ${quantity} unidade(s) de ${selected.name} ao pedido.`,
+        decision:"ACT",tools:[readCall,writeCall],toolResults,salesNextStep:"update_cart"
+      });
+    }
+    const names=items.slice(0,4).map((x:any)=>x?.name).filter(Boolean);
+    const responseText=names.length
+      ? `Encontrei estas opções: ${names.join("; ")}. Qual delas você quer adicionar?`
+      : `Não encontrei ${query} com segurança. Quer tentar outro nome ou marca?`;
+    return await deterministicReturn({
+      response:responseText,decision:"ASK",tools:[readCall],toolResults,
+      question:responseText,salesNextStep:"clarify_product"
+    });
   }
 
   const model=cfgQ.data.primary_model||"gpt-5.6-terra";
