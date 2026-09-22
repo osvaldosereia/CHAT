@@ -259,8 +259,9 @@ export function deterministicCommerceIntent(message){
     return {intent:'business_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
 
   if(
-    /\b(?:tem|t[eê]m|vende|vendem|quanto|qto|qual|quais|pre[cç]o|preco|procuro|queria|quero)\b/.test(m)
-    || /\b(?:rexona|arroz|aroz|leite|omo|shampoo|shampu|caf[eé]|a[cç][uú]car|sab[aã]o|detergente|colgate|papel\s+higi[eê]nico|feij[aã]o|amaciante|sabonete|saboneti|[oó]leo|miojo|miojos|l[aá]men|lamen)\b/.test(m)
+    /\b(?:rexona|arroz|aroz|leite|omo|shampoo|shampu|caf[eé]|a[cç][uú]car|sab[aã]o|detergente|colgate|papel\s+higi[eê]nico|feij[aã]o|amaciante|sabonete|saboneti|[oó]leo|miojo|miojos|l[aá]men|lamen|farinha|macarr[aã]o|biscoito|bolacha|fralda|desodorante|creme\s+dental|absorvente|racao|ra[cç][aã]o)\b/.test(m)
+    || /\b(?:produto|produtos)\b.*\b(?:tem|t[eê]m|vende|vendem|pre[cç]o|preco|quero|procuro|mostrar|mostra)\b/.test(m)
+    || /\b(?:tem|t[eê]m|vende|vendem|pre[cç]o|preco|quero|procuro|mostrar|mostra)\b.*\b(?:produto|produtos)\b/.test(m)
   )return {intent:'search_products',basket:'',query:normalizeProductSearchQuery(m),source_query:'',replacement_query:'',quantity:0};
 
   return null;
