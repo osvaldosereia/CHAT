@@ -391,19 +391,19 @@ async function runR6PlannerEval(sb:any,body:any){
   };
 }
 function basketsText(items:any[]){
-  const lines=(Array.isArray(items)?items:[]).map((b:any)=>`• ${b.display_name||b.name} — ${moneyBR(b.commercial_price)}`);
-  return lines.length?`Estas são nossas cestas disponíveis:\n\n${lines.join('\n\n')}\n\nSe quiser, me diga o nome de uma delas que eu mando a lista completa do que vem.`:'Não encontrei cestas disponíveis agora.';
+  const lines=(Array.isArray(items)?items:[]).map((b:any)=>`🧺 ${b.display_name||b.name} — ${moneyBR(b.commercial_price)}`);
+  return lines.length?`🧺 Cestas disponíveis\n\n${lines.join('\n\n')}\n\nQuer ver o que vem em alguma delas? Me diga o nome da cesta.`:'Não encontrei cestas disponíveis agora.';
 }
 function productsText(items:any[]){
   const list=(Array.isArray(items)?items:[]).slice(0,6);
   if(!list.length)return 'Não encontrei um produto disponível que combine com esse pedido agora.';
-  return list.map((p:any)=>`• ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
+  return list.map((p:any)=>`${p.is_offer?'🔥':'🛒'} ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
 }
 function numberedProductsText(items:any[],maxItems=3){
   const max=Math.max(1,Math.min(10,Number(maxItems)||3));
   const list=(Array.isArray(items)?items:[]).slice(0,max);
   if(!list.length)return '';
-  return list.map((p:any,index:number)=>`${index+1}. ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n');
+  return list.map((p:any,index:number)=>`${index+1}. ${p.is_offer?'🔥 ':''}${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
 }
 function valueReplacementOptionsText(options:any[]){
   const list=(Array.isArray(options)?options:[]).slice(0,3);
@@ -2035,7 +2035,7 @@ Deno.serve(async(req:Request)=>{
       if(!offers.length){
         text='Não encontrei ofertas ativas para te mostrar agora.';
       }else{
-        text=`Estas são as ofertas disponíveis:\n\n${numberedProductsText(offers,10)}\n\nSe quiser alguma, pode responder pelo número.`;
+        text=`🔥 Ofertas disponíveis\n\n${numberedProductsText(offers,10)}\n\nSe quiser alguma, pode responder pelo número.`;
       }
     }else if(intent.intent==='customer_context'&&conversationId){
       const q=await sb.rpc('get_papoai_commerce_customer_snapshot_v2',{p_conversation_id:conversationId});
