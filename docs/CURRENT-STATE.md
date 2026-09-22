@@ -885,3 +885,27 @@ Objetivo da mudança:
 - reduzir falsos positivos por intenção;
 - parar de corrigir frases isoladas;
 - deixar o determinístico cuidar apenas de casos seguros e a IA interpretar linguagem aberta/contextual.
+
+
+## DECISÃO DE ARQUITETURA — VITRINE EXTERNA + PAPOAI — 22/09/2026
+
+Decisão operacional:
+- abortado uso do catálogo Produtos do PapoAI para venda;
+- abortada venda/montagem de carrinho diretamente pelo chat;
+- vitrine externa passa a ser a única camada de catálogo, preços, estoque, cestas, personalização e montagem do pedido;
+- cliente entra na vitrine, monta o pedido e retorna ao WhatsApp com o pedido já estruturado;
+- PapoAI passa a atuar como atendimento/concierge, FAQ, orientação para a vitrine, CRM, tags, Kanban, automações, handoff, confirmação, acompanhamento, pós-venda e remarketing;
+- o agente não deve inventar nem pesquisar preço/estoque/produto no PapoAI;
+- módulo Produtos PapoAI não é dependência da operação;
+- OpenAI API key usada apenas para Produtos PapoAI pode ser removida se não for necessária a outras funções do agente;
+- integrações externas futuras devem preferir eventos da vitrine/pedido via webhook, sem recriar um segundo cérebro conversacional.
+
+Arquitetura alvo:
+Cliente -> WhatsApp/PapoAI -> orientação e suporte -> Vitrine externa -> pedido montado -> WhatsApp/PapoAI -> confirmação/CRM/handoff -> Supabase/Bling.
+
+Prioridade imediata:
+1. adaptar prompt do PapoAI para atendimento com vitrine externa;
+2. padronizar mensagem de retorno da vitrine com marcador e código de pedido;
+3. configurar CRM/Kanban/tags;
+4. configurar automações de vitrine enviada, pedido recebido e handoff;
+5. somente depois integrar pedido/Supabase/Bling e pós-venda.
