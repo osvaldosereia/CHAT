@@ -83,7 +83,7 @@ async function r8ReadTool(sb:any,key:string,args:any,conversationId:string|null,
     if(key==="search_products"){
       const q=await sb.rpc("search_papoai_commerce_products_v1",{
         p_query:clean(args?.query,200),
-        p_limit:Math.max(1,Math.min(12,Number(args?.limit||3)))
+        p_limit:Math.max(1,Math.min(20,Number(args?.limit||3)))
       });
       return {
         ok:!q.error,
@@ -440,7 +440,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
       responseText="Não encontrei esse produto disponível agora. Se quiser, me diga outra marca, tamanho ou tipo que eu procuro uma alternativa.";
     }else{
       const rows=items.slice(0,20).map((x:any,index:number)=>`${index+1}. ${x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`);
-      responseText="🛒 Encontrei estas opções:\n\n"+rows.join("\n")+"\n\nResponda pelo número da opção.";
+      responseText="🛒 Encontrei estas opções:\n\n"+rows.join("\n\n")+"\n\nResponda pelo número da opção.";
       if(items.length>1)responseText+="\n\nSe quiser, me diga qual delas você prefere.";
       else responseText+="\n\nQuer que eu adicione ao pedido?";
     }
