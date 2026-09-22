@@ -653,6 +653,164 @@ async function requestHash(value:string){
   return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
+async function nativeToolsLookupCustomer(sb:any,phone:string){
+  const q=await sb.rpc('lookup_customer_by_phone',{p_phone:phone});
+  if(q.error)throw q.error;
+  return Array.isArray(q.data)?(q.data[0]||null):null;
+}
+
+async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correlationId:string){
+  const supplied=String(
+    req.headers.get('x-papoai-tools-key')
+    || body?.api_key
+    || new URL(req.url).searchParams.get('key')
+    || ''
+  ).trim().slice(0,200);
+
+  if(!supplied)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
+  const auth=await sb.rpc('verify_papoai_native_tools_key_v1',{p_key:supplied});
+  if(auth.error||auth.data!==true)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
+
+  const action=String(body?.action||'').trim().toLowerCase().slice(0,80);
+  const phone=String(body?.phone||body?.customer?.phone||'').trim().slice(0,80);
+
+  try{
+    if(action==='health'){
+      return jsonResponse({
+        ok:true,
+        service:'papoai-native-tools-v1',
+        conversation_brain:'papoai_native_ai',
+        supabase_role:'data_business_rules_only',
+        correlation_id:correlationId
+      });
+    }
+
+    if(action==='customer_profile'){
+      if(!phone)return jsonResponse({ok:false,error:'phone_required',correlation_id:correlationId},400);
+      const customer=await nativeToolsLookupCustomer(sb,phone);
+      if(!customer)return jsonResponse({ok:true,known_customer:false,correlation_id:correlationId});
+
+      const q=await sb.from('customers')
+        .select('id,name,preferred_reply,order_count,last_order_at,shopping_mode')
+        .eq('id',customer.customer_id)
+        .maybeSingle();
+      if(q.error)throw q.error;
+      const row=q.data||{};
+      const fullName=String(row.name||customer.customer_name||'').trim();
+      return jsonResponse({
+        ok:true,
+        known_customer:true,
+        customer_id:row.id||customer.customer_id,
+        name:fullName||null,
+        first_name:fullName?fullName.split(/\s+/)[0]:null,
+        preferred_reply:row.preferred_reply||customer.preferred_reply||null,
+        order_count:Number(row.order_count||0),
+        last_order_at:row.last_order_at||null,
+        shopping_mode:row.shopping_mode||null,
+        correlation_id:correlationId
+      });
+    }
+
+    if(action==='customer_address'){
+      if(!phone)return jsonResponse({ok:false,error:'phone_required',correlation_id:correlationId},400);
+      const customer=await nativeToolsLookupCustomer(sb,phone);
+      if(!customer)return jsonResponse({ok:true,known_customer:false,has_address:false,correlation_id:correlationId});
+      const q=await sb.from('customer_addresses')
+        .select('street,number,complement,neighborhood,city,state,postal_code,reference,google_maps_url,is_default,last_confirmed_at')
+        .eq('customer_id',customer.customer_id)
+        .eq('is_active',true)
+        .order('is_default',{ascending:false})
+        .order('updated_at',{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(q.error)throw q.error;
+      const a=q.data||null;
+      return jsonResponse({
+        ok:true,
+        known_customer:true,
+        customer_id:customer.customer_id,
+        name:customer.customer_name||null,
+        has_address:Boolean(a?.street&&a?.number&&a?.neighborhood&&a?.city),
+        address:a,
+        correlation_id:correlationId
+      });
+    }
+
+    if(action==='last_purchase'){
+      if(!phone)return jsonResponse({ok:false,error:'phone_required',correlation_id:correlationId},400);
+      const customer=await nativeToolsLookupCustomer(sb,phone);
+      if(!customer)return jsonResponse({ok:true,known_customer:false,found:false,correlation_id:correlationId});
+      const q=await sb.rpc('get_customer_last_purchase_v1',{p_customer_id:customer.customer_id});
+      if(q.error)throw q.error;
+      return jsonResponse({
+        ok:true,
+        known_customer:true,
+        customer_id:customer.customer_id,
+        found:Boolean(q.data),
+        purchase:q.data||null,
+        correlation_id:correlationId
+      });
+    }
+
+    if(action==='baskets'){
+      const q=await sb.rpc('get_papoai_commerce_basket_catalog_v1');
+      if(q.error)throw q.error;
+      return jsonResponse({ok:true,baskets:Array.isArray(q.data)?q.data:[],correlation_id:correlationId});
+    }
+
+    if(action==='basket_detail'){
+      const basket=String(body?.basket||'').trim().slice(0,180);
+      if(!basket)return jsonResponse({ok:false,error:'basket_required',correlation_id:correlationId},400);
+      const q=await sb.rpc('get_papoai_commerce_basket_detail_v1',{p_basket_query:basket});
+      if(q.error)throw q.error;
+      return jsonResponse({ok:true,result:q.data||null,correlation_id:correlationId});
+    }
+
+    if(action==='basket_personalization_preview'){
+      const basket=String(body?.basket||'').trim().slice(0,180);
+      const changes=Array.isArray(body?.changes)?body.changes.slice(0,40):[];
+      if(!basket)return jsonResponse({ok:false,error:'basket_required',correlation_id:correlationId},400);
+      const q=await sb.rpc('preview_papoai_commerce_basket_personalization_v1',{
+        p_basket_query:basket,
+        p_changes:changes
+      });
+      if(q.error)return jsonResponse({
+        ok:false,error:'invalid_personalization',
+        detail:String(q.error?.message||'').slice(0,300),
+        correlation_id:correlationId
+      },400);
+      return jsonResponse({ok:true,preview:q.data||null,correlation_id:correlationId});
+    }
+
+    if(action==='product_search_authoritative'){
+      const query=String(body?.query||'').trim().slice(0,180);
+      const limit=Math.max(1,Math.min(20,Number(body?.limit||10)));
+      if(!query)return jsonResponse({ok:false,error:'query_required',correlation_id:correlationId},400);
+      const q=await sb.rpc('search_papoai_commerce_products_v1',{p_query:query,p_limit:limit});
+      if(q.error)throw q.error;
+      return jsonResponse({
+        ok:true,
+        source:'supabase_canonical_catalog',
+        result:q.data||{items:[]},
+        correlation_id:correlationId
+      });
+    }
+
+    return jsonResponse({
+      ok:false,
+      error:'unsupported_action',
+      supported_actions:[
+        'health','customer_profile','customer_address','last_purchase',
+        'baskets','basket_detail','basket_personalization_preview','product_search_authoritative'
+      ],
+      correlation_id:correlationId
+    },400);
+  }catch(error){
+    console.error('papoai_native_tool_error',action,error);
+    return jsonResponse({ok:false,error:'internal_error',correlation_id:correlationId},500);
+  }
+}
+
 Deno.serve(async(req:Request)=>{
   const started=Date.now();
   const correlationId=crypto.randomUUID();
@@ -666,6 +824,13 @@ Deno.serve(async(req:Request)=>{
   const serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if(!supabaseUrl||!serviceKey)return jsonResponse({error:'server_config',correlation_id:correlationId},500);
   const sb=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+
+  const nativeToolsMode=
+    new URL(req.url).searchParams.get('mode')==='native_tools'
+    || String(body?.mode||'').toLowerCase()==='native_tools';
+  if(nativeToolsMode){
+    return await handlePapoAiNativeToolRequest(sb,req,body,correlationId);
+  }
 
   const {data:keySet,error:keyError}=await sb.rpc('get_papoai_agent_external_lab_keys_v2');
   const keyEntries=Array.isArray(keySet)?keySet:[];
