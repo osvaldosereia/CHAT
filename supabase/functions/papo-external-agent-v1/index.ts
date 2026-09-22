@@ -1612,7 +1612,7 @@ Deno.serve(async(req:Request)=>{
               if(queued.error)throw queued.error;
               processingStatus='handoff';responseKind='handoff';
               responseBody=commerceTextResponse({
-                text:'Vou chamar alguém da nossa equipe para terminar essa confirmação com você.',
+                text:'Vou chamar uma pessoa da nossa equipe para continuar com você. Vou deixar a confirmação do pedido com ela.',
                 sessionKey:normalized.sessionKey,
                 correlationId,
                 handoff:true,
@@ -1724,7 +1724,7 @@ Deno.serve(async(req:Request)=>{
       }
       processingStatus='handoff';responseKind='handoff';
       responseBody=commerceTextResponse({
-        text:'O horário exato depende da rota e da operação do dia. Vou chamar alguém da equipe para confirmar essa janela com você.',
+        text:'Vou chamar uma pessoa da nossa equipe para continuar com você. O horário exato depende da rota e da operação do dia, então ela confirma essa janela com você.',
         sessionKey:normalized.sessionKey,
         correlationId,
         handoff:true,
@@ -1743,7 +1743,7 @@ Deno.serve(async(req:Request)=>{
       }
       processingStatus='handoff';responseKind='handoff';
       responseBody=commerceTextResponse({
-        text:'Claro 😊 Vou chamar alguém da nossa equipe para continuar com você.',
+        text:'Vou chamar uma pessoa da nossa equipe para continuar com você. 😊',
         sessionKey:normalized.sessionKey,
         correlationId,
         handoff:true,
