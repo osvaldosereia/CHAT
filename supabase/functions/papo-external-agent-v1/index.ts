@@ -394,17 +394,90 @@ function basketsText(items:any[]){
   const lines=(Array.isArray(items)?items:[]).map((b:any)=>`🧺 ${b.display_name||b.name} — ${moneyBR(b.commercial_price)}`);
   return lines.length?`🧺 Cestas disponíveis\n\n${lines.join('\n\n')}\n\nQuer ver o que vem em alguma delas? Me diga o nome da cesta.`:'Não encontrei cestas disponíveis agora.';
 }
-function productsText(items:any[]){
-  const list=(Array.isArray(items)?items:[]).slice(0,6);
+function productsText(items:any[],maxItems=20){
+  const max=Math.max(1,Math.min(20,Number(maxItems)||20));
+  const list=(Array.isArray(items)?items:[]).slice(0,max);
   if(!list.length)return 'Não encontrei um produto disponível que combine com esse pedido agora.';
-  return list.map((p:any)=>`${p.is_offer?'🔥':'🛒'} ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
+  return list.map((p:any)=>`${p.is_offer?'🔥':'🛒'} ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n');
 }
-function numberedProductsText(items:any[],maxItems=3){
-  const max=Math.max(1,Math.min(10,Number(maxItems)||3));
+function numberedProductsText(items:any[],maxItems=20){
+  const max=Math.max(1,Math.min(20,Number(maxItems)||20));
   const list=(Array.isArray(items)?items:[]).slice(0,max);
   if(!list.length)return '';
-  return list.map((p:any,index:number)=>`${index+1}. ${p.is_offer?'🔥 ':''}${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
+  return list.map((p:any,index:number)=>`${index+1}. ${p.is_offer?'🔥 ':''}${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n');
 }
+function foldProductText(value:any){
+  return String(value??'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9.,]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function isCatalogListRequest(message:any){
+  const m=foldProductText(message);
+  if(!m)return false;
+  if(/\b(recomenda|recomendacao|melhor|ideal|qual escolher|me indica|indica pra|bom pra|serve pra|mais indicado)\b/.test(m))return false;
+  return /\b(quais|lista|listar|todos|todas|tem|vende|vendem|quanto|valor|preco|precos|me mostra|mostra|mostrar)\b/.test(m);
+}
+function isExplicitPhotoRequest(message:any){
+  const m=foldProductText(message);
+  return /\b(foto|imagem|ver a foto|ver foto|manda foto|manda a foto|mostrar foto|mostra foto)\b/.test(m);
+}
+function isBasicStapleProduct(item:any){
+  const n=foldProductText(item?.name||'');
+  return /\b(arroz|feijao|acucar|sal|oleo|cafe)\b/.test(n);
+}
+function parseMentionedPrice(message:any){
+  const raw=String(message??'').replace(/\./g,'').replace(',', '.');
+  const m=raw.match(/(?:r\$\s*)?(\d{1,4}(?:\.\d{1,2})?)\s*(?:reais?|real)?/i);
+  if(!m)return null;
+  const n=Number(m[1]);
+  return Number.isFinite(n)?n:null;
+}
+function resolvePendingProductChoiceText(message:any,pending:any){
+  const items=Array.isArray(pending?.payload?.candidates)?pending.payload.candidates:[];
+  if(!items.length)return {status:'none'};
+  const m=foldProductText(message);
+  if(!m)return {status:'none'};
+
+  const numberMatch=m.match(/^(?:opcao\s*|numero\s*|n\s*)?(\d{1,2})$/i)
+    || m.match(/\b(?:opcao|numero|n)\s*(\d{1,2})\b/i);
+  if(numberMatch){
+    const idx=Number(numberMatch[1]);
+    if(idx>=1&&idx<=items.length)return {status:'resolved',index:idx,item:items[idx-1],method:'number'};
+    return {status:'out_of_range',candidate_count:items.length};
+  }
+
+  const price=parseMentionedPrice(message);
+  const stop=new Set(['quero','esse','essa','este','esta','o','a','de','do','da','por','pra','para','um','uma','reais','real','produto','item','opcao','numero']);
+  const tokens=m.split(' ')
+    .map(x=>x.trim())
+    .filter(x=>x.length>=2&&!stop.has(x)&&!/^\d+(?:[.,]\d+)?$/.test(x));
+
+  const scored=items.map((item:any,index:number)=>{
+    const name=foldProductText(item?.name||'');
+    const brand=foldProductText(item?.brand||'');
+    const searchable=(name+' '+brand).trim();
+    let tokenHits=0;
+    for(const t of tokens)if(searchable.includes(t))tokenHits++;
+    const p=Number(item?.commercial_price??item?.offer_price??item?.regular_price??0);
+    const priceDiff=price===null?null:Math.abs(p-price);
+    const priceMatch=price!==null&&priceDiff!==null&&priceDiff<=0.55;
+    const strongName=tokens.length>0&&tokenHits===tokens.length;
+    const score=tokenHits*10+(strongName?25:0)+(priceMatch?30:0)-(priceDiff===null?0:Math.min(priceDiff,9));
+    return {item,index:index+1,score,tokenHits,strongName,priceMatch,priceDiff};
+  }).filter((x:any)=>x.tokenHits>0||x.priceMatch);
+
+  scored.sort((a:any,b:any)=>b.score-a.score||Number(a.priceDiff??99)-Number(b.priceDiff??99));
+  if(!scored.length)return {status:'none'};
+  if(scored.length===1||scored[0].score>=scored[1].score+12){
+    return {status:'resolved',index:scored[0].index,item:scored[0].item,method:'text_price'};
+  }
+  const top=scored.filter((x:any)=>x.score>=scored[0].score-5).slice(0,4);
+  return {status:'ambiguous',matches:top.map((x:any)=>({index:x.index,item:x.item}))};
+}
+
 function valueReplacementOptionsText(options:any[]){
   const list=(Array.isArray(options)?options:[]).slice(0,3);
   return list.map((option:any,index:number)=>{
@@ -856,7 +929,7 @@ Deno.serve(async(req:Request)=>{
         )
       : '';
 
-    if(kind==='audio'&&!mediaUrl&&providerAudioText&&providerAudioText!==String(normalized.messageText||'').trim()){
+    if(kind==='audio'&&providerAudioText){
       normalized.messageText=providerAudioText;
       normalized.providerContext.transcribed_audio=true;
       normalized.providerContext.transcription_source='papoai_provider';
