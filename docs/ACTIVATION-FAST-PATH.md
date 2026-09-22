@@ -57,12 +57,14 @@ Precisamos da resposta oficial do PapoAI para uma destas duas conclusões:
 
 ## Política de gate para ativação
 
-Nunca usar apenas o readiness legado.
+O próprio `get_papoai_commerce_activation_readiness_v1()` agora incorpora a R7.
 
 Para avançar:
-- activation readiness deve estar verde;
-- R7 deve estar 5/5 e `ready_for_r8=true`;
-- produção deve continuar explicitamente não autorizada até a etapa R9.
+- `r7_ready_for_r8=true`;
+- `ready_for_production=true`;
+- produção continua explicitamente não autorizada até a etapa R9.
+
+Enquanto a R7 estiver 4/5, o readiness devolve `r7_physical_homologation_incomplete` mesmo que todos os demais requisitos estejam verdes.
 
 Estado atual do activation readiness após reconciliação:
 - data_ready=true;
@@ -99,3 +101,12 @@ A resposta do fornecedor vira a única entrada necessária.
 Não repetir texto, imagem, áudio, silent ou rotação de chave.
 
 Se o contrato oficial vier completo, a sequência restante da R7 deve ser executável em uma única rodada curta.
+
+
+## Estado depois do hardening
+
+Após o hardening, os blockers atuais são exatamente:
+1. `r7_physical_homologation_incomplete`;
+2. `production_activation_not_authorized`.
+
+Isso é intencional. Quando o handoff for homologado e a R7 fechada, o primeiro blocker desaparece. A autorização de produção permanece como último gate humano da R9.
