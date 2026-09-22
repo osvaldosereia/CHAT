@@ -31,3 +31,5 @@ jobs:
         run: node tests/papoai-checkout-r5-v1.mjs
       - name: R6 conversation suite
         run: node tests/papoai-r6-conversation-suite-v1.mjs
+      - name: R7 channel contract
+        run: node tests/papoai-r7-channel-contract-v1.mjs

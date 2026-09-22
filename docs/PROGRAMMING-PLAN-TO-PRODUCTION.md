@@ -159,6 +159,8 @@ Métricas: ASK rate, perguntas desnecessárias, produto correto no top 3, tool c
 
 ## R7 — Homologação física PapoAI/Meta
 
+**Status: PROGRAMAÇÃO CONCLUÍDA — HOMOLOGAÇÃO FÍSICA PENDENTE**
+
 - confirmar canal/agente;
 - rotacionar chave de homologação;
 - testar sessão, texto, foto+texto, áudio recebido/enviado, typing/read receipt, reply buttons, list, handoff, silent e Flow mínimo;

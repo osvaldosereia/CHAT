@@ -62,6 +62,19 @@ async function resolveOpenAiKey(sb:any){
   return key;
 }
 
+async function recordR7Case(sb:any,runId:any,caseKey:string,status:string,evidence:any={},source='r7_edge'){
+  if(!runId)return;
+  try{
+    await sb.rpc('record_papoai_r7_case_v1',{
+      p_run_id:String(runId),
+      p_case_key:caseKey,
+      p_status:status,
+      p_evidence:evidence||{},
+      p_source:source
+    });
+  }catch{}
+}
+
 async function runR6PlannerEval(sb:any,body:any){
   const scenarioKeys=Array.isArray(body?.scenario_keys)
     ? body.scenario_keys.map((x:any)=>String(x)).filter(Boolean).slice(0,6)
@@ -256,14 +269,22 @@ Deno.serve(async(req:Request)=>{
   if(!supabaseUrl||!serviceKey)return jsonResponse({error:'server_config',correlation_id:correlationId},500);
   const sb=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
 
-  const {data:expected,error:keyError}=await sb.rpc('get_papoai_agent_external_lab_key_v1');
-  if(keyError||!expected)return jsonResponse({error:'webhook_not_configured',correlation_id:correlationId},503);
+  const {data:keySet,error:keyError}=await sb.rpc('get_papoai_agent_external_lab_keys_v2');
+  const keyEntries=Array.isArray(keySet)?keySet:[];
+  if(keyError||!keyEntries.length)return jsonResponse({error:'webhook_not_configured',correlation_id:correlationId},503);
+
+  const suppliedValues=(req.headers.get('x-api-key')||'')
+    .split(',')
+    .map((value)=>value.trim())
+    .filter(Boolean);
+  let matchedKeyVersion:string|null=null;
+  for(const candidate of suppliedValues){
+    const matched=keyEntries.find((entry:any)=>safeEqual(candidate,String(entry?.key||'')));
+    if(matched){matchedKeyVersion=String(matched?.version||'unknown');break;}
+  }
+  if(!matchedKeyVersion)return jsonResponse({error:'unauthorized',correlation_id:correlationId},401);
 
   if((req.headers.get('x-papo-r6-eval')||'').trim()==='1'){
-    const supplied=(req.headers.get('x-api-key')||'').trim();
-    if(!safeEqual(supplied,String(expected))){
-      return jsonResponse({error:'unauthorized',correlation_id:correlationId},401);
-    }
     const evaluated=await runR6PlannerEval(sb,body);
     return jsonResponse({...evaluated.body,correlation_id:correlationId},evaluated.status);
   }
@@ -277,13 +298,6 @@ Deno.serve(async(req:Request)=>{
     : await sb.rpc('get_papoai_agent_external_response_bearer_v1');
   const responseBearer=suppliedResponseToken||String(storedResponseBearer||'');
   if(!responseBearer)return jsonResponse({error:'response_bearer_not_configured',correlation_id:correlationId},503);
-
-  const suppliedValues=(req.headers.get('x-api-key')||'')
-    .split(',')
-    .map((value)=>value.trim())
-    .filter(Boolean);
-  const authorized=suppliedValues.some((value)=>safeEqual(value,String(expected)));
-  if(!authorized)return jsonResponse({error:'unauthorized',correlation_id:correlationId},401);
 
   let normalized:any;
   try{normalized=normalizeExternalAgentPayload(body);}
@@ -310,6 +324,50 @@ Deno.serve(async(req:Request)=>{
 
   const {data:lab,error:labError}=await sb.rpc('get_papoai_agent_external_lab_config_v1',{p_adapter_id:adapter.id});
   if(labError||!lab)return jsonResponse({error:'lab_not_configured',correlation_id:correlationId},503);
+
+  const r7RunId=lab?.metadata?.r7_run_id?String(lab.metadata.r7_run_id):null;
+  const r7Mode=String(lab?.metadata?.mode||'');
+  let r7HomologationActive=lab?.enabled===true&&r7Mode==='r7_homologation'&&Boolean(r7RunId);
+  if(r7HomologationActive){
+    const expiresAt=lab?.metadata?.expires_at?new Date(String(lab.metadata.expires_at)):null;
+    if(expiresAt&&expiresAt.getTime()<=Date.now()){
+      r7HomologationActive=false;
+      try{
+        await sb.from('papoai_r7_homologation_runs')
+          .update({status:'expired',completed_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+          .eq('id',r7RunId);
+        await sb.rpc('set_papoai_agent_external_lab_enabled_v1',{p_enabled:false});
+      }catch{}
+      return jsonResponse(buildLabSilentResponse({
+        sessionKey:normalized.sessionKey,
+        correlationId,
+        reason:'r7_homologation_expired',
+        handoff:false
+      }),200,responseBearer);
+    }
+
+    const phoneHash=await requestHash(normalized.phoneE164);
+    const allowedHashes=Array.isArray(lab?.metadata?.allowed_test_phone_hashes)
+      ? lab.metadata.allowed_test_phone_hashes.map((x:any)=>String(x))
+      : [];
+    if(allowedHashes.length&&!allowedHashes.includes(phoneHash)){
+      return jsonResponse(buildLabSilentResponse({
+        sessionKey:normalized.sessionKey,
+        correlationId,
+        reason:'r7_phone_not_authorized',
+        handoff:false
+      }),200,responseBearer);
+    }
+
+    if(matchedKeyVersion){
+      try{
+        await sb.rpc('mark_papoai_r7_key_observed_v1',{
+          p_run_id:r7RunId,
+          p_key_version:matchedKeyVersion
+        });
+      }catch{}
+    }
+  }
 
   const internalPhones=new Set(
     Array.isArray(lab?.metadata?.blocked_internal_phones)
@@ -385,6 +443,84 @@ Deno.serve(async(req:Request)=>{
     ? normalized.mediaRefs.find((m:any)=>['audio','image'].includes(String(m?.kind||'')))
     : null;
 
+  if(r7HomologationActive&&conversationId&&primaryMedia){
+    const kind=String(primaryMedia.kind||'');
+    const mediaUrl=String(primaryMedia.url||'');
+    const host=mediaUrl?mediaHost(mediaUrl):null;
+    const caseKey=kind==='audio'?'inbound_audio':'inbound_image';
+    await recordR7Case(sb,r7RunId,caseKey,'observed',{
+      correlation_id:correlationId,
+      message_type:normalized.messageType,
+      has_url:Boolean(mediaUrl),
+      has_media_id:Boolean(primaryMedia.media_id),
+      mime_type:primaryMedia.mime_type||null,
+      url_host:host
+    },'r7_agent_external_payload');
+
+    if(mediaUrl&&host){
+      const apiKey=await resolveOpenAiKey(sb);
+      const allowedHosts=[host];
+      if(kind==='audio'){
+        mediaProcessing=await transcribeAudioUrl({
+          url:mediaUrl,
+          mimeType:primaryMedia.mime_type||'audio/ogg',
+          allowedHosts,
+          maxBytes:Number(channelRuntimeCfg?.max_audio_bytes||16777216),
+          apiKey,
+          model:channelRuntimeCfg?.transcription_model||'gpt-4o-mini-transcribe'
+        });
+        if(mediaProcessing?.ok&&mediaProcessing?.text){
+          normalized.messageText=String(mediaProcessing.text);
+          normalized.providerContext.transcribed_audio=true;
+        }
+      }else if(kind==='image'){
+        mediaProcessing=await analyzeImageUrl({
+          url:mediaUrl,
+          allowedHosts,
+          apiKey,
+          model:channelRuntimeCfg?.vision_model||'gpt-5.6-luna',
+          detail:channelRuntimeCfg?.vision_detail||'low',
+          caption:primaryMedia.caption||''
+        });
+      }
+
+      if(mediaProcessing?.ok){
+        const existingHosts=Array.isArray(channelRuntimeCfg?.allowed_media_hosts)
+          ? channelRuntimeCfg.allowed_media_hosts.map((x:any)=>String(x))
+          : [];
+        if(!existingHosts.includes(host)){
+          try{
+            await sb.from('papoai_channel_runtime_config')
+              .update({allowed_media_hosts:[...new Set([...existingHosts,host])],updated_at:new Date().toISOString()})
+              .eq('id',1);
+          }catch{}
+        }
+        try{
+          await sb.rpc('set_channel_provider_capability_state_v1',{
+            p_adapter_id:adapter.id,
+            p_capability_key:kind==='audio'?'agent_external.inbound_audio':'agent_external.inbound_image',
+            p_state:'verified_lab',
+            p_evidence_source:'r7_media_fetch_and_processing',
+            p_evidence:{
+              r7_run_id:r7RunId,
+              correlation_id:correlationId,
+              url_host:host,
+              processing_ok:true,
+              operation:kind==='audio'?'transcribe':'vision'
+            }
+          });
+        }catch{}
+        await recordR7Case(sb,r7RunId,caseKey,'verified',{
+          correlation_id:correlationId,
+          url_host:host,
+          processing_ok:true,
+          operation:kind==='audio'?'transcribe':'vision',
+          model:mediaProcessing?.model||null
+        },'r7_media_fetch_and_processing');
+      }
+    }
+  }
+
   if(primaryMedia&&['audio','image'].includes(String(primaryMedia.kind||''))){
     try{
       await sb.rpc('set_channel_provider_capability_state_v1',{
@@ -406,7 +542,7 @@ Deno.serve(async(req:Request)=>{
     }catch{}
   }
 
-  if(conversationId&&primaryMedia){
+  if(conversationId&&primaryMedia&&!r7HomologationActive){
     const kind=String(primaryMedia.kind||'');
     const mediaUrl=String(primaryMedia.url||'');
     const apiKey=channelRuntimeCfg?.enabled===true?await resolveOpenAiKey(sb):'';
@@ -671,6 +807,15 @@ Deno.serve(async(req:Request)=>{
   const elapsed=Date.now()-started;
   const timeoutMs=Math.max(1000,Number(lab.response_timeout_seconds||20)*1000);
 
+  if(r7HomologationActive&&normalized.sessionHumanRequired===true){
+    await recordR7Case(sb,r7RunId,'handoff','verified',{
+      correlation_id:correlationId,
+      session_status:normalized.sessionStatus||null,
+      session_human_required:true,
+      session_human_user_id_present:Boolean(normalized.sessionHumanUserId)
+    },'r7_session_human_required');
+  }
+
   if(humanActive){
     processingStatus='silent';responseKind='silent';
     responseBody=buildLabSilentResponse({
@@ -681,7 +826,112 @@ Deno.serve(async(req:Request)=>{
       handoff:false
     });
   }else if(lab.enabled===true){
-    if(isReservedLabHandoff(normalized.messageText)&&normalized.messageText.toUpperCase()===RESERVED_HANDOFF_COMMAND){
+    const labCommand=String(normalized.messageText||'').trim().toUpperCase();
+
+    if(r7HomologationActive&&labCommand==='TESTE_R7_STATUS_DONA_ANTONIA'){
+      const statusQ=await sb.rpc('get_papoai_r7_homologation_status_v1',{p_run_id:r7RunId});
+      const s=statusQ.data||{};
+      responseBody=buildLabTextResponse({
+        text:`R7 ativa. Casos resolvidos: ${s.resolved_cases||0}/${s.total_cases||0}. Core verificado: ${s.core_verified||0}/${s.core_total||0}. Rotação: ${s.key_rotation_state||'staged'}.`,
+        sessionKey:normalized.sessionKey,
+        correlationId
+      });
+    }else if(r7HomologationActive&&labCommand==='TESTE_R7_TEXTO_DONA_ANTONIA'){
+      await recordR7Case(sb,r7RunId,'text','attempted',{correlation_id:correlationId},'r7_text_probe');
+      responseBody=buildLabTextResponse({
+        text:'R7 TEXTO OK — Dona Antônia',
+        sessionKey:normalized.sessionKey,
+        correlationId
+      });
+    }else if(r7HomologationActive&&labCommand==='TESTE_R7_IMAGEM_DONA_ANTONIA'){
+      const productQ=await sb.from('products')
+        .select('id,name,image_url')
+        .eq('is_active',true)
+        .eq('physically_verified',true)
+        .gt('stock',0)
+        .not('image_url','is',null)
+        .order('sort_order',{ascending:true})
+        .limit(1)
+        .maybeSingle();
+      const imageUrl=String(productQ.data?.image_url||'');
+      if(imageUrl){
+        await recordR7Case(sb,r7RunId,'outbound_image','attempted',{
+          correlation_id:correlationId,
+          product_id:productQ.data?.id||null,
+          media_host:mediaHost(imageUrl)
+        },'r7_outbound_image_probe');
+        processingStatus='responded';responseKind='image';
+        responseBody={
+          message:{text:`R7 IMAGEM — ${String(productQ.data?.name||'produto')}`,media_url:imageUrl},
+          handoff:false,
+          reason:'r7_outbound_image_probe',
+          session_id:normalized.sessionKey,
+          correlation_id:correlationId
+        };
+      }else{
+        await recordR7Case(sb,r7RunId,'outbound_image','failed',{reason:'test_image_unavailable'},'r7_outbound_image_probe');
+        responseBody=buildLabTextResponse({
+          text:'R7: não encontrei imagem de teste disponível.',
+          sessionKey:normalized.sessionKey,
+          correlationId
+        });
+      }
+    }else if(r7HomologationActive&&labCommand==='TESTE_R7_AUDIO_SAIDA_DONA_ANTONIA'){
+      const apiKey=await resolveOpenAiKey(sb);
+      const tts=await synthesizeVoiceToStorage({
+        text:'Teste de áudio da Dona Antônia. Se você está ouvindo esta mensagem, o envio de voz passou na homologação.',
+        apiKey,
+        model:channelRuntimeCfg?.tts_model||'gpt-4o-mini-tts',
+        voice:channelRuntimeCfg?.tts_voice||'marin',
+        instructions:channelRuntimeCfg?.tts_instructions||'Fale em português brasileiro, de forma natural e clara.',
+        supabase:sb,
+        bucket:channelRuntimeCfg?.media_storage_bucket||'shopping-room-media',
+        correlationId
+      });
+      if(tts?.ok&&tts?.media_url){
+        await recordR7Case(sb,r7RunId,'outbound_voice','attempted',{
+          correlation_id:correlationId,
+          tts_ok:true,
+          storage_path:tts.storage_path||null,
+          model:tts.model||null
+        },'r7_outbound_voice_probe');
+        processingStatus='responded';responseKind='voice';
+        responseBody={
+          message:{
+            text:'R7 ÁUDIO',
+            media_url:String(tts.media_url),
+            media_type:'audio',
+            voice:true
+          },
+          handoff:false,
+          reason:'r7_outbound_voice_probe',
+          session_id:normalized.sessionKey,
+          correlation_id:correlationId
+        };
+      }else{
+        await recordR7Case(sb,r7RunId,'outbound_voice','failed',{
+          correlation_id:correlationId,
+          tts_error:tts?.error||'unknown'
+        },'r7_outbound_voice_probe');
+        responseBody=buildLabTextResponse({
+          text:'R7: o áudio de teste não pôde ser gerado.',
+          sessionKey:normalized.sessionKey,
+          correlationId
+        });
+      }
+    }else if(r7HomologationActive&&labCommand==='TESTE_R7_SILENCIO_DONA_ANTONIA'){
+      await recordR7Case(sb,r7RunId,'silent','attempted',{correlation_id:correlationId},'r7_silent_probe');
+      processingStatus='silent';responseKind='silent';
+      responseBody=buildLabSilentResponse({
+        sessionKey:normalized.sessionKey,
+        correlationId,
+        reason:'r7_silent_probe',
+        handoff:false
+      });
+    }else if(isReservedLabHandoff(normalized.messageText)&&normalized.messageText.toUpperCase()===RESERVED_HANDOFF_COMMAND){
+      if(r7HomologationActive){
+        await recordR7Case(sb,r7RunId,'handoff','attempted',{correlation_id:correlationId},'r7_handoff_probe');
+      }
       processingStatus='handoff';responseKind='handoff';
       responseBody=buildLabHandoffResponse({text:'Vou transferir este teste para atendimento humano.',sessionKey:normalized.sessionKey,correlationId,reason:'lab_reserved_command'});
     }else if(elapsed>=timeoutMs){

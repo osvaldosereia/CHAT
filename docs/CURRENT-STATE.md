@@ -268,3 +268,32 @@ Readiness: `get_papoai_r6_readiness_v1()` retorna **ready_for_r7=true**.
 Todos os gates de produção continuam OFF.
 
 Próxima rodada: **R7 — homologação física PapoAI/Meta**.
+
+
+## R7 — PROGRAMAÇÃO CONCLUÍDA / FÍSICO PENDENTE
+
+A parte programável da homologação PapoAI/Meta está concluída.
+
+Entregue:
+- Edge `papo-external-agent-v1` v41;
+- chave v2 staged no Vault;
+- autenticação dual v1/v2 comprovada;
+- chave inválida retorna 401;
+- rotação v1 só finaliza depois de v2 observada fisicamente;
+- homologação limitada por hash do telefone + TTL;
+- run/cases/evidências versionados;
+- probes de texto, imagem, voz, silent e handoff;
+- inbound áudio/imagem pode ser validado automaticamente por fetch + processamento;
+- handoff pode ser validado pelo `session.human_required`;
+- buttons/list/Flow/typing/read receipt continuam fallback/manual_setup_required por falta de shape PapoAI comprovado;
+- readiness R7 criado;
+- teste de begin/evidence em rollback aprovado.
+
+Estado atual:
+- `programming_complete=true`;
+- `physical_homologation_complete=false`;
+- `ready_for_r8=false`;
+- lab real OFF;
+- todos os gates de produção OFF.
+
+Bloqueio real: definir um telefone de teste e configurar a chave v2 no Agente Externo do PapoAI. Depois executar o roteiro físico de `docs/R7-PHYSICAL-HOMOLOGATION.md`.
