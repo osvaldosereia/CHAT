@@ -8,6 +8,59 @@ const clean=(v:unknown,max=2000)=>String(v??"").replace(/[\u0000-\u001f\u007f]/g
 const uuid=(v:unknown)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clean(v,80))?clean(v,80):"";
 const strArray=(v:unknown,max=30)=>Array.isArray(v)?v.map(x=>clean(x,120)).filter(Boolean).slice(0,max):[];
 const obj=(v:unknown)=>v&&typeof v==="object"&&!Array.isArray(v)?v:{};
+
+async function r8Sha256Hex(value:string){
+  const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return [...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function r8MergeEvalContext(base:any,fixture:any){
+  const f=obj(fixture),b=obj(base);
+  const merged:any={...b,...f};
+  for(const k of ["conversation","customer_summary","cart","checkout","journey","governor","commercial","human_precedence","policies"]){
+    merged[k]={...obj(b[k]),...obj(f[k])};
+  }
+  if(Object.prototype.hasOwnProperty.call(f,"pending_action"))merged.pending_action=f.pending_action;
+  return merged;
+}
+function r8EvalCheck(expectedRaw:any,result:any){
+  const e=obj(expectedRaw),failures:string[]=[];
+  const decision=clean(result?.decision,60);
+  const tools=(Array.isArray(result?.tools)?result.tools:[]).map((x:any)=>clean(x?.tool_key,80)).filter(Boolean);
+  const toolResults=Array.isArray(result?.tool_results)?result.tool_results:[];
+  const response=String(result?.response||"");
+  const low=response.toLowerCase();
+  const decisions=Array.isArray(e.decision_any)?e.decision_any.map((x:any)=>clean(x,60)):[];
+  const toolAny=Array.isArray(e.tool_any)?e.tool_any.map((x:any)=>clean(x,80)):[];
+  const contains=Array.isArray(e.response_contains_any)?e.response_contains_any.map((x:any)=>clean(x,200).toLowerCase()):[];
+  const notContains=Array.isArray(e.response_not_contains_any)?e.response_not_contains_any.map((x:any)=>clean(x,200).toLowerCase()):[];
+  if(result?.ok!==true)failures.push("simulation_not_ok");
+  if(decisions.length&&!decisions.includes(decision))failures.push("decision_mismatch");
+  if(toolAny.length&&!toolAny.some((x:string)=>tools.includes(x)))failures.push("expected_tool_missing");
+  if(typeof e.should_handoff==="boolean"&&Boolean(result?.should_handoff)!==e.should_handoff)failures.push("handoff_mismatch");
+  if(e.media_required===true&&!result?.media_preview?.url)failures.push("media_missing");
+  if(typeof e.known_customer==="boolean"&&Boolean(result?.context?.customer_summary?.known_customer)!==e.known_customer)failures.push("known_customer_mismatch");
+  if(contains.length&&!contains.some((x:string)=>low.includes(x)))failures.push("response_semantic_missing");
+  if(notContains.some((x:string)=>x&&low.includes(x)))failures.push("prohibited_text_present");
+  if(result?.external_side_effect!==false||result?.writes_executed!==false)failures.push("unsafe_side_effect");
+  if(result?.context_mode!=="strict_read_only")failures.push("context_not_strict_readonly");
+  for(const tr of toolResults){
+    if(tr?.operation_kind==="read"&&tr?.ok===false&&!tr?.skipped)failures.push("read_tool_error");
+    if(["write","commitment"].includes(String(tr?.operation_kind||""))&&tr?.executed===true)failures.push("write_executed");
+  }
+  return {
+    passed:failures.length===0,
+    failures:[...new Set(failures)],
+    checks:{
+      decision,tools,
+      should_handoff:Boolean(result?.should_handoff),
+      media_present:Boolean(result?.media_preview?.url),
+      known_customer:Boolean(result?.context?.customer_summary?.known_customer),
+      response_length:response.length,
+      strict_read_only:result?.context_mode==="strict_read_only",
+      external_side_effect:result?.external_side_effect
+    }
+  };
+}
 const entityTable=(type:string)=>({knowledge:"service_knowledge_items",guidance:"service_guidance_rules",procedure:"service_procedures",media:"service_media_library",regression_case:"service_regression_cases"} as Record<string,string>)[type]||"";
 
 
@@ -195,8 +248,9 @@ function r8MediaPreview(message:string,toolResults:any[]){
   }
   return null;
 }
-async function r8Simulator(sb:any,actorId:string,body:any){
+async function r8Simulator(sb:any,actorId:string|null,body:any){
   const started=Date.now(),message=clean(body?.message,2000);
+  const evalMode=body?.eval_mode===true;
   if(!message)return {status:400,body:{ok:false,error:"message_required"}};
 
   let customerId=uuid(body?.customer_id)||null;
@@ -237,7 +291,7 @@ async function r8Simulator(sb:any,actorId:string,body:any){
   if(!key)return {status:503,body:{ok:false,error:"openai_key_missing"}};
 
   const serviceKnowledge=knowledgeQ.error?[]:(knowledgeQ.data||[]);
-  const context={
+  const baseContext={
     ...(contextQ.data||{}),
     service_knowledge:serviceKnowledge,
     service_intelligence:{
@@ -248,6 +302,9 @@ async function r8Simulator(sb:any,actorId:string,body:any){
       knowledge:serviceKnowledge
     }
   };
+  const context=evalMode
+    ? r8MergeEvalContext(baseContext,body?.context_fixture||{})
+    : baseContext;
 
   const paymentPolicy=Array.isArray(serviceKnowledge)
     ? serviceKnowledge.find((x:any)=>x?.key==="payment_baseline")
@@ -266,9 +323,12 @@ async function r8Simulator(sb:any,actorId:string,body:any){
       input_tokens:0,cached_input_tokens:0,output_tokens:0,estimated_cost_usd:0,
       latency_ms:latency,success:true,error_code:null
     };
-    const saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();
+    let saved:any={data:null};
+    if(!evalMode&&actorId){
+      saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();
+    }
     return {status:200,body:{
-      ok:true,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||null,
+      ok:true,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||new Date().toISOString(),
       response:responseText,decision:"RESPOND",confidence:1,
       commercial_opportunity:"none",journey_stage:row.journey_stage,sales_next_step:"answer_need",
       should_handoff:false,question:"",tools:[],tool_results:[],context,media_preview:null,
@@ -339,10 +399,13 @@ async function r8Simulator(sb:any,actorId:string,body:any){
     estimated_cost_usd:cost,latency_ms:Date.now()-started,success,
     error_code:success?null:String(planned?.error||"planner_failed")
   };
-  const saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();
+  let saved:any={data:null};
+  if(!evalMode&&actorId){
+    saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();
+  }
 
   return {status:200,body:{
-    ok:success,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||null,
+    ok:success,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||new Date().toISOString(),
     response:responseText,decision:row.decision,confidence:planned?.plan?.confidence??null,
     commercial_opportunity:row.commercial_opportunity,journey_stage:row.journey_stage,
     sales_next_step:row.sales_next_step,should_handoff:Boolean(planned?.plan?.should_handoff),
@@ -357,18 +420,101 @@ async function r8Simulator(sb:any,actorId:string,body:any){
   }};
 }
 
+
+async function r8VerifyEvalKey(sb:any,supplied:string){
+  if(!supplied)return false;
+  const hash=await r8Sha256Hex(supplied);
+  const q=await sb.from("system_secrets")
+    .select("key_hash,is_active")
+    .eq("key_name","papoai_brain_eval_v1")
+    .maybeSingle();
+  return q.data?.is_active===true&&q.data?.key_hash===hash;
+}
+async function r8RunEvalChunk(sb:any,runId:string,limit:number){
+  const claim=await sb.rpc("claim_papoai_brain_eval_batch_v1",{
+    p_run_id:runId,
+    p_limit:Math.max(1,Math.min(6,Number(limit||4)))
+  });
+  if(claim.error)return {ok:false,error:"claim_failed",detail:claim.error.message};
+  const items=Array.isArray(claim.data?.items)?claim.data.items:[];
+  let processed=0;
+  for(const item of items){
+    const started=Date.now();
+    try{
+      const sim=await r8Simulator(sb,null,{
+        message:item.message_text,
+        conversation_id:item.conversation_id||null,
+        customer_id:item.customer_id||null,
+        context_fixture:item.context_fixture||{},
+        eval_mode:true
+      });
+      const b=sim.body||{};
+      const checked=r8EvalCheck(item.expected||{},b);
+      const metrics=b.metrics||{};
+      const status=sim.status>=400||b.ok!==true?"error":(checked.passed?"passed":"failed");
+      const upd=await sb.from("papoai_brain_eval_results").update({
+        status,
+        decision:b.decision||null,
+        commercial_opportunity:b.commercial_opportunity||null,
+        journey_stage:b.journey_stage||null,
+        should_handoff:Boolean(b.should_handoff),
+        response_text:clean(b.response,12000)||null,
+        proposed_tools:Array.isArray(b.tools)?b.tools:[],
+        tool_results:Array.isArray(b.tool_results)?b.tool_results:[],
+        media_preview:b.media_preview||null,
+        checks:checked.checks||{},
+        failure_codes:status==="error"?["simulation_error"]:checked.failures,
+        error_code:status==="error"?clean(b.error||"simulation_error",120):null,
+        error_detail:status==="error"?clean(b.detail||"",1000):null,
+        input_tokens:Number(metrics.input_tokens||0),
+        cached_input_tokens:Number(metrics.cached_input_tokens||0),
+        output_tokens:Number(metrics.output_tokens||0),
+        estimated_cost_usd:Number(metrics.estimated_cost_usd||0),
+        latency_ms:Number(metrics.latency_ms||Date.now()-started),
+        finished_at:new Date().toISOString()
+      }).eq("id",item.result_id);
+      if(upd.error)throw upd.error;
+      processed++;
+    }catch(e){
+      await sb.from("papoai_brain_eval_results").update({
+        status:"error",
+        failure_codes:["runner_exception"],
+        error_code:"runner_exception",
+        error_detail:clean((e as Error)?.message,1000),
+        latency_ms:Date.now()-started,
+        finished_at:new Date().toISOString()
+      }).eq("id",item.result_id);
+      processed++;
+    }
+  }
+  const fin=await sb.rpc("finalize_papoai_brain_eval_run_v1",{p_run_id:runId});
+  if(!fin.error&&fin.data?.complete!==true){
+    await sb.rpc("dispatch_papoai_brain_eval_run_v1",{p_run_id:runId});
+  }
+  return {ok:true,run_id:runId,processed,finalize:fin.data||null};
+}
+
 Deno.serve(async(req:Request)=>{
   if(req.method==="OPTIONS")return new Response("ok",{headers:CORS});
   if(req.method==="GET")return Response.redirect("https://donaantonia.com.br/admin/commerce-os/",302);
   if(req.method!=="POST")return json({ok:false,error:"method_not_allowed"},405);
   const url=Deno.env.get("SUPABASE_URL"),key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");if(!url||!key)return json({ok:false,error:"server_config"},500);
-  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"").trim();if(!token)return json({ok:false,error:"missing_token"},401);
   const sb=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+  let body:any={};try{body=await req.json()}catch{return json({ok:false,error:"invalid_json"},400)}
+  const action=clean(body?.action||"dashboard",60).toLowerCase();
+
+  if(action==="r8_eval_chunk_internal"){
+    const supplied=req.headers.get("x-papoai-brain-eval-key")||"";
+    if(!(await r8VerifyEvalKey(sb,supplied)))return json({ok:false,error:"eval_unauthorized"},401);
+    const runId=uuid(body?.run_id);if(!runId)return json({ok:false,error:"run_id_required"},400);
+    const r=await r8RunEvalChunk(sb,runId,Number(body?.limit||4));
+    return json(r,r.ok?200:500);
+  }
+
+  const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"").trim();if(!token)return json({ok:false,error:"missing_token"},401);
   const {data:userData,error:userError}=await sb.auth.getUser(token);if(userError||!userData?.user?.id)return json({ok:false,error:"invalid_user"},401);
   const {data:admin,error:adminError}=await sb.from("admin_users").select("role,is_active,display_name").eq("user_id",userData.user.id).maybeSingle();if(adminError)return json({ok:false,error:"admin_lookup_failed"},500);if(!admin?.is_active)return json({ok:false,error:"admin_not_authorized"},403);
   const isOwner=admin.role==="owner";const canEdit=isOwner||["admin","manager"].includes(admin.role);
-  let body:any={};try{body=await req.json()}catch{return json({ok:false,error:"invalid_json"},400)}
-  const action=clean(body?.action||"dashboard",60).toLowerCase();
 
   if(action==="r8_overview")return json({ok:true,...await r8Overview(sb)});
   if(action==="r8_health")return json({ok:true,...await r8Health(sb)});
@@ -464,6 +610,17 @@ Deno.serve(async(req:Request)=>{
   if(action==="r8_handoff_queue"){const q=await sb.rpc("get_papoai_assisted_handoff_queue_v1");return json({ok:!q.error,queue:q.data||{ok:true,count:0,items:[]},error:q.error?.message||null},q.error?400:200)}
   if(action==="r8_handoff_claim"){if(!canEdit)return json({ok:false,error:"editor_required"},403);const id=uuid(body?.handoff_id);if(!id)return json({ok:false,error:"handoff_id_required"},400);const q=await sb.rpc("claim_human_handoff_admin_v1",{p_handoff_id:id,p_admin_user_id:userData.user.id});return json({ok:!q.error,result:q.data,error:q.error?.message||null},q.error?400:200)}
   if(action==="r8_handoff_complete"){if(!canEdit)return json({ok:false,error:"editor_required"},403);const id=uuid(body?.handoff_id);if(!id)return json({ok:false,error:"handoff_id_required"},400);const q=await sb.rpc("complete_papoai_assisted_handoff_v1",{p_handoff_id:id,p_admin_user_id:userData.user.id,p_notes:clean(body?.notes,1000)||null});return json({ok:!q.error,result:q.data,error:q.error?.message||null},q.error?400:200)}
+  if(action==="r8_eval_dashboard"){const q=await sb.rpc("get_papoai_brain_eval_dashboard_v1");return json({ok:!q.error,dashboard:q.data||null,error:q.error?.message||null},q.error?400:200)}
+  if(action==="r8_eval_scenarios"){const q=await sb.from("papoai_brain_eval_scenarios").select("scenario_key,category,message_text,expected,priority,source,active,updated_at").order("priority").order("category").order("scenario_key").limit(300);return json({ok:!q.error,scenarios:q.data||[],error:q.error?.message||null},q.error?400:200)}
+  if(action==="r8_eval_start"){
+    if(!canEdit)return json({ok:false,error:"editor_required"},403);
+    const suite=["full","smoke","category"].includes(body?.suite)?body.suite:"full";
+    const category=clean(body?.category,80)||null;
+    const cr=await sb.rpc("create_papoai_brain_eval_run_v1",{p_suite:suite,p_category:category,p_limit:Math.max(1,Math.min(300,Number(body?.limit||300)))});
+    if(cr.error||cr.data?.ok!==true)return json({ok:false,error:cr.error?.message||cr.data?.reason||"eval_create_failed"},400);
+    const ds=await sb.rpc("dispatch_papoai_brain_eval_run_v1",{p_run_id:cr.data.run_id});
+    return json({ok:!ds.error&&ds.data?.ok!==false,run:cr.data,dispatch:ds.data||null,error:ds.error?.message||null},ds.error?500:200);
+  }
   if(action==="r8_simulator"){const r=await r8Simulator(sb,userData.user.id,body);return json(r.body,r.status)}
   if(action==="r8_simulator_history"){const r=await sb.from("papoai_admin_simulator_runs").select("id,input_text,model,decision,commercial_opportunity,response_text,input_tokens,cached_input_tokens,output_tokens,estimated_cost_usd,latency_ms,success,error_code,created_at").order("created_at",{ascending:false}).limit(50);return json({ok:!r.error,runs:r.data||[],error:r.error?.message||null},r.error?400:200)}
 
