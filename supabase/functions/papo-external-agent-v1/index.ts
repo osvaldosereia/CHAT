@@ -816,6 +816,95 @@ async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correla
       });
     }
 
+    if(action==='papoai_product_export_csv'){
+      const rows:any[]=[];
+      const pageSize=500;
+      for(let from=0;;from+=pageSize){
+        const q=await sb.from('products')
+          .select('id,sku,gtin,name,brand,category,subcategory,subsubcategory,customer_category,customer_subcategory,customer_subsubcategory,packaging,description_short,description_long,tags,price,offer_price,is_offer,stock')
+          .eq('is_active',true)
+          .eq('physically_verified',true)
+          .gt('stock',0)
+          .gt('price',0)
+          .order('name',{ascending:true})
+          .range(from,from+pageSize-1);
+        if(q.error)throw q.error;
+        const batch=Array.isArray(q.data)?q.data:[];
+        rows.push(...batch);
+        if(batch.length<pageSize)break;
+      }
+
+      const cleanCell=(value:any,max=1800)=>String(value??'')
+        .replace(/[\\r\\n\\t]+/g,' ')
+        .replace(/\\s+/g,' ')
+        .trim()
+        .slice(0,max);
+      const csvCell=(value:any)=>{
+        const s=cleanCell(value,5000).replace(/"/g,'""');
+        return `"${s}"`;
+      };
+
+      const header=['name','sku','description','category','observations','price','stock'];
+      const lines=[header.join(',')];
+
+      for(const p of rows){
+        const category=cleanCell(
+          p.customer_category||p.category||p.customer_subcategory||p.subcategory||'Outros',
+          180
+        );
+        const details=[
+          p.brand?`Marca: ${cleanCell(p.brand,120)}.`:'',
+          p.customer_subcategory||p.subcategory
+            ?`Categoria: ${cleanCell(p.customer_subcategory||p.subcategory,160)}.`
+            :'',
+          p.customer_subsubcategory||p.subsubcategory
+            ?`Tipo: ${cleanCell(p.customer_subsubcategory||p.subsubcategory,160)}.`
+            :'',
+          p.packaging?`Embalagem: ${cleanCell(p.packaging,120)}.`:'',
+          cleanCell(p.description_long||p.description_short||'',900),
+          Array.isArray(p.tags)&&p.tags.length
+            ?`Termos relacionados: ${p.tags.slice(0,12).map((x:any)=>cleanCell(x,80)).filter(Boolean).join(', ')}.`
+            :''
+        ].filter(Boolean);
+        const description=details.join(' ').slice(0,1500)
+          || `${cleanCell(p.name,300)}. ${category}.`;
+
+        const observations=[
+          p.is_offer&&Number(p.offer_price||0)>0&&Number(p.offer_price)<Number(p.price)
+            ?'Produto em oferta'
+            :'',
+          p.gtin?`EAN/GTIN: ${cleanCell(p.gtin,40)}`:''
+        ].filter(Boolean).join(' | ');
+
+        const commercialPrice=
+          p.is_offer&&Number(p.offer_price||0)>0&&Number(p.offer_price)<=Number(p.price)
+            ?Number(p.offer_price)
+            :Number(p.price);
+        const stock=Math.max(0,Math.floor(Number(p.stock||0)));
+
+        lines.push([
+          csvCell(p.name),
+          csvCell(p.sku||p.gtin||p.id),
+          csvCell(description),
+          csvCell(category),
+          csvCell(observations),
+          commercialPrice.toFixed(2),
+          String(stock)
+        ].join(','));
+      }
+
+      return new Response('\uFEFF'+lines.join('\n'),{
+        status:200,
+        headers:{
+          'content-type':'text/csv; charset=utf-8',
+          'content-disposition':'attachment; filename="produtos-papoai-dona-antonia.csv"',
+          'cache-control':'no-store',
+          'x-product-count':String(rows.length),
+          'x-source-of-truth':'supabase'
+        }
+      });
+    }
+
     if(action==='papoai_product_sync_preview'){
       const limit=Math.max(1,Math.min(100,Number(body?.limit||20)));
       const offset=Math.max(0,Number(body?.offset||0));
@@ -851,7 +940,7 @@ async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correla
       supported_actions:[
         'health','customer_profile','customer_address','last_purchase',
         'baskets','basket_detail','basket_personalization_preview','product_search_authoritative',
-        'papoai_product_sync_status','papoai_product_sync_preview'
+        'papoai_product_sync_status','papoai_product_sync_preview','papoai_product_export_csv'
       ],
       correlation_id:correlationId
     },400);
