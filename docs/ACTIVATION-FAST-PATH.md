@@ -1,112 +1,89 @@
 # FAST PATH TO ACTIVATION — Dona Antônia PapoAI Commerce OS
 
-Atualizado: 22/09/2026
-Branch: `papoai-commerce-os-live-20260921`
+Atualizado: 22/09/2026  
+Branch: `papoai-commerce-os-live-20260921`  
 Supabase: `ssbesxgaijknwsjbsbcz`
 
 ## Estado executivo
 
-O sistema está tecnicamente muito próximo do próximo gate.
+### R7 — concluída
+- **5/5 core**;
+- run `44d24129-b4a0-40b9-8b2d-2ed196614dbe` = passed;
+- handoff homologado como `assisted_manual_handoff`;
+- Edge `papo-external-agent-v1` v54;
+- `ready_for_r8=true`.
 
-R7:
-- 4/5 core verificados;
-- único core pendente: `agent_external.handoff`;
-- Edge `papo-external-agent-v1` v53 ACTIVE;
-- fail-safe local pausa a IA imediatamente após solicitar handoff;
-- takeover manual do PapoAI foi comprovado;
-- takeover automático por `handoff=true` não foi comprovado;
-- suporte do PapoAI foi acionado para fornecer o contrato oficial/server-side.
+### R8 — programação concluída
+- Admin mínimo separado, sem inbox/chat;
+- `admin-service-intelligence-v1` v8 ACTIVE;
+- `admin-pin-auth-v1` v6 ACTIVE;
+- oito áreas implementadas;
+- simulator safe/no-write;
+- versionamento e rollback implementados;
+- `get_papoai_r8_readiness_v1().programming_complete=true`;
+- único blocker: `r8_physical_admin_smoke_pending`.
 
-Produção: OFF.
-R8: NÃO INICIADA.
+### Produção
+- **OFF**;
+- R9 ainda não iniciada;
+- activation readiness tem apenas `production_activation_not_authorized`, mas a política do projeto exige também R8 pronta para R9.
 
-## O que já foi eliminado como blocker
+## Próxima ação exata
 
-- catálogo/data readiness: OK;
-- transport Agent External: OK;
-- texto real: OK;
-- outbound image/media: OK;
-- inbound image: OK;
-- inbound audio: OK;
-- silent: OK;
-- chave v2: observada fisicamente e rotação finalizada;
-- vínculo do Agent External: verificado;
-- E2E físico externo: verificado;
-- safety gates de homologação: OK;
-- outbound voice: resolvido como unsupported com fallback texto;
-- interactive/Flow/typing/read receipt: fallbacks explícitos, não bloqueantes.
+Executar o smoke físico mínimo da R8:
+1. abrir o Admin Commerce OS;
+2. autenticar com o PIN administrativo;
+3. confirmar Visão Geral;
+4. confirmar Saúde;
+5. abrir Simulador;
+6. simular uma mensagem simples;
+7. confirmar resposta, decisão e métricas;
+8. verificar que nenhuma ação de escrita foi executada.
 
-## Único bloqueio técnico externo
+Se passar:
+- registrar `r8_physical_admin_smoke_verified=true`;
+- confirmar `get_papoai_r8_readiness_v1().ready_for_r9=true`;
+- salvar checkpoint R8;
+- iniciar R9.
 
-Precisamos da resposta oficial do PapoAI para uma destas duas conclusões:
+## R9 — caminho curto até produção
 
-1. **Existe contrato suportado de takeover server-side**
-   - implementar somente o adapter desse contrato;
-   - renovar janela R7;
-   - repetir somente `TESTE_HANDOFF_DONA_ANTONIA`;
-   - comprovar humano ativo + ausência de resposta da IA;
-   - marcar handoff=verified;
-   - executar `finish_papoai_r7_homologation_v1`;
-   - confirmar `ready_for_r8=true`.
+1. **Canary read-only**
+   - ligar apenas reads + IA + Governor em coorte controlada;
+   - write=false;
+   - Bling=false;
+   - learning=false.
 
-2. **O Agent External não suporta takeover automático**
-   - não usar WebSocket/token privado do navegador;
-   - registrar capability como limitação oficial do provider;
-   - redesenhar formalmente o critério/fallback de handoff antes de qualquer piloto;
-   - preservar pausa local e fila interna de `human_handoffs`.
+2. **Writes comerciais controlados**
+   - carrinho/personalização;
+   - confirmação explícita;
+   - rollback disponível.
 
-## Política de gate para ativação
+3. **Pedido local**
+   - criar pedido no Supabase;
+   - idempotência;
+   - snapshot imutável;
+   - Bling ainda protegido.
 
-O próprio `get_papoai_commerce_activation_readiness_v1()` agora incorpora a R7.
+4. **Piloto real pequeno**
+   - acompanhar erro, latência, custo, handoff e conversão;
+   - humano sempre prevalece.
 
-Para avançar:
-- `r7_ready_for_r8=true`;
-- `ready_for_production=true`;
-- produção continua explicitamente não autorizada até a etapa R9.
+5. **Bling controlado**
+   - só após pedido local;
+   - falha do Bling nunca perde pedido local.
 
-Enquanto a R7 estiver 4/5, o readiness devolve `r7_physical_homologation_incomplete` mesmo que todos os demais requisitos estejam verdes.
+6. **Go-live**
+   - somente após gates verdes;
+   - `production_activation_authorized=true` exige autorização explícita do responsável.
 
-Estado atual do activation readiness após reconciliação:
-- data_ready=true;
-- transport_ready=true;
-- safety_ready=true;
-- external_customer_e2e_verified=true;
-- api_key_rotation_required=false;
-- papoai_channel_link_current_verified=true;
-- media_reply=verified_lab;
-- warnings=0;
-- production_activation_authorized=false.
+## Regras que continuam valendo
 
-## Trabalho que pode ser feito enquanto aguardamos
-
-Permitido agora, sem furar a ordem do roadmap:
-- documentação/checkpoints;
-- auditorias read-only;
-- correção de flags stale;
-- preparar comandos e checklist de ativação;
-- investigar resposta oficial do provider;
-- hardening que não liga gates nem inicia R8.
-
-Não fazer antes da R7:
-- ativar IA/Commerce/Write/Governor em produção;
-- iniciar R8 oficialmente;
-- iniciar R9;
-- ativar Bling queue;
-- ativar learning writes;
-- depender de WebSocket privado do PapoAI.
-
-## Assim que o PapoAI responder
-
-A resposta do fornecedor vira a única entrada necessária.
-Não repetir texto, imagem, áudio, silent ou rotação de chave.
-
-Se o contrato oficial vier completo, a sequência restante da R7 deve ser executável em uma única rodada curta.
-
-
-## Estado depois do hardening
-
-Após o hardening, os blockers atuais são exatamente:
-1. `r7_physical_homologation_incomplete`;
-2. `production_activation_not_authorized`.
-
-Isso é intencional. Quando o handoff for homologado e a R7 fechada, o primeiro blocker desaparece. A autorização de produção permanece como último gate humano da R9.
+- não repetir homologações físicas já aprovadas;
+- não usar WebSocket privado do PapoAI;
+- não duplicar inbox;
+- não ativar learning automático cedo;
+- não ativar Bling antecipadamente;
+- preços/estoque/totais continuam autoridade do Supabase;
+- writes exigem confirmação/políticas do Commerce OS;
+- humano tem precedência absoluta.
