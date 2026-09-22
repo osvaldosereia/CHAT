@@ -2066,7 +2066,9 @@ Deno.serve(async(req:Request)=>{
         if(!isBasicStapleProduct(selected)&&selected?.image_url){
           text+='\n\nSe quiser conferir antes, posso mandar a foto desse produto.';
         }
-        text+='\n\nQuer seguir com esse item?';
+        if(commerceCfg?.write_enabled===true){
+          text+='\n\nQuer adicionar esse item ao pedido?';
+        }
       }
     }else if(intent.intent==='confirm_product_choice_candidate'&&conversationId){
       const candidate=pendingChoiceResolution?.item||null;
@@ -2135,8 +2137,9 @@ Deno.serve(async(req:Request)=>{
           text='Não encontrei esse produto disponível agora. Se quiser, me diga outra marca, tamanho ou tipo.';
         }else if(choices.length===1){
           const p=choices[0];
-          text=`🛒 Encontrei:\n\n1. ${p.name} — ${moneyBR(p.commercial_price)}\n\nQuer esse item?`;
-          if(!isBasicStapleProduct(p)&&p?.image_url)text+=' Se quiser conferir, posso mandar a foto.';
+          text=`🛒 Encontrei:\n\n1. ${p.name} — ${moneyBR(p.commercial_price)}`;
+          if(!isBasicStapleProduct(p)&&p?.image_url)text+='\n\nSe quiser conferir, posso mandar a foto.';
+          if(commerceCfg?.write_enabled===true)text+='\n\nQuer adicionar esse item ao pedido?';
         }else{
           text=`🛒 Encontrei ${choices.length} opções:\n\n${numberedProductsText(choices,20)}\n\nResponda com o **número da opção**. Se preferir, pode escrever o nome e um valor aproximado, por exemplo: “OMO de 19 reais”.`;
         }
