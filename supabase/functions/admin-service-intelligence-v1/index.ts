@@ -63,6 +63,60 @@ Deno.serve(async(req:Request)=>{
   if(action==="r8_save_model_price"){
     if(!isOwner)return json({ok:false,error:"owner_required"},403);const model=clean(body?.model,120);if(!model)return json({ok:false,error:"model_required"},400);const before=await sb.from("papoai_model_price_profiles").select("*").eq("model",model).maybeSingle();if(before.data)await r8Snapshot(sb,"model_price",model,before.data,userData.user.id,"update",body?.note||"");const row:any={model,input_usd_per_million:Number(body?.input_usd_per_million),cached_input_usd_per_million:Number(body?.cached_input_usd_per_million),output_usd_per_million:Number(body?.output_usd_per_million),source_note:clean(body?.source_note,500)||null,updated_by:userData.user.id,updated_at:new Date().toISOString()};if([row.input_usd_per_million,row.cached_input_usd_per_million,row.output_usd_per_million].some((n:any)=>!Number.isFinite(n)||n<0))return json({ok:false,error:"invalid_price"},400);const saved=await sb.from("papoai_model_price_profiles").upsert(row,{onConflict:"model"}).select("*").single();return json({ok:!saved.error,price:saved.data,error:saved.error?.message||null},saved.error?400:200);
   }
+
+  if(action==="r8_knowledge_save"){
+    if(!canEdit)return json({ok:false,error:"editor_required"},403);
+    const type=clean(body?.type,40),table=entityTable(type),id=uuid(body?.id);
+    if(!["knowledge","guidance","procedure"].includes(type)||!table)return json({ok:false,error:"invalid_entity_type"},400);
+    let row:any={updated_by:userData.user.id,updated_at:new Date().toISOString()};
+    if(type==="knowledge")row={...row,knowledge_key:clean(body?.knowledge_key,100).toLowerCase(),category:clean(body?.category,80),title:clean(body?.title,180),content:clean(body?.content,12000),keywords:strArray(body?.keywords),channel_scope:strArray(body?.channel_scope).length?strArray(body?.channel_scope):["whatsapp"],priority:Math.max(0,Math.min(100,Number(body?.priority??50)||50)),source_note:clean(body?.source_note,500)||null,status:["draft","published","archived"].includes(body?.status)?body.status:"draft"};
+    if(type==="guidance")row={...row,rule_key:clean(body?.rule_key,100).toLowerCase(),title:clean(body?.title,180),instruction:clean(body?.instruction,8000),intent_scope:strArray(body?.intent_scope),stage_scope:strArray(body?.stage_scope),channel_scope:strArray(body?.channel_scope).length?strArray(body?.channel_scope):["whatsapp"],behavior_tags:strArray(body?.behavior_tags),priority:Math.max(0,Math.min(100,Number(body?.priority??50)||50)),status:["draft","published","archived"].includes(body?.status)?body.status:"draft"};
+    if(type==="procedure")row={...row,procedure_key:clean(body?.procedure_key,100).toLowerCase(),title:clean(body?.title,180),trigger_description:clean(body?.trigger_description,2000),steps:Array.isArray(body?.steps)?body.steps.slice(0,30):[],allowed_actions:strArray(body?.allowed_actions),confirmation_actions:strArray(body?.confirmation_actions),fallback:clean(body?.fallback,2000)||null,priority:Math.max(0,Math.min(100,Number(body?.priority??50)||50)),status:["draft","published","archived"].includes(body?.status)?body.status:"draft"};
+    const keyValue=type==="knowledge"?row.knowledge_key:type==="guidance"?row.rule_key:row.procedure_key;
+    const mainValue=type==="knowledge"?row.content:type==="guidance"?row.instruction:row.trigger_description;
+    if(!keyValue||!row.title||!mainValue)return json({ok:false,error:"required_fields_missing"},400);
+    if(id){
+      const before=await sb.from(table).select("*").eq("id",id).maybeSingle();
+      if(!before.data)return json({ok:false,error:"entity_not_found"},404);
+      await r8Snapshot(sb,"knowledge:"+type,id,before.data,userData.user.id,"update",body?.note||"");
+      const saved=await sb.from(table).update(row).eq("id",id).select("*").single();
+      if(saved.error)return json({ok:false,error:"save_failed",detail:saved.error.message},400);
+      return json({ok:true,item:saved.data});
+    }
+    row.created_by=userData.user.id;
+    const saved=await sb.from(table).insert(row).select("*").single();
+    if(saved.error)return json({ok:false,error:"save_failed",detail:saved.error.message},400);
+    await r8Snapshot(sb,"knowledge:"+type,String(saved.data.id),saved.data,userData.user.id,"create",body?.note||"");
+    return json({ok:true,item:saved.data});
+  }
+  if(action==="r8_restore_version"){
+    if(!isOwner)return json({ok:false,error:"owner_required"},403);
+    const versionId=Number(body?.version_id||0);
+    const v=await sb.from("papoai_admin_config_versions").select("*").eq("id",versionId).maybeSingle();
+    if(!v.data)return json({ok:false,error:"version_not_found"},404);
+    const entity=String(v.data.entity_type||""),key=String(v.data.entity_key||""),snap=v.data.snapshot||{};
+    if(entity.startsWith("config:")){
+      const area=entity.slice(7),cfg=R8_CONFIGS[area];if(!cfg)return json({ok:false,error:"invalid_area"},400);
+      const current=await sb.from(cfg.table).select("*").eq("id",1).maybeSingle();
+      if(current.data)await r8Snapshot(sb,entity,"1",current.data,userData.user.id,"rollback","rollback to version "+versionId);
+      const patch=r8Patch(area,snap),saved=await sb.from(cfg.table).update(patch).eq("id",1).select("*").single();
+      if(saved.error)return json({ok:false,error:"rollback_failed",detail:saved.error.message},400);
+      return json({ok:true,item:saved.data});
+    }
+    let table="",idColumn="id",idValue=key;
+    if(entity==="product_sales_knowledge"){table="product_sales_knowledge";idColumn="product_id"}
+    else if(entity==="customer_memory"){table="customer_service_memory"}
+    else if(entity==="knowledge:knowledge"){table="service_knowledge_items"}
+    else if(entity==="knowledge:guidance"){table="service_guidance_rules"}
+    else if(entity==="knowledge:procedure"){table="service_procedures"}
+    else return json({ok:false,error:"unsupported_rollback_entity"},400);
+    const current=await sb.from(table).select("*").eq(idColumn,idValue).maybeSingle();
+    if(current.data)await r8Snapshot(sb,entity,key,current.data,userData.user.id,"rollback","rollback to version "+versionId);
+    const restored=await sb.from(table).upsert(snap,{onConflict:idColumn}).select("*").single();
+    if(restored.error)return json({ok:false,error:"rollback_failed",detail:restored.error.message},400);
+    return json({ok:true,item:restored.data});
+  }
+
   if(action==="r8_products"){
     const search=clean(body?.q,120),limit=Math.max(1,Math.min(50,Number(body?.limit||20)));let q=sb.from("products").select("id,name,sku,gtin,brand,category,subcategory,price,offer_price,stock,image_url,is_active,physically_verified,updated_at").eq("is_active",true).order("name").limit(limit);if(search){const s=search.replace(/[,%()]/g," ");q=q.or("name.ilike.%"+s+"%,gtin.ilike.%"+s+"%,brand.ilike.%"+s+"%")}const r=await q;if(r.error)return json({ok:false,error:"products_failed",detail:r.error.message},400);const ids=(r.data||[]).map((p:any)=>p.id),k=ids.length?await sb.from("product_sales_knowledge").select("*").in("product_id",ids):{data:[]},km=new Map((k.data||[]).map((p:any)=>[p.product_id,p]));return json({ok:true,products:(r.data||[]).map((p:any)=>({...p,sales_knowledge:km.get(p.id)||null}))});
   }
