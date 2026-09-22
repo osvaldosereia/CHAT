@@ -145,3 +145,22 @@ Bloqueio único restante da R7:
 - até isso, `handoff` permanece `attempted`, R7 segue 4/5 core e `ready_for_r8=false`.
 
 Não repetir testes de texto, imagem, áudio, silent ou chave.
+
+
+## Suporte PapoAI acionado — 22/09/2026
+
+O pedido técnico ao suporte do PapoAI já foi enviado pelo responsável do projeto.
+
+Pergunta pendente ao fornecedor:
+- qual contrato oficial/server-side permite ao **Agente Externo** transferir uma sessão automaticamente para atendimento humano/equipe;
+- se existe campo de response JSON, endpoint/API ou evento suportado;
+- se o Agent External não suporta esse takeover automático.
+
+Enquanto a resposta não chega:
+- não repetir probes físicos já aprovados;
+- não usar o WebSocket privado `assign_session` em produção;
+- Edge v53 e fail-safe local permanecem ativos;
+- R7 segue 4/5;
+- produção OFF;
+- R8 não iniciada;
+- continuar apenas pre-activation cleanup/hardening/documentação.
