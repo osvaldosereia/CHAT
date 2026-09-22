@@ -9,7 +9,7 @@ Data: 21/09/2026
 
 ## Execução restante
 - R2 — AI Core, contexto, tools, executor seguro e planner de observação — **CONCLUÍDA**;
-- R3 — vendedora humanizada e Governor comercial;
+- R3 — vendedora humanizada e Governor comercial — **CONCLUÍDA**;
 - R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa;
 - R5 — checkout, pedido e handoff completos;
 - R6 — suíte de testes conversacionais;

@@ -224,7 +224,7 @@ Deno.serve(async(req:Request)=>{
   if(conversationId){
     const [aiCfgQ,contextQ]=await Promise.all([
       sb.rpc('get_papoai_ai_runtime_config_v1'),
-      sb.rpc('get_papoai_ai_context_pack_v1',{
+      sb.rpc('get_papoai_ai_context_pack_v2',{
         p_conversation_id:conversationId,
         p_current_message:normalized.messageText
       })
@@ -422,6 +422,12 @@ Deno.serve(async(req:Request)=>{
           decision:observedPlanner?.plan?.decision||null,
           confidence:observedPlanner?.plan?.confidence??null,
           commercial_opportunity:observedPlanner?.plan?.commercial_opportunity||null,
+          commercial_reason:aiContextPack?.commercial?.reason||null,
+          journey_stage:observedPlanner?.plan?.journey_stage||aiContextPack?.journey?.stage||null,
+          sales_next_step:observedPlanner?.plan?.sales_next_step||null,
+          proactive_offer_requested:Boolean(observedPlanner?.plan?.proactive_offer_requested),
+          policy_adjusted:Boolean(observedPlanner?.policy_adjusted),
+          policy_violations:Array.isArray(observedPlanner?.policy_violations)?observedPlanner.policy_violations:[],
           proposed_tool_calls:Array.isArray(observedPlanner?.plan?.tool_calls)?observedPlanner.plan.tool_calls:[],
           response_draft:observedPlanner?.plan?.response_draft||null,
           response_id:observedPlanner?.response_id||null,
@@ -1138,6 +1144,11 @@ Deno.serve(async(req:Request)=>{
         ok:observedPlanner?.ok===true,
         decision:observedPlanner?.plan?.decision||null,
         commercial_opportunity:observedPlanner?.plan?.commercial_opportunity||null,
+        journey_stage:observedPlanner?.plan?.journey_stage||null,
+        sales_next_step:observedPlanner?.plan?.sales_next_step||null,
+        proactive_offer_requested:Boolean(observedPlanner?.plan?.proactive_offer_requested),
+        policy_adjusted:Boolean(observedPlanner?.policy_adjusted),
+        policy_violation_count:Array.isArray(observedPlanner?.policy_violations)?observedPlanner.policy_violations.length:0,
         proposed_tool_count:Array.isArray(observedPlanner?.plan?.tool_calls)?observedPlanner.plan.tool_calls.length:0,
         no_customer_effect:true
       },

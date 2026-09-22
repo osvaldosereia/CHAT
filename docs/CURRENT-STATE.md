@@ -86,3 +86,41 @@ Próxima rodada: **R3 — Vendedora humanizada e Governor comercial**, executada
 
 Plano completo:
 `docs/PROGRAMMING-PLAN-TO-PRODUCTION.md`
+
+
+## R3 — CONCLUÍDA
+
+Vendedora humanizada e Governor comercial concluídos.
+
+Entregue:
+- política comercial configurável `papoai_commercial_policy_config`;
+- oportunidade comercial determinística `none / weak / strong`;
+- sinal `weak` não interrompe a necessidade principal;
+- sinal `strong` pode permitir uma única oferta contextual;
+- oferta proativa proibida durante checkout, confirmação, humano e após recusa;
+- oferta proativa exige política comercial explicitamente habilitada;
+- rejeições continuam registradas e entram em cooldown;
+- Governor v2 força `RECOMMEND` após “você decide” e após 2 perguntas;
+- Context Pack v2 inclui jornada, sinal comercial e ação pendente;
+- busca personalizada v2 suporta teto de preço e prioridade por preço/produto habitual;
+- mudança de ideia cancela ação pendente incompatível;
+- planner Terra recebeu regras de vendedora ativa, natural e orientada a fechamento;
+- normalizador do planner corrige violações comerciais antes de qualquer futura execução;
+- Edge `papo-external-agent-v1` atualizada para v31;
+- telemetria registra jornada, próximo passo, sinal comercial e ajustes de política;
+- índice de performance criado para `papoai_commerce_turns.customer_id`.
+
+Testes concluídos:
+- none/weak/strong;
+- comprador recorrente => strong;
+- oferta fraca => weak;
+- limite de oferta => none;
+- “você decide” => RECOMMEND;
+- terceira pergunta => RECOMMEND;
+- orçamento máximo respeitado;
+- strong permitido fora de checkout;
+- strong suprimido durante checkout;
+- mudança de ideia cancela pending action;
+- AI Runtime, Commercial Policy e runtime tools continuam OFF.
+
+Próxima rodada: **R4 — Channel Adapter Meta/PapoAI + multimodal**, executada inteira antes de avançar.
