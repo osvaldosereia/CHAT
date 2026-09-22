@@ -595,3 +595,19 @@ Plano:
 Teste autônomo:
 - uma requisição sintética de homologação foi preparada/disparada do Supabase para o webhook de entrada que estava em modo Teste;
 - o pg_net permaneceu em fila no momento da verificação; não considerar o teste homologado até observar a requisição no painel PapoAI ou receber resposta HTTP.
+
+
+## T1 WEBHOOK DE ENTRADA PAPOAI — HOMOLOGADO — 22/09/2026 14:24 Cuiabá
+
+Teste físico concluído no webhook de entrada do PapoAI em modo Teste.
+
+Resultado:
+- HTTP 200;
+- PapoAI registrou a requisição em modo Teste;
+- ações não executadas, conforme esperado;
+- campos confirmados: command, customer.name, customer.phone e reason.
+
+Conclusão:
+- caminho Commerce OS/Supabase → Webhook de entrada PapoAI fisicamente comprovado;
+- JSON aninhado exposto corretamente para mapeamento;
+- próximo teste: T2 handoff nativo com Parar resposta do assistente + Transferir para atendente.
