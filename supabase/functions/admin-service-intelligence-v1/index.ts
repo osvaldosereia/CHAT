@@ -422,6 +422,25 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     });
   }
 
+  if(deterministicIntent?.intent==="delivery_schedule"){
+    const tools=[{tool_key:"request_handoff",arguments_json:JSON.stringify({
+      reason:"delivery_schedule_confirmation",
+      summary:"Cliente pediu confirmação de horário ou janela específica de entrega."
+    })}];
+    const toolResults=[{
+      tool_key:"request_handoff",operation_kind:"commitment",
+      arguments:{
+        reason:"delivery_schedule_confirmation",
+        summary:"Cliente pediu confirmação de horário ou janela específica de entrega."
+      },
+      ok:true,executed:false,blocked_by_simulator:true
+    }];
+    return await deterministicReturn({
+      response:"O horário exato depende da rota e da operação do dia. Vou chamar alguém da equipe para confirmar essa janela com você.",
+      decision:"ACT",tools,toolResults,shouldHandoff:true,salesNextStep:"handoff"
+    });
+  }
+
   if(deterministicIntent?.intent==="handoff"){
     const tools=[{tool_key:"request_handoff",arguments_json:JSON.stringify({
       reason:"customer_requested_human",
