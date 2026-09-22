@@ -62,3 +62,32 @@ Readiness:
 - silent: já aprovado.
 
 Produção continua OFF.
+
+
+## Checkpoint 22/09/2026 08:52 — falha física de takeover detectada
+
+Teste físico de handoff executado no WhatsApp real `+556599828360`.
+
+Evidência:
+- comando `TESTE_HANDOFF_DONA_ANTONIA` chegou à Edge;
+- correlation_id do handoff: `80461a92-399a-482a-9788-258986b081e7`;
+- Edge respondeu HTTP 200 com `response_kind=handoff` e `handoff=true`;
+- mensagem de transferência apareceu no WhatsApp;
+- mensagem seguinte `TESTE_POS_HANDOFF_DONA_ANTONIA` gerou nova resposta automática;
+- correlation_id pós-handoff: `e81146e0-4d20-473b-9608-c6d71b11c3a6`;
+- payload seguinte voltou com `session.status=ACTIVE` e `session.human_required=false`;
+- portanto o PapoAI **não efetivou o takeover humano** e o caso `handoff` continua `attempted`, não `verified`.
+
+Correção de segurança aplicada:
+- Edge `papo-external-agent-v1` atualizada para **v53**;
+- ao solicitar handoff, a sessão local do Agent External passa imediatamente para `paused` até a expiração da janela protegida;
+- isso impede que a nossa IA volte a responder caso o PapoAI ignore a transferência;
+- este fail-safe **não é usado como prova de handoff físico do PapoAI**;
+- produção continua OFF;
+- `ready_for_r8=false`.
+
+Próxima ação física:
+- revisar no PapoAI a configuração de **Transferência** do agente **Dona Antônia — Homologação**;
+- confirmar destino humano/fila configurado;
+- manter **“Manter IA ativa após transferência” DESLIGADO**;
+- repetir somente o handoff após correção da configuração.
