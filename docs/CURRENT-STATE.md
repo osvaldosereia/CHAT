@@ -611,3 +611,25 @@ Conclusão:
 - caminho Commerce OS/Supabase → Webhook de entrada PapoAI fisicamente comprovado;
 - JSON aninhado exposto corretamente para mapeamento;
 - próximo teste: T2 handoff nativo com Parar resposta do assistente + Transferir para atendente.
+
+
+## PILOTO CONTROLADO PAPOAI — +55 65 99815-0975 — 22/09/2026
+
+Piloto básico ativado exclusivamente para o telefone autorizado terminado em 0975.
+
+Estado:
+- Commerce Brain: enabled=true;
+- AI: enabled=true;
+- AI runtime: active;
+- leitura/tools: habilitadas;
+- write_enabled=false;
+- Bling queue=false;
+- learning enqueue=false;
+- pilot_mode=true;
+- allowlist por hash SHA-256 do telefone;
+- qualquer outro telefone fica silencioso no novo cérebro;
+- produção geral continua não autorizada;
+- handoff físico nativo PapoAI permanece pendente de teste.
+
+Objetivo desta fase:
+validar atendimento real básico no WhatsApp antes de liberar carrinho/escritas.
