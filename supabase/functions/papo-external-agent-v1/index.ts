@@ -397,7 +397,7 @@ function basketsText(items:any[]){
 function productsText(items:any[]){
   const list=(Array.isArray(items)?items:[]).slice(0,6);
   if(!list.length)return 'Não encontrei um produto disponível que combine com esse pedido agora.';
-  return list.map((p:any)=>`• ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n');
+  return list.map((p:any)=>`• ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
 }
 function numberedProductsText(items:any[],maxItems=3){
   const max=Math.max(1,Math.min(10,Number(maxItems)||3));
