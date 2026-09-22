@@ -431,16 +431,16 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
 
   if(deterministicIntent?.intent==="search_products"){
     const query=String(deterministicIntent?.query||message).trim();
-    const rr=await r8ReadTool(sb,"search_products",{query,limit:6},conversationId,context);
+    const rr=await r8ReadTool(sb,"search_products",{query,limit:20},conversationId,context);
     const items=Array.isArray(rr?.result)?rr.result:[];
-    const tools=[{tool_key:"search_products",arguments_json:JSON.stringify({query,limit:6})}];
-    const toolResults=[{tool_key:"search_products",operation_kind:"read",arguments:{query,limit:6},...rr}];
+    const tools=[{tool_key:"search_products",arguments_json:JSON.stringify({query,limit:20})}];
+    const toolResults=[{tool_key:"search_products",operation_kind:"read",arguments:{query,limit:20},...rr}];
     let responseText="";
     if(!items.length){
       responseText="Não encontrei esse produto disponível agora. Se quiser, me diga outra marca, tamanho ou tipo que eu procuro uma alternativa.";
     }else{
-      const rows=items.slice(0,6).map((x:any)=>`🛒 ${x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`);
-      responseText="🛒 Encontrei estas opções:\n\n"+rows.join("\n\n");
+      const rows=items.slice(0,20).map((x:any,index:number)=>`${index+1}. ${x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`);
+      responseText="🛒 Encontrei estas opções:\n\n"+rows.join("\n")+"\n\nResponda pelo número da opção.";
       if(items.length>1)responseText+="\n\nSe quiser, me diga qual delas você prefere.";
       else responseText+="\n\nQuer que eu adicione ao pedido?";
     }
