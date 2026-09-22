@@ -471,8 +471,31 @@ function resolvePendingProductChoiceText(message:any,pending:any){
 
   scored.sort((a:any,b:any)=>b.score-a.score||Number(a.priceDiff??99)-Number(b.priceDiff??99));
   if(!scored.length)return {status:'none'};
+
+  if(price!==null){
+    const close=scored.filter((x:any)=>x.priceMatch&&x.tokenHits>0);
+    if(close.length===1){
+      return {status:'resolved',index:close[0].index,item:close[0].item,method:'name_price_close'};
+    }
+    if(close.length>1){
+      return {status:'ambiguous',matches:close.slice(0,4).map((x:any)=>({index:x.index,item:x.item}))};
+    }
+
+    const named=scored.filter((x:any)=>x.tokenHits>0);
+    if(named.length===1){
+      return {status:'confirm_candidate',index:named[0].index,item:named[0].item,mentioned_price:price};
+    }
+    if(named.length>1){
+      const closest=[...named].sort((a:any,b:any)=>Number(a.priceDiff??99)-Number(b.priceDiff??99));
+      if(Number(closest[0]?.priceDiff??99)<=3 && Number(closest[1]?.priceDiff??99)-Number(closest[0]?.priceDiff??99)>=1){
+        return {status:'confirm_candidate',index:closest[0].index,item:closest[0].item,mentioned_price:price};
+      }
+      return {status:'ambiguous',matches:closest.slice(0,4).map((x:any)=>({index:x.index,item:x.item}))};
+    }
+  }
+
   if(scored.length===1||scored[0].score>=scored[1].score+12){
-    return {status:'resolved',index:scored[0].index,item:scored[0].item,method:'text_price'};
+    return {status:'resolved',index:scored[0].index,item:scored[0].item,method:'name_match'};
   }
   const top=scored.filter((x:any)=>x.score>=scored[0].score-5).slice(0,4);
   return {status:'ambiguous',matches:top.map((x:any)=>({index:x.index,item:x.item}))};
@@ -1554,6 +1577,8 @@ Deno.serve(async(req:Request)=>{
           pendingChoiceResolution=resolvePendingProductChoiceText(normalized.messageText,pendingProductChoice);
           if(pendingChoiceResolution?.status==='resolved'){
             intent={intent:'identify_product_choice',source:'pending_product_choice'};
+          }else if(pendingChoiceResolution?.status==='confirm_candidate'){
+            intent={intent:'confirm_product_choice_candidate',source:'pending_product_choice'};
           }else if(pendingChoiceResolution?.status==='ambiguous'){
             intent={intent:'clarify_product_choice',source:'pending_product_choice'};
           }else if(pendingChoiceResolution?.status==='out_of_range'){
@@ -2018,6 +2043,15 @@ Deno.serve(async(req:Request)=>{
           text+='\n\nSe quiser conferir antes, posso mandar a foto desse produto.';
         }
         text+='\n\nQuer seguir com esse item?';
+      }
+    }else if(intent.intent==='confirm_product_choice_candidate'&&conversationId){
+      const candidate=pendingChoiceResolution?.item||null;
+      if(candidate){
+        text=`Você quis dizer **${candidate.name} — ${moneyBR(candidate.commercial_price??candidate.offer_price??candidate.regular_price)}**?`;
+        result={items:[candidate],candidate};
+      }else{
+        text='Não consegui confirmar qual item você quis dizer. Pode me passar o número da opção?';
+        result={items:[]};
       }
     }else if(intent.intent==='clarify_product_choice'&&conversationId){
       const matches=Array.isArray(pendingChoiceResolution?.matches)?pendingChoiceResolution.matches:[];
