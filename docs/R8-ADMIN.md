@@ -7,14 +7,14 @@ Admin próprio do Commerce OS, separado do inbox/chat do PapoAI, para observar, 
 
 ## Estado
 - programação: **completa**;
-- smoke físico: **pendente**;
+- smoke físico: **concluído**;
 - `get_papoai_r8_readiness_v1().programming_complete=true`;
-- único blocker: `r8_physical_admin_smoke_pending`;
-- `ready_for_r9=false` até o smoke;
+- blockers: **0**;
+- `ready_for_r9=true`;
 - produção continua OFF.
 
 ## Runtime
-- `admin-service-intelligence-v1`: **v10 ACTIVE**;
+- `admin-service-intelligence-v1`: **v21 ACTIVE**;
 - `admin-pin-auth-v1`: **v6 ACTIVE**;
 - UI publicada como página estática do site oficial em `https://donaantonia.com.br/admin/commerce-os/`;
 - autenticação reutiliza Supabase Auth + `admin_users`;
@@ -64,11 +64,12 @@ As tabelas novas têm RLS e não possuem grants para `anon`/`authenticated`.
 ## Gate formal
 RPC: `get_papoai_r8_readiness_v1()`.
 
-Antes do smoke:
+Estado final:
 - programming_complete=true;
-- physical_admin_smoke_verified=false;
-- ready_for_r9=false;
-- blocker único = `r8_physical_admin_smoke_pending`.
+- physical_admin_smoke_verified=true;
+- ready_for_r9=true;
+- blockers=[];
+- production_ready=false.
 
 ## Smoke físico mínimo
 1. abrir UI;
@@ -120,3 +121,37 @@ Correção:
 - issue: `get_basket_parameter_mismatch_fixed`.
 
 Ainda falta somente repetir uma simulação física após a correção para marcar `r8_physical_admin_smoke_verified=true`.
+
+
+## R8 OFICIALMENTE CONCLUÍDA — 22/09/2026
+
+Evidência física:
+- login real no Admin;
+- UI renderizada no domínio oficial;
+- Simulador executado fisicamente diversas vezes;
+- catálogo real consultado;
+- cestas e preços consultados;
+- imagem real de produto/cesta observada;
+- política comercial consultada;
+- contexto real de cliente testado em modo estritamente read-only;
+- writes e commitments bloqueados.
+
+Hardening adicional:
+- Admin Edge: **v21 ACTIVE**;
+- Simulador alinhado ao roteador determinístico usado pelo PapoAI;
+- suíte principal: **96/96** cenários aprovada, 0 falhas, 0 erros;
+- suíte ampliada: 153 cenários com linguagem popular criada;
+- dashboard de Homologação incluído no Admin;
+- linguagem comercial padronizada para **“a prazo”** nas respostas da Dona Antônia.
+
+Readiness final:
+- `get_papoai_r8_readiness_v1().ready_for_r9=true`;
+- blockers=[];
+- produção continua OFF;
+- próxima rodada: **R9 — piloto, ativação gradual e liberação**.
+
+Arquitetura do canal:
+- PapoAI é o provider canônico atual;
+- Meta Direct está fora do escopo desta fase;
+- automações, modelos, respostas rápidas, Flow, tags, Kanban e transferência devem preferir recursos nativos do PapoAI;
+- ver `docs/PAPOAI-NATIVE-AUTOMATIONS.md`.
