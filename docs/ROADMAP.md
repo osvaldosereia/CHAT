@@ -13,7 +13,7 @@ Data: 21/09/2026
 - R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa — **CONCLUÍDA**;
 - R5 — checkout, pedido e handoff completos — **CONCLUÍDA**;
 - R6 — suíte de testes conversacionais — **CONCLUÍDA**;
-- R7 — homologação física PapoAI/Meta — **4/5 CORE; SOMENTE HANDOFF PENDENTE**;
+- R7 — homologação física PapoAI/Meta — **4/5 CORE; SOMENTE HANDOFF PENDENTE — AGUARDANDO CONTRATO OFICIAL DO PAPOAI**;
 - R8 — Admin mínimo do cérebro, sem inbox;
 - R9 — piloto, ativação gradual, Bling e liberação geral.
 
@@ -25,3 +25,17 @@ Regra de execução:
 - não subdividir oficialmente em A/B/C;
 - commits internos podem ser pequenos por segurança;
 - para o roadmap, uma rodada só muda para CONCLUÍDA após programação + testes + correções + checkpoint.
+
+
+## Aceleração enquanto R7 aguarda fornecedor
+
+Sem iniciar oficialmente a R8, foram adiantados apenas itens de pre-activation que pertencem à consolidação da R7:
+
+- reconciliar evidências físicas e remover blockers stale;
+- confirmar E2E, chave v2 e vínculo do Agent External;
+- promover media_reply com evidência já existente;
+- auditar gates de segurança;
+- documentar o caminho exato de ativação.
+
+R8 permanece **NÃO INICIADA** até `ready_for_r8=true`.
+Produção permanece OFF.
