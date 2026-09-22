@@ -1,0 +1,4 @@
+project_id = "ssbesxgaijknwsjbsbcz"
+
+[functions.papo-external-agent-v1]
+verify_jwt = false
