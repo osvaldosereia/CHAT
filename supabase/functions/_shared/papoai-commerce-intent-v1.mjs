@@ -45,6 +45,10 @@ export function deterministicCommerceIntent(message){
   if(/\b(repete|repetir|repetir a|quero a mesma|mesma cesta|mesmo pedido|ultima cesta|última cesta|ultimo pedido|último pedido)\b/.test(m))return {intent:'repeat_last_purchase',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(fechar|finalizar|concluir|confirmar)\b.*\b(pedido|compra)\b|\b(pedido|compra)\b.*\b(fechar|finalizar|concluir)\b/.test(m))return {intent:'checkout_readiness',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(resumo|como ficou|quanto ficou|ver pedido|meu pedido)\b/.test(m))return {intent:'cart_summary',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(
+    /\b(?:entrega|entregar|chega|chegar)\b/.test(m)
+    && /\b(?:amanh[aã]\s+cedo|amanh[aã]\s+(?:de\s+)?manh[aã]|amanh[aã]\s+(?:a|à)\s+tarde|hoje\s+cedo|hoje\s+(?:de\s+)?manh[aã]|hoje\s+(?:a|à)\s+tarde|que\s+horas?|hor[aá]rio|janela|antes\s+das|depois\s+das|[àa]s?\s*\d{1,2}(?::\d{2})?\s*h?)\b/.test(m)
+  )return {intent:'delivery_schedule',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(atendente|humano|pessoa|falar com algu[eé]m|vendedor(?:a)?|algu[eé]m da equipe|gente de verdade)\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(voce decide|você decide|pode decidir|escolhe pra mim|escolha pra mim|voce escolhe|você escolhe)\b/.test(m)
      && /\b(tira|tirar|retira|retirar|remove|remover|troca|trocar)\b/.test(m)){
@@ -125,7 +129,7 @@ export async function classifyCommerceIntent({message,history,apiKey,model='gpt-
   const schema={
     type:'object',additionalProperties:false,
     properties:{
-      intent:{type:'string',enum:['greeting','list_baskets','basket_disambiguate','basket_detail','start_basket','repeat_last_purchase','search_products','select_product_choice','delegated_value_replacement','offers','cart_state','cart_summary','checkout_readiness','customer_context','set_basket_quantity','set_addon_quantity','replace_basket_item','payment_info','set_payment_method','confirm_pending','cancel_pending','handoff','general']},
+      intent:{type:'string',enum:['greeting','list_baskets','basket_disambiguate','basket_detail','delivery_schedule','start_basket','repeat_last_purchase','search_products','select_product_choice','delegated_value_replacement','offers','cart_state','cart_summary','checkout_readiness','customer_context','set_basket_quantity','set_addon_quantity','replace_basket_item','payment_info','set_payment_method','confirm_pending','cancel_pending','handoff','general']},
       basket:{type:'string'},
       query:{type:'string'},
       source_query:{type:'string'},
@@ -155,7 +159,7 @@ export async function classifyCommerceIntent({message,history,apiKey,model='gpt-
         'Use set_payment_method apenas quando o cliente estiver escolhendo/informando a forma de pagamento do pedido, e coloque em query exatamente uma destas ideias: pix, dinheiro, cartao de credito ou cartao alimentacao.',
         'Se o cliente estiver confirmando uma ação pendente use confirm_pending; se estiver recusando/cancelando use cancel_pending.',
         'Se pedir para fechar/finalizar a compra use checkout_readiness. Se pedir como ficou o pedido use cart_summary.',
-        'Se pedir pessoa/atendente use handoff. Se não souber, general.'
+        'Se pedir horário específico de entrega, por exemplo amanhã cedo, que horas, antes/depois de um horário ou uma janela, use delivery_schedule. Se pedir pessoa/atendente use handoff. Se não souber, general.'
       ].join(' '),
       input:[{role:'user',content:[{type:'input_text',text:JSON.stringify({message:clean(message,1000),history:recent})}]}],
       text:{verbosity:'low',format:{type:'json_schema',name:'commerce_intent',strict:true,schema}}
