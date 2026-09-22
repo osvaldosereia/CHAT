@@ -51,6 +51,8 @@ Status: CONCLUÍDA.
 
 ## R2 — AI Core, contexto e tools
 
+**Status: CONCLUÍDA — 21/09/2026**
+
 Objetivo: transformar a IA em atendente principal sem enviar excesso de dados.
 
 Programar Context Pack v1 com identidade/persona, regras essenciais, Conversation State, Customer Summary curto, últimas mensagens relevantes, carrinho resumido e resultados de tools apenas quando usados.
@@ -221,3 +223,10 @@ O projeto está concluído para uso quando texto/áudio/imagem entram corretamen
 R2 → R3 → R4 → R5 → R6 → R7 → R8 → R9.
 
 Se surgir melhoria que não bloqueia a rodada, registrar em backlog e seguir. Prioridade absoluta: colocar uma atendente excelente em uso real, não construir perfeição teórica antes do primeiro cliente.
+
+
+## Regra de execução das rodadas
+
+Cada R1, R2, R3 etc. é uma unidade completa de entrega.
+Não usar subdivisões oficiais A/B/C no planejamento.
+Durante a implementação podem existir commits/checkpoints técnicos pequenos, mas a rodada só é declarada concluída quando todo o seu escopo estiver programado, testado, corrigido e documentado.

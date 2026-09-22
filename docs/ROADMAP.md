@@ -8,7 +8,7 @@ Data: 21/09/2026
 - R1 — catálogo real e conhecimento determinístico para 1.415 produtos.
 
 ## Execução restante
-- R2 — AI Core, contexto e tools;
+- R2 — AI Core, contexto, tools, executor seguro e planner de observação — **CONCLUÍDA**;
 - R3 — vendedora humanizada e Governor comercial;
 - R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa;
 - R5 — checkout, pedido e handoff completos;
@@ -20,4 +20,8 @@ Data: 21/09/2026
 Plano detalhado:
 `docs/PROGRAMMING-PLAN-TO-PRODUCTION.md`
 
-Regra de execução: rodada pequena, objetivo único, teste, commit e checkpoint antes da próxima.
+Regra de execução:
+- cada rodada é concluída por inteiro antes da próxima;
+- não subdividir oficialmente em A/B/C;
+- commits internos podem ser pequenos por segurança;
+- para o roadmap, uma rodada só muda para CONCLUÍDA após programação + testes + correções + checkpoint.

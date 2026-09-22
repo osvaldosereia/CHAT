@@ -62,19 +62,27 @@ Continuam OFF até homologação:
 - learning_enqueue_enabled
 - agent_learning_write_enabled
 
-## R2 — progresso atual
-R2A concluída:
-- `papoai_ai_runtime_config` criada e mantida OFF;
-- política Terra (principal) / Luna (utilitária) registrada;
-- Context Pack v1 criado e testado;
-- 18 tools registradas, todas runtime OFF;
-- função segura de produto por ID criada;
-- Edge `papo-external-agent-v1` atualizada para v29;
-- Edge usa histórico compacto do Context Pack quando o AI Core for habilitado;
-- contexto testado entre ~1,3 KB e ~4,8 KB em amostras reais, limite 18 KB;
-- sem telefone, customer_id ou endereço completo no pacote compacto.
+## R2 — CONCLUÍDA
 
-Próxima rodada curta: R2B — executor seguro de tools + planner IA em modo observe, sem ativação para clientes.
+AI Core, contexto, tools, executor e planner de observação concluídos.
+
+Entregue:
+- `papoai_ai_runtime_config` com política Terra/Luna;
+- AI Runtime mantido OFF;
+- Context Pack v1 compacto e sem PII desnecessária;
+- 21 tools registradas e prontas;
+- nenhuma tool runtime-enabled neste checkpoint;
+- executor seguro `execute_papoai_ai_tool_v1`;
+- auditoria de tools;
+- planner estruturado `papoai-ai-planner-v1`;
+- telemetria de modelo, tokens, cache, latência, decisão e tools propostas;
+- planner integrado à Edge somente em modo `observe` e sem efeito no cliente;
+- Edge `papo-external-agent-v1` em v30;
+- filtros de produto alinhados ao catálogo real de 1.415 vendáveis;
+- teste comprovou produto com `is_whatsapp_active=false` pesquisável pelo cérebro;
+- tentativa de execução real permanece bloqueada por `ai_runtime_not_active`.
+
+Próxima rodada: **R3 — Vendedora humanizada e Governor comercial**, executada inteira antes de avançar.
 
 Plano completo:
 `docs/PROGRAMMING-PLAN-TO-PRODUCTION.md`

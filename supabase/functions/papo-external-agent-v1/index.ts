@@ -11,6 +11,7 @@ import {
 import {classifyCommerceIntent} from "../_shared/papoai-commerce-intent-v1.mjs";
 import {buildGovernorTopicKey,decideConversationAction,detectCustomerDelegation} from "../_shared/papoai-conversation-governor-v1.mjs";
 import {parseCheckoutProfile,missingCheckoutProfileFields,checkoutProfileMissingPrompt} from "../_shared/papoai-checkout-profile-v1.mjs";
+import {planPapoAiTurn} from "../_shared/papoai-ai-planner-v1.mjs";
 
 const PROVIDER_KEY='papoai';
 const CHANNEL='whatsapp';
@@ -316,6 +317,7 @@ Deno.serve(async(req:Request)=>{
   let responseBody:any;
   let processingStatus='responded';
   let responseKind='text';
+  let observedPlanner:any=null;
   const pausedUntil=freshSession?.paused_until?new Date(freshSession.paused_until):null;
   const labHumanActive=freshSession?.status==='paused'&&(!pausedUntil||pausedUntil.getTime()>Date.now());
 
@@ -385,6 +387,62 @@ Deno.serve(async(req:Request)=>{
       responseBody=buildLabTextResponse({text:String(lab.fixed_response_text),sessionKey:normalized.sessionKey,correlationId});
     }
   }else{
+    if(
+      conversationId
+      && commerceCfg?.ai_enabled===true
+      && aiRuntimeCfg?.enabled===true
+      && aiRuntimeCfg?.execution_mode==='observe'
+      && aiRuntimeCfg?.observe_live_messages===true
+      && aiContextPack?.ok===true
+    ){
+      try{
+        const [plannerKey,plannerToolsQ]=await Promise.all([
+          resolveOpenAiKey(sb),
+          sb.rpc('get_papoai_ai_planner_tools_v1')
+        ]);
+        observedPlanner=await planPapoAiTurn({
+          message:normalized.messageText,
+          contextPack:aiContextPack,
+          tools:Array.isArray(plannerToolsQ.data)?plannerToolsQ.data:[],
+          apiKey:plannerKey,
+          model:aiRuntimeCfg?.primary_model||'gpt-5.6-terra',
+          reasoningEffort:aiRuntimeCfg?.primary_reasoning_effort||'low',
+          maxOutputTokens:Number(aiRuntimeCfg?.max_output_tokens||500)
+        });
+        const usage=observedPlanner?.usage||{};
+        await sb.from('papoai_ai_planner_runs').insert({
+          correlation_id:correlationId,
+          conversation_id:conversationId,
+          mode:'observe',
+          model:aiRuntimeCfg?.primary_model||'gpt-5.6-terra',
+          reasoning_effort:aiRuntimeCfg?.primary_reasoning_effort||'low',
+          context_schema_version:aiContextPack?.schema_version||null,
+          context_bytes:Number(aiContextPack?.context_budget?.bytes||0),
+          message_length:normalized.messageText.length,
+          decision:observedPlanner?.plan?.decision||null,
+          confidence:observedPlanner?.plan?.confidence??null,
+          commercial_opportunity:observedPlanner?.plan?.commercial_opportunity||null,
+          proposed_tool_calls:Array.isArray(observedPlanner?.plan?.tool_calls)?observedPlanner.plan.tool_calls:[],
+          response_draft:observedPlanner?.plan?.response_draft||null,
+          response_id:observedPlanner?.response_id||null,
+          input_tokens:Number(usage?.input_tokens||0)||null,
+          cached_input_tokens:Number(usage?.input_tokens_details?.cached_tokens||0)||null,
+          output_tokens:Number(usage?.output_tokens||0)||null,
+          latency_ms:Number(observedPlanner?.latency_ms||0)||null,
+          success:observedPlanner?.ok===true,
+          error_code:observedPlanner?.ok===true?null:String(observedPlanner?.error||'planner_failed'),
+          metadata:{
+            planner_version:'v1',
+            no_customer_effect:true,
+            no_tool_execution:true,
+            should_handoff:Boolean(observedPlanner?.plan?.should_handoff)
+          }
+        });
+      }catch{
+        observedPlanner={ok:false,error:'observer_internal_error'};
+      }
+    }
+
     const historyLimit=Math.max(1,Math.min(12,Number(aiRuntimeCfg?.max_recent_messages||commerceCfg?.max_history_messages||6)));
     const aiRuntimeEnabled=aiRuntimeCfg?.enabled===true;
     const apiKey=(commerceCfg?.ai_enabled===true&&aiRuntimeEnabled)?await resolveOpenAiKey(sb):'';
@@ -1074,6 +1132,14 @@ Deno.serve(async(req:Request)=>{
         within_budget:aiContextPack?.context_budget?.within_budget!==false,
         recent_messages:Array.isArray(aiContextPack?.recent_messages)?aiContextPack.recent_messages.length:0,
         runtime_enabled:aiRuntimeCfg?.enabled===true
+      },
+      planner_observe:{
+        ran:Boolean(observedPlanner),
+        ok:observedPlanner?.ok===true,
+        decision:observedPlanner?.plan?.decision||null,
+        commercial_opportunity:observedPlanner?.plan?.commercial_opportunity||null,
+        proposed_tool_count:Array.isArray(observedPlanner?.plan?.tool_calls)?observedPlanner.plan.tool_calls.length:0,
+        no_customer_effect:true
       },
       ...LAB_GUARD
     },
