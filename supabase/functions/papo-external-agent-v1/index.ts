@@ -2410,9 +2410,54 @@ Deno.serve(async(req:Request)=>{
         text=`🔥 Ofertas disponíveis\n\n${numberedProductsText(offers,10)}\n\nSe quiser alguma, pode responder pelo número.`;
       }
     }else if(intent.intent==='customer_context'&&conversationId){
-      const q=await sb.rpc('get_papoai_commerce_customer_snapshot_v2',{p_conversation_id:conversationId});
-      result=q.data;
-      text=result?.known_customer&&result?.person_name?`Encontrei seu cadastro, ${result.person_name}. Como posso ajudar hoje?`:'Posso te ajudar com cestas, produtos e ofertas.';
+      const asksAddress=/\bendere[cç]o\b/i.test(normalized.messageText);
+      const asksPhone=/\b(?:telefone|celular)\b/i.test(normalized.messageText);
+      const asksCpf=/\bcpf\b/i.test(normalized.messageText);
+      const asksSavedData=/\b(?:cadastro|dados|salvo|cadastrado|guardado)\b/i.test(normalized.messageText);
+
+      if(asksAddress||asksPhone||asksCpf||asksSavedData){
+        const q=await sb.rpc('get_whatsapp_checkout_contact_v1',{p_conversation_id:conversationId});
+        if(q.error)throw q.error;
+        result=q.data||{};
+
+        if(!result?.known_customer){
+          text='Ainda não encontrei um cadastro seu com segurança.';
+        }else if(asksAddress){
+          const a=result?.address||{};
+          const hasAddress=Boolean(result?.base_complete);
+          const asksWhich=/\b(?:qual|mostra|mostrar|diz|fale|fala|confirma|confirmar)\b/i.test(normalized.messageText);
+          if(!hasAddress){
+            text='Tenho seu cadastro, mas não tenho um endereço completo salvo para entrega.';
+          }else if(asksWhich){
+            const parts=[
+              [a?.street,a?.number].filter(Boolean).join(', '),
+              a?.complement||'',
+              a?.neighborhood||'',
+              [a?.city,a?.state].filter(Boolean).join(' - ')
+            ].filter(Boolean);
+            text=`Sim. O endereço salvo é: ${parts.join(' — ')}.`;
+          }else{
+            const locality=[a?.neighborhood,a?.city].filter(Boolean).join(', ');
+            text=`Sim 😊 Tenho um endereço de entrega salvo${locality?` em ${locality}`:''}. Se quiser, eu também posso confirmar qual é.`;
+          }
+        }else if(asksPhone){
+          text=result?.phone_display
+            ? `Sim. O telefone do seu cadastro é ${result.phone_display}.`
+            : 'Tenho seu cadastro, mas não encontrei um telefone salvo com segurança.';
+        }else if(asksCpf){
+          text='Tenho seu cadastro identificado, mas não mostro CPF pelo WhatsApp. Se precisar atualizar o cadastro, posso orientar.';
+        }else{
+          text=result?.person_name
+            ? `Sim, ${result.person_name}. Encontrei seu cadastro.`
+            : 'Sim. Encontrei seu cadastro.';
+        }
+      }else{
+        const q=await sb.rpc('get_papoai_commerce_customer_snapshot_v2',{p_conversation_id:conversationId});
+        result=q.data;
+        text=result?.known_customer&&result?.person_name
+          ? `Encontrei seu cadastro, ${result.person_name}. Como posso ajudar hoje?`
+          : 'Ainda não identifiquei um cadastro seu com segurança, mas posso te ajudar normalmente.';
+      }
     }else if(intent.intent==='cart_state'&&conversationId){
       const q=await sb.rpc('get_papoai_commerce_cart_state_v1',{p_conversation_id:conversationId});
       result=q.data;
