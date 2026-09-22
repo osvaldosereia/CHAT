@@ -37,5 +37,16 @@ Sem iniciar oficialmente a R8, foram adiantados apenas itens de pre-activation q
 - auditar gates de segurança;
 - documentar o caminho exato de ativação.
 
-R8 permanece **NÃO INICIADA** até `ready_for_r8=true`.
+R8 foi iniciada após `ready_for_r8=true` e está com programação concluída. R9 permanece bloqueada até o smoke físico da R8.
 Produção permanece OFF.
+
+
+### Estado R8 — 22/09/2026
+- programação: concluída;
+- Admin Edge: v8;
+- PIN Auth: v6;
+- 8 áreas implementadas;
+- simulator safe/no-write;
+- versionamento/rollback: pronto;
+- único blocker: `r8_physical_admin_smoke_pending`;
+- `ready_for_r9=false` até a prova física.
