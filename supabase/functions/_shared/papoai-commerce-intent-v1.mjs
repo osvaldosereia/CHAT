@@ -1,6 +1,19 @@
 const clean=(v,max=500)=>String(v??'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,max);
 const arr=(v)=>Array.isArray(v)?v:[];
 
+function normalizeProductSearchQuery(raw){
+  let q=clean(raw,220).toLowerCase()
+    .replace(/\bmiojos?\b/g,'macarrão lámen')
+    .replace(/\blamens?\b/g,'lámen')
+    .replace(/[?!.,;:]+/g,' ');
+  q=q
+    .replace(/\b(?:me passa|passa pra mim|passa para mim|me fala|me diz|por favor)\b/g,' ')
+    .replace(/\b(?:tem|t[eê]m|vende|vendem|quanto|qto|qual|quais|pre[cç]o|preco|valor|procuro|queria|quero|voc[eê]s?|voc[eê]|a[ií])\b/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+  return q||clean(raw,160).toLowerCase();
+}
+
 function finalText(data){
   return arr(data?.output)
     .flatMap(x=>arr(x?.content))
@@ -242,8 +255,8 @@ export function deterministicCommerceIntent(message){
 
   if(
     /\b(?:tem|t[eê]m|vende|vendem|quanto|qto|qual|quais|pre[cç]o|preco|procuro|queria|quero)\b/.test(m)
-    || /\b(?:rexona|arroz|aroz|leite|omo|shampoo|shampu|caf[eé]|a[cç][uú]car|sab[aã]o|detergente|colgate|papel\s+higi[eê]nico|feij[aã]o|amaciante|sabonete|saboneti|[oó]leo)\b/.test(m)
-  )return {intent:'search_products',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+    || /\b(?:rexona|arroz|aroz|leite|omo|shampoo|shampu|caf[eé]|a[cç][uú]car|sab[aã]o|detergente|colgate|papel\s+higi[eê]nico|feij[aã]o|amaciante|sabonete|saboneti|[oó]leo|miojo|miojos|l[aá]men|lamen)\b/.test(m)
+  )return {intent:'search_products',basket:'',query:normalizeProductSearchQuery(m),source_query:'',replacement_query:'',quantity:0};
 
   return null;
 }
