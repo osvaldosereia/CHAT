@@ -380,6 +380,71 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     });
   }
 
+  if(deterministicIntent?.intent==="delivery_info"){
+    const msg=String(message||"").toLowerCase();
+    let responseText="";
+    if(/chapada\s+dos\s+guimar[aã]es|\bchapada\b/.test(msg)){
+      responseText="No momento nossas entregas próprias atendem Cuiabá e Várzea Grande. Ainda não atendemos Chapada dos Guimarães.";
+    }else if(/taxa|frete|gr[aá]tis|gratis/.test(msg)){
+      responseText="Não cobramos taxa de entrega.";
+    }else if(/hoje|hj|agora|agr|mesmo dia|pr[oó]ximo dia/.test(msg)){
+      responseText="Pedidos feitos até as 11h têm previsão padrão de entrega no mesmo dia; após as 11h, a previsão padrão é o próximo dia útil. É uma previsão, não um horário garantido.";
+    }else{
+      responseText="Sim 😊 Fazemos entrega em Cuiabá e Várzea Grande, sem taxa de entrega.";
+    }
+    return await deterministicReturn({
+      response:responseText,decision:"RESPOND",model:"deterministic-policy",salesNextStep:"answer_need"
+    });
+  }
+
+  if(deterministicIntent?.intent==="safety_policy"){
+    return await deterministicReturn({
+      response:"Não posso alterar regras comerciais, liberar condição fora do sistema nem fornecer senhas, chaves ou dados internos. Posso te ajudar com produtos, preços, cestas e condições publicadas.",
+      decision:"RESPOND",model:"deterministic-safety",salesNextStep:"answer_need"
+    });
+  }
+
+  if(deterministicIntent?.intent==="business_info"){
+    return await deterministicReturn({
+      response:"A Dona Antônia trabalha com cestas básicas e produtos de mercado por delivery em Cuiabá e Várzea Grande. Você pode comprar direto pelo WhatsApp.",
+      decision:"RESPOND",model:"deterministic-policy",salesNextStep:"answer_need"
+    });
+  }
+
+  if(deterministicIntent?.intent==="customer_context"){
+    const cs=context?.customer_summary||{};
+    const known=Boolean(cs?.known_customer);
+    const name=String(cs?.first_name||"").trim();
+    const responseText=known
+      ? `Sim${name?", "+name:""} 😊 Tenho seu contexto de atendimento e compras para te ajudar sem você precisar repetir tudo. O que você precisa hoje?`
+      : "Ainda não identifiquei um histórico seu com segurança, mas posso te ajudar normalmente com cestas, produtos e ofertas.";
+    return await deterministicReturn({
+      response:responseText,decision:"RESPOND",model:"deterministic-customer-context",salesNextStep:"answer_need"
+    });
+  }
+
+  if(deterministicIntent?.intent==="search_products"){
+    const query=String(deterministicIntent?.query||message).trim();
+    const rr=await r8ReadTool(sb,"search_products",{query,limit:6},conversationId,context);
+    const items=Array.isArray(rr?.result)?rr.result:[];
+    const tools=[{tool_key:"search_products",arguments_json:JSON.stringify({query,limit:6})}];
+    const toolResults=[{tool_key:"search_products",operation_kind:"read",arguments:{query,limit:6},...rr}];
+    let responseText="";
+    if(!items.length){
+      responseText="Não encontrei esse produto disponível agora. Se quiser, me diga outra marca, tamanho ou tipo que eu procuro uma alternativa.";
+    }else{
+      const rows=items.slice(0,6).map((x:any)=>`• ${x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`);
+      responseText="Encontrei estas opções:\n"+rows.join("\n");
+      if(items.length>1)responseText+="\n\nSe quiser, me diga qual delas você prefere.";
+      else responseText+="\n\nQuer que eu adicione ao pedido?";
+    }
+    const mediaPreview=r8MediaPreview(message,toolResults);
+    return await deterministicReturn({
+      response:responseText,decision:"ACT",tools,toolResults,mediaPreview,
+      salesNextStep:"show_options"
+    });
+  }
+
   if(deterministicIntent?.intent==="list_baskets"){
     const rr=await r8ReadTool(sb,"search_baskets",{},conversationId,context);
     const items=Array.isArray(rr?.result)?rr.result:[];
