@@ -14,9 +14,9 @@ Admin próprio do Commerce OS, separado do inbox/chat do PapoAI, para observar, 
 - produção continua OFF.
 
 ## Runtime
-- `admin-service-intelligence-v1`: **v8 ACTIVE**;
+- `admin-service-intelligence-v1`: **v9 ACTIVE**;
 - `admin-pin-auth-v1`: **v6 ACTIVE**;
-- UI servida pela própria Edge Admin;
+- UI publicada como página estática do site oficial em `https://donaantonia.com.br/admin/commerce-os/`;
 - autenticação reutiliza Supabase Auth + `admin_users`;
 - navegador recebe somente publishable key; service role fica server-side;
 - não existe inbox/chat duplicado.
@@ -80,3 +80,19 @@ Antes do smoke:
 7. nenhum write/cliente/Bling deve ser afetado.
 
 Depois do smoke, registrar evidência, confirmar `ready_for_r9=true`, salvar checkpoint e iniciar R9.
+
+
+## Correção de hosting — 22/09/2026
+
+O primeiro smoke exibiu o HTML como texto puro no domínio `*.supabase.co/functions/v1/...`.
+
+Causa confirmada: Supabase Hosted Edge Functions não servem HTML no domínio padrão; respostas `text/html` são reescritas para `text/plain` sem custom domain.
+
+Correção aplicada:
+- frontend movido para `https://donaantonia.com.br/admin/commerce-os/`;
+- arquivo publicado em `osvaldosereia/SUCEDOAN12:main/admin/commerce-os/index.html`;
+- `admin-service-intelligence-v1` promovida para **v9**;
+- GET da Edge agora redireciona para a UI estática;
+- POST continua sendo a API autenticada;
+- readiness atualizado para exigir `r8_admin_ui_hosted=true`, não HTML embutido na Edge;
+- blocker continua somente `r8_physical_admin_smoke_pending`.
