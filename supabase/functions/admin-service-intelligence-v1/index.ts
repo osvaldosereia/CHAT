@@ -249,6 +249,35 @@ async function r8Simulator(sb:any,actorId:string,body:any){
     }
   };
 
+  const paymentPolicy=Array.isArray(serviceKnowledge)
+    ? serviceKnowledge.find((x:any)=>x?.key==="payment_baseline")
+    : null;
+  if(context?.service_intelligence?.topic==="payment"&&paymentPolicy?.content){
+    const responseText=String(paymentPolicy.content)
+      .replace(/\s*Nunca invente[\s\S]*$/i,"")
+      .trim();
+    const latency=Date.now()-started;
+    const row:any={
+      actor_user_id:actorId,customer_id:customerId,conversation_id:conversationId,input_text:message,
+      model:"deterministic-policy",decision:"RESPOND",commercial_opportunity:"none",
+      journey_stage:context?.journey?.stage||"discovery",sales_next_step:"answer_need",
+      proposed_tool_calls:[],tool_results:[],response_text:responseText,
+      context_snapshot:context,context_bytes:new TextEncoder().encode(JSON.stringify(context)).length,
+      input_tokens:0,cached_input_tokens:0,output_tokens:0,estimated_cost_usd:0,
+      latency_ms:latency,success:true,error_code:null
+    };
+    const saved=await sb.from("papoai_admin_simulator_runs").insert(row).select("id,created_at").single();
+    return {status:200,body:{
+      ok:true,simulation_id:saved.data?.id||null,created_at:saved.data?.created_at||null,
+      response:responseText,decision:"RESPOND",confidence:1,
+      commercial_opportunity:"none",journey_stage:row.journey_stage,sales_next_step:"answer_need",
+      should_handoff:false,question:"",tools:[],tool_results:[],context,media_preview:null,
+      metrics:{model:"deterministic-policy",input_tokens:0,cached_input_tokens:0,output_tokens:0,estimated_cost_usd:0,latency_ms:latency,context_bytes:row.context_bytes},
+      policy:{adjusted:false,violations:[]},
+      external_side_effect:false,writes_executed:false,context_mode:"strict_read_only"
+    }};
+  }
+
   const model=cfgQ.data.primary_model||"gpt-5.6-terra";
   const planned=await planPapoAiTurn({
     message,
