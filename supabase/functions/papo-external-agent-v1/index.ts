@@ -796,12 +796,62 @@ async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correla
       });
     }
 
+    if(action==='papoai_product_sync_status'){
+      const keyQ=await sb.rpc('get_papoai_products_api_key_v1');
+      const countQ=await sb.from('products')
+        .select('id',{count:'exact',head:true})
+        .eq('is_active',true)
+        .eq('physically_verified',true)
+        .gt('stock',0)
+        .gt('price',0);
+      return jsonResponse({
+        ok:true,
+        api_key_configured:!keyQ.error&&Boolean(keyQ.data),
+        sellable_products:Number(countQ.count||0),
+        source_of_truth:'supabase',
+        papoai_catalog_role:'conversation_search_and_presentation',
+        automatic_sync_enabled:false,
+        reason:'awaiting_explicit_papoai_products_api_key_and_bulk_sync_semantics_validation',
+        correlation_id:correlationId
+      });
+    }
+
+    if(action==='papoai_product_sync_preview'){
+      const limit=Math.max(1,Math.min(100,Number(body?.limit||20)));
+      const offset=Math.max(0,Number(body?.offset||0));
+      const q=await sb.from('products')
+        .select('id,sku,name,price,offer_price,is_offer,stock,updated_at')
+        .eq('is_active',true)
+        .eq('physically_verified',true)
+        .gt('stock',0)
+        .gt('price',0)
+        .order('name',{ascending:true})
+        .range(offset,offset+limit-1);
+      if(q.error)throw q.error;
+      const products=(q.data||[]).map((p:any)=>({
+        sku:String(p.sku||p.id),
+        name:p.name,
+        price:Number(p.is_offer&&Number(p.offer_price||0)>0&&Number(p.offer_price)<=Number(p.price)?p.offer_price:p.price),
+        stock_quantity:Math.max(0,Math.floor(Number(p.stock||0)))
+      }));
+      return jsonResponse({
+        ok:true,
+        dry_run:true,
+        target:'POST https://api.papoai.com.br/api/v1/products/sync',
+        payload:{products},
+        count:products.length,
+        offset,
+        correlation_id:correlationId
+      });
+    }
+
     return jsonResponse({
       ok:false,
       error:'unsupported_action',
       supported_actions:[
         'health','customer_profile','customer_address','last_purchase',
-        'baskets','basket_detail','basket_personalization_preview','product_search_authoritative'
+        'baskets','basket_detail','basket_personalization_preview','product_search_authoritative',
+        'papoai_product_sync_status','papoai_product_sync_preview'
       ],
       correlation_id:correlationId
     },400);
