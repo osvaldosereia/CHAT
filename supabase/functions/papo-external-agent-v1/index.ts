@@ -916,15 +916,24 @@ Deno.serve(async(req:Request)=>{
   }
 
   if(conversationId){
-    const [aiCfgQ,contextQ]=await Promise.all([
+    const [aiCfgQ,contextQ,serviceKnowledgeQ]=await Promise.all([
       sb.rpc('get_papoai_ai_runtime_config_v1'),
       sb.rpc('get_papoai_ai_context_pack_v3',{
         p_conversation_id:conversationId,
         p_current_message:normalized.messageText
+      }),
+      sb.rpc('search_service_knowledge_text_v1',{
+        p_query:normalized.messageText,
+        p_limit:4
       })
     ]);
     if(!aiCfgQ.error)aiRuntimeCfg=aiCfgQ.data;
-    if(!contextQ.error)aiContextPack=contextQ.data;
+    if(!contextQ.error){
+      aiContextPack={
+        ...(contextQ.data||{}),
+        service_knowledge:serviceKnowledgeQ.error?[]:(serviceKnowledgeQ.data||[])
+      };
+    }
   }
 
   let canonicalInboundMessageId:string|null=null;
