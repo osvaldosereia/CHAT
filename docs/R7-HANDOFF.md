@@ -193,3 +193,30 @@ Importante:
 - o core R7 de handoff será homologado pelo fluxo assistido completo: fila + pausa IA + takeover manual real no PapoAI.
 
 Produção continua OFF até R7 concluir.
+
+
+## R7 FINALIZADA — 22/09/2026
+
+Resultado oficial:
+- run: `44d24129-b4a0-40b9-8b2d-2ed196614dbe`;
+- status: **passed**;
+- core: **5/5 verified**;
+- pending_cases: **0**;
+- key_rotation_state: **finalized**;
+- `finish_papoai_r7_homologation_v1` executado;
+- `get_papoai_r7_readiness_v1().ready_for_r8=true`;
+- laboratório R7 voltou para `enabled=false` / `mode=off`;
+- produção continua OFF.
+
+Handoff homologado no modo **assisted_manual_handoff**:
+- Edge v54;
+- fila `human_handoffs` criada;
+- `provider_session_uid` persistido;
+- link direto da conversa PapoAI persistido;
+- conversa canônica entra em `mode=human`;
+- `human_required=true`;
+- IA pausada/silenciosa;
+- operador humano assume no PapoAI manualmente;
+- takeover automático privado do PapoAI não é dependência do sistema.
+
+Próxima etapa oficial: **R8 — Admin mínimo separado, sem inbox/chat**.
