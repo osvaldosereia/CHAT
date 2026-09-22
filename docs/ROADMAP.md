@@ -13,7 +13,7 @@ Data: 21/09/2026
 - R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa — **CONCLUÍDA**;
 - R5 — checkout, pedido e handoff completos — **CONCLUÍDA**;
 - R6 — suíte de testes conversacionais — **CONCLUÍDA**;
-- R7 — homologação física PapoAI/Meta — **4/5 CORE; SOMENTE HANDOFF PENDENTE — AGUARDANDO CONTRATO OFICIAL DO PAPOAI**;
+- R7 — homologação física PapoAI/Meta — **CONCLUÍDA — 5/5 CORE; handoff assistido homologado**;
 - R8 — Admin mínimo do cérebro, sem inbox;
 - R9 — piloto, ativação gradual, Bling e liberação geral.
 
