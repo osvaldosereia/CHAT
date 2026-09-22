@@ -30,6 +30,8 @@ export function deterministicCommerceIntent(message){
     return {intent:'confirm_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   }
   if(/\bfiado\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:tem\s+como|aceita|aceitam|passa|passam|posso|pode)\b.*\b(?:d[eé]bito|debito)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:anota|anotar)\b.*\b(?:pago|pagar)\b.*\b(?:dps|depois)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:passa|aceita|aceitam)\b.*\b(?:alimenta[cç][aã]o|refei[cç][aã]o|alelo|sodexo|puxee|caju|flash|ifood)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:anota|pagar|paga)\b.*\b(?:m[eê]s\s+(?:que|q)\s+vem|30\s*dias?|30d)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(
@@ -43,17 +45,22 @@ export function deterministicCommerceIntent(message){
   if(/\b(repete|repetir|repetir a|quero a mesma|mesma cesta|mesmo pedido|ultima cesta|última cesta|ultimo pedido|último pedido)\b/.test(m))return {intent:'repeat_last_purchase',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(fechar|finalizar|concluir|confirmar)\b.*\b(pedido|compra)\b|\b(pedido|compra)\b.*\b(fechar|finalizar|concluir)\b/.test(m))return {intent:'checkout_readiness',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(resumo|como ficou|quanto ficou|ver pedido|meu pedido)\b/.test(m))return {intent:'cart_summary',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
-  if(/\b(atendente|humano|pessoa|falar com algu[eé]m)\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(/\b(atendente|humano|pessoa|falar com algu[eé]m|vendedor(?:a)?|algu[eé]m da equipe|gente de verdade)\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(voce decide|você decide|pode decidir|escolhe pra mim|escolha pra mim|voce escolhe|você escolhe)\b/.test(m)
      && /\b(tira|tirar|retira|retirar|remove|remover|troca|trocar)\b/.test(m)){
     const mm=m.match(/\b(?:tira|tirar|retira|retirar|remove|remover|troca|trocar)\s+(?:o|a|os|as)?\s*([^,.;!?]+?)(?:\s+e\s+|\s+por\s+|$)/);
     const source=(mm?.[1]||'').replace(/\b(voce decide|você decide|pode decidir|escolhe pra mim|escolha pra mim|voce escolhe|você escolhe)\b/g,'').trim();
     if(source)return {intent:'delegated_value_replacement',basket:'',query:'',source_query:source,replacement_query:'',quantity:0};
   }
-  if(/\b(cesta\s+grande|grande\s+cesta)\b/.test(m)
+  const ambiguousBasketScale=m.match(/\b(econ[oô]mica|mini|pequena|m[eé]dia|grande)\b/);
+  if(ambiguousBasketScale
      && !/\b(bonini|koblenz)\b/.test(m)
-     && /\b(vem|cont[eé]m|produtos?|itens?|dentro|foto|imagem|valor|pre[cç]o|quanto|qual)\b/.test(m)){
-    return {intent:'basket_disambiguate',basket:'grande',query:'grande',source_query:'',replacement_query:'',quantity:0};
+     && (
+       /\bcesta\b/.test(m)
+       || /\b(vem|cont[eé]m|produtos?|itens?|dentro|foto|imagem|valor|pre[cç]o|quanto|qual|oq|o que)\b/.test(m)
+     )){
+    const scale=ambiguousBasketScale[1];
+    return {intent:'basket_disambiguate',basket:scale,query:scale,source_query:'',replacement_query:'',quantity:0};
   }
   if(/\b(quais|qual|ver|mostrar|tem|t[eê]m|manda)\b.*\bcestas?\b|\bcestas?\b.*\b(quais|ver|mostrar|tem|t[eê]m|manda)\b/.test(m))return {intent:'list_baskets',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   const basketMatch=m.match(/\b(econ[oô]mica|mini|pequena|m[eé]dia|grande)\s+(bonini|koblenz)\b/);
