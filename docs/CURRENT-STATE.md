@@ -1,88 +1,69 @@
 # CURRENT STATE — PapoAI Commerce OS
 
-Atualizado: 21/09/2026.
+Atualizado: 21/09/2026
+Status: PROJETO APROVADO / IMPLEMENTAÇÃO EM ANDAMENTO
 
-## Runtime atual
+## Fontes oficiais
+- GitHub: `osvaldosereia/CHAT`
+- Branch: `papoai-commerce-os-live-20260921`
+- Supabase: `ssbesxgaijknwsjbsbcz`
+- Canal: PapoAI / WhatsApp
 
-Supabase: `ssbesxgaijknwsjbsbcz`
-
-Edge Function:
-- `papo-external-agent-v1`
+## Runtime
+- Edge: `papo-external-agent-v1`
 - versão auditada: v28
-- ACTIVE
+- request/session/text_reply: verificados em laboratório
+- media_reply: observado na UI
+- button/list/flow/handoff/silent: precisam homologação física
 
-Transporte comprovado:
-- request: verified_lab
-- session: verified_lab
-- text_reply: verified_lab
-- media_reply: observed_ui
-- button/list/flow/handoff/silent: ainda não comprovados fisicamente
+## Catálogo
+- produtos totais: 1.814
+- ativos: 1.673
+- tecnicamente vendáveis: 1.415
+- conhecimento determinístico: 1.415/1.415
+- busca do Commerce Brain não depende mais de `is_whatsapp_active`
 
-## Gates
+Testes já corrigidos: arroz Tio Bonini, desodorante feminino, shampoo/cabelo crespo e expansão de fraldas/outros produtos fora do antigo pool de 306.
 
-Continuam OFF até homologação real:
-- Commerce Brain
-- write
-- AI
-- Conversation Governor
-- Bling queue
-- learning enqueue
-
-## Comércio já implementado
-
-- busca de produtos;
-- catálogo/cestas;
-- carrinho avulso;
-- personalização de cesta;
-- substituição;
-- substituição delegada;
-- Governador RESPOND/ASK/RECOMMEND/ACT;
-- máximo 2 perguntas;
-- “você decide”;
+## Comércio implementado
+- cestas e composição;
+- carrinho;
+- personalização;
+- substituição e substituição delegada;
 - ofertas;
-- contexto do cliente;
-- memória;
+- cliente/contexto e memória;
 - recompra;
 - checkout progressivo;
 - pedido;
 - idempotência;
 - precedência humana;
-- proteção de identidade para Bling.
+- Bling identity guard;
+- Governor RESPOND/ASK/RECOMMEND/ACT;
+- limite de 2 perguntas;
+- regra “você decide”.
 
-## Catálogo real
+## Estratégia aprovada
+- IA ativa como atendente principal;
+- GPT-5.6 Terra para turnos conversacionais importantes;
+- GPT-5.6 Luna para tarefas auxiliares;
+- dados/contexto sob demanda;
+- Supabase executa regras e cálculos;
+- PapoAI cuida do canal/inbox humano;
+- recursos Meta via capability adapter e fallbacks;
+- Admin separado, sem inbox.
 
-`products`:
-- total: 1.814
-- ativos: 1.673
-- vendáveis técnicos sem `is_whatsapp_active`: 1.415
-- pool atual do chat: 306
-- com alguma imagem: 1.777
-- sem GTIN: 27
-- sem marca: 213
-- sem descrição curta e longa: 1.101
-- tags: 0/1.814
+## Gates
+Continuam OFF até homologação:
+- ai_enabled
+- write_enabled
+- commerce_enabled
+- governor_enabled
+- bling_queue_enabled
+- learning_enqueue_enabled
+- agent_learning_write_enabled
 
-Conhecimento:
-- `product_sales_knowledge`: 306 produtos
-- 122 seeded
-- 184 pending_research
-- jobs de enriquecimento: 306 pending
-- pesquisa web/IA de enriquecimento: OFF
+## Próxima rodada
+R2 — AI Core, Context Pack e Tool Registry.
 
-Problema atual prioritário:
-a busca PapoAI filtra `is_whatsapp_active=true`, reduzindo 1.415 produtos tecnicamente vendáveis para 306.
-
-## Bloqueios externos atuais
-
-- teste E2E com cliente/número externo;
-- rotação da chave de homologação;
-- confirmar vínculo atual canal/agente no PapoAI;
-- autorização posterior de produção;
-- verificar mídia fisicamente.
-
-## Regra de continuidade
-
-Não voltar a implementar inbox próprio.
-Não trocar para o Supabase duplicado.
-Não reconstruir o catálogo.
-Usar o PapoAI ao máximo onde capacidade for comprovada.
+Plano completo:
+`docs/PROGRAMMING-PLAN-TO-PRODUCTION.md`
