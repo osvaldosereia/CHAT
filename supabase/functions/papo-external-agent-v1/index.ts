@@ -398,13 +398,13 @@ function productsText(items:any[],maxItems=20){
   const max=Math.max(1,Math.min(20,Number(maxItems)||20));
   const list=(Array.isArray(items)?items:[]).slice(0,max);
   if(!list.length)return 'Não encontrei um produto disponível que combine com esse pedido agora.';
-  return list.map((p:any)=>`${p.is_offer?'🔥':'🛒'} ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n');
+  return list.map((p:any)=>`${p.is_offer?'🔥':'🛒'} ${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
 }
 function numberedProductsText(items:any[],maxItems=20){
   const max=Math.max(1,Math.min(20,Number(maxItems)||20));
   const list=(Array.isArray(items)?items:[]).slice(0,max);
   if(!list.length)return '';
-  return list.map((p:any,index:number)=>`${index+1}. ${p.is_offer?'🔥 ':''}${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n');
+  return list.map((p:any,index:number)=>`${index+1}. ${p.is_offer?'🔥 ':''}${p.name} — ${moneyBR(p.commercial_price??p.offer_price??p.regular_price)}${p.is_offer?' (oferta)':''}`).join('\n\n');
 }
 function foldProductText(value:any){
   return String(value??'')
