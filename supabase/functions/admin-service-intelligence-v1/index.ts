@@ -350,16 +350,27 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     }};
   };
 
-  if(deterministicIntent?.intent==="payment_info"&&paymentPolicy?.content){
-    const responseText=String(paymentPolicy.content)
-      .replace(/\s*Nunca invente[\s\S]*$/i,"")
-      .trim();
-    return await deterministicReturn({
-      response:responseText,
-      decision:"RESPOND",
-      model:"deterministic-policy",
-      salesNextStep:"answer_need"
-    });
+  if(deterministicIntent?.intent==="payment_info"){
+    let paymentContent=paymentPolicy?.content||"";
+    if(!paymentContent){
+      const policyQ=await sb.from("service_knowledge_items")
+        .select("content")
+        .eq("knowledge_key","payment_baseline")
+        .eq("status","published")
+        .maybeSingle();
+      paymentContent=String(policyQ.data?.content||"");
+    }
+    if(paymentContent){
+      const responseText=String(paymentContent)
+        .replace(/\s*Nunca invente[\s\S]*$/i,"")
+        .trim();
+      return await deterministicReturn({
+        response:responseText,
+        decision:"RESPOND",
+        model:"deterministic-policy",
+        salesNextStep:"answer_need"
+      });
+    }
   }
 
   if(deterministicIntent?.intent==="basket_disambiguate"){
@@ -408,6 +419,52 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
       tools,toolResults,mediaPreview,
       question:detail?.found?"":"Qual cesta você quer ver?",
       salesNextStep:detail?.found?"answer_need":"clarify_basket"
+    });
+  }
+
+  if(deterministicIntent?.intent==="confirm_pending"&&context?.pending_action){
+    const tools=[{tool_key:"confirm_order",arguments_json:JSON.stringify({confirm:true})}];
+    const toolResults=[{
+      tool_key:"confirm_order",operation_kind:"commitment",
+      arguments:{confirm:true},ok:true,executed:false,blocked_by_simulator:true
+    }];
+    return await deterministicReturn({
+      response:"Perfeito, confirmação recebida. No fluxo real, este é o ponto de confirmar o pedido de forma idempotente.",
+      decision:"ACT",tools,toolResults,salesNextStep:"confirm_order"
+    });
+  }
+
+  if(deterministicIntent?.intent==="set_basket_quantity"&&context?.cart?.has_cart){
+    const source=String(deterministicIntent?.source_query||"").trim();
+    const quantity=Math.max(0,Number(deterministicIntent?.quantity||0));
+    const norm=(v:any)=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
+    const sourceNorm=norm(source);
+    const items=Array.isArray(context?.cart?.items)?context.cart.items:[];
+    const matched=items.find((x:any)=>{
+      const name=norm(x?.name);
+      return name===sourceNorm||name.includes(sourceNorm)||sourceNorm.includes(name);
+    })||null;
+    if(matched?.product_id){
+      const toolKey=quantity===0?"remove_cart_item":"change_quantity";
+      const args=quantity===0
+        ? {product_id:matched.product_id}
+        : {product_id:matched.product_id,quantity};
+      const tools=[{tool_key:toolKey,arguments_json:JSON.stringify(args)}];
+      const toolResults=[{
+        tool_key:toolKey,operation_kind:"write",
+        arguments:args,ok:true,executed:false,blocked_by_simulator:true
+      }];
+      const response=quantity===0
+        ? `Certo, vou retirar ${matched.name||source} da cesta.`
+        : `Certo, vou ajustar ${matched.name||source} para ${quantity} unidade(s).`;
+      return await deterministicReturn({
+        response,decision:"ACT",tools,toolResults,salesNextStep:"update_cart"
+      });
+    }
+    return await deterministicReturn({
+      response:`Não consegui identificar com segurança qual item corresponde a "${source}". Qual item da cesta você quer alterar?`,
+      decision:"ASK",tools:[],toolResults:[],
+      question:"Qual item da cesta você quer alterar?",salesNextStep:"clarify_cart_item"
     });
   }
 
