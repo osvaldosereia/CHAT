@@ -490,6 +490,51 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     });
   }
 
+  if(deterministicIntent?.intent==="checkout_readiness"&&context?.cart?.has_cart){
+    const rr=await r8ReadTool(sb,"get_checkout_next_step",{},conversationId,context);
+    const step=rr?.result||{};
+    const tools=[{tool_key:"get_checkout_next_step",arguments_json:"{}"}];
+    const toolResults=[{tool_key:"get_checkout_next_step",operation_kind:"read",arguments:{},...rr}];
+    if(step?.step==="collect_payment"){
+      return await deterministicReturn({
+        response:step?.prompt||"Como você prefere pagar? Pode ser Pix, dinheiro, cartão de crédito ou cartão alimentação/refeição.",
+        decision:"ASK",tools,toolResults,
+        question:step?.prompt||"Como você prefere pagar?",
+        salesNextStep:"collect_payment"
+      });
+    }
+    if(step?.step==="cart_missing"){
+      return await deterministicReturn({
+        response:"Seu carrinho ainda está vazio. O que você gostaria de comprar?",
+        decision:"ASK",tools,toolResults,
+        question:"O que você gostaria de comprar?",
+        salesNextStep:"build_cart"
+      });
+    }
+    const prepareCall={tool_key:"prepare_order_confirmation",arguments_json:"{}"};
+    toolResults.push({
+      tool_key:"prepare_order_confirmation",operation_kind:"commitment",
+      arguments:{},ok:true,executed:false,blocked_by_simulator:true
+    });
+    return await deterministicReturn({
+      response:"Perfeito. Vou preparar o resumo final para você confirmar antes de fechar o pedido.",
+      decision:"ACT",tools:[...tools,prepareCall],toolResults,
+      salesNextStep:"prepare_confirmation"
+    });
+  }
+
+  if(deterministicIntent?.intent==="cancel_pending"&&context?.pending_action){
+    const tools=[{tool_key:"cancel_pending",arguments_json:"{}"}];
+    const toolResults=[{
+      tool_key:"cancel_pending",operation_kind:"write",
+      arguments:{},ok:true,executed:false,blocked_by_simulator:true
+    }];
+    return await deterministicReturn({
+      response:"Tudo bem, não vou confirmar essa ação.",
+      decision:"ACT",tools,toolResults,salesNextStep:"return_to_conversation"
+    });
+  }
+
   if(deterministicIntent?.intent==="confirm_pending"&&context?.pending_action){
     const tools=[{tool_key:"confirm_order",arguments_json:JSON.stringify({confirm:true})}];
     const toolResults=[{
@@ -549,7 +594,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     });
   }
 
-  if(deterministicIntent?.intent==="set_addon_quantity"&&context?.cart?.has_cart){
+  if(deterministicIntent?.intent==="set_addon_quantity"){
     const query=String(deterministicIntent?.query||message).trim();
     const quantity=Math.max(1,Number(deterministicIntent?.quantity||1));
     const rr=await r8ReadTool(sb,"search_products",{query,limit:4},conversationId,context);
