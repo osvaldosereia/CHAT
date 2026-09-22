@@ -2084,8 +2084,9 @@ Deno.serve(async(req:Request)=>{
         source:'published_service_knowledge',
         read_only:true
       };
-      text=policyQ.data?.content
-        ||'Aceitamos Pix, dinheiro, cartão de débito, cartão de crédito e cartão alimentação/refeição. Não vendemos para 30 dias nem boleto.';
+      text=String(policyQ.data?.content||'Aceitamos Pix, dinheiro, cartão de débito, cartão de crédito e cartão alimentação/refeição. Não vendemos para 30 dias nem boleto.')
+        .replace(/\s*Nunca invente[\s\S]*$/i,'')
+        .trim();
     }else if(intent.intent==='set_payment_method'&&conversationId&&commerceCfg?.write_enabled===true){
       const q=await sb.rpc('execute_papoai_commerce_command_v1',{
         p_conversation_id:conversationId,
@@ -2216,7 +2217,7 @@ Deno.serve(async(req:Request)=>{
     }
 
     if(!responseBody){
-      const mediaUrl=(result?.items?.length===1?result.items[0]?.image_url:null)||null;
+      const mediaUrl=result?.image_url||result?.basket?.image_url||(result?.items?.length===1?result.items[0]?.image_url:null)||null;
       responseBody=commerceTextResponse({text,mediaUrl,sessionKey:normalized.sessionKey,correlationId});
     }
   }
