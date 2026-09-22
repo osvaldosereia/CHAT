@@ -405,3 +405,38 @@ Preflight de segurança focado:
 - `service_role` mantém EXECUTE;
 - tabelas PapoAI sensíveis permanecem protegidas por RLS sem políticas públicas;
 - advisors gerais do projeto possuem itens de manutenção amplos/legados, mas nenhum deles substitui ou remove o bloqueio específico do handoff R7.
+
+
+## HARDENING DO GATE DE PRODUÇÃO — 22/09/2026
+
+O RPC existente `get_papoai_commerce_activation_readiness_v1()` foi endurecido no Supabase para incorporar diretamente a R7.
+
+Mudança:
+- `ready_for_production` agora exige também `get_papoai_r7_readiness_v1().ready_for_r8=true`;
+- o retorno inclui `r7_ready_for_r8` e o snapshot `r7`;
+- enquanto a R7 estiver incompleta, adiciona blocker `r7_physical_homologation_incomplete`;
+- a autorização explícita continua separada em `production_activation_not_authorized`.
+
+Estado validado após a mudança:
+- data_ready=true;
+- transport_ready=true;
+- safety_ready=true;
+- external_customer_e2e_verified=true;
+- api_key_rotation_required=false;
+- papoai_channel_link_current_verified=true;
+- media_reply=verified_lab;
+- warnings=[];
+- r7_ready_for_r8=false;
+- ready_for_production=false;
+- blockers exatamente:
+  1. `r7_physical_homologation_incomplete`;
+  2. `production_activation_not_authorized`.
+
+Segurança:
+- `anon` sem EXECUTE;
+- `authenticated` sem EXECUTE;
+- `service_role` com EXECUTE;
+- advisor de segurança não reportou finding específico novo para esse RPC.
+
+Nenhum gate foi ativado.
+Produção continua OFF.
