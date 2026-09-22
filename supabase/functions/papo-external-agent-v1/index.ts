@@ -643,6 +643,20 @@ Deno.serve(async(req:Request)=>{
 
   const {data:commerceCfg}=await sb.rpc('get_papoai_commerce_brain_config_v1');
   const commerceEnabled=commerceCfg?.enabled===true;
+  if(commerceEnabled&&commerceCfg?.metadata?.pilot_mode===true){
+    const allowedHashes=Array.isArray(commerceCfg?.metadata?.pilot_allowed_phone_hashes)
+      ? commerceCfg.metadata.pilot_allowed_phone_hashes.map((x:any)=>String(x))
+      : [];
+    const phoneHash=await requestHash(normalized.phoneE164);
+    if(!allowedHashes.includes(phoneHash)){
+      return jsonResponse(buildLabSilentResponse({
+        sessionKey:normalized.sessionKey,
+        correlationId,
+        reason:'commerce_pilot_phone_not_authorized',
+        handoff:false
+      }),200,responseBearer);
+    }
+  }
   if(lab.enabled!==true&&!commerceEnabled){
     return jsonResponse(buildLabSilentResponse({sessionKey:normalized.sessionKey,correlationId,reason:'all_brains_disabled',handoff:false}),200,responseBearer);
   }
