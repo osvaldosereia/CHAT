@@ -659,6 +659,35 @@ async function nativeToolsLookupCustomer(sb:any,phone:string){
   return Array.isArray(q.data)?(q.data[0]||null):null;
 }
 
+function extractPapoAiContactPhone(body:any){
+  const candidates=[
+    body?.phone, body?.phone_number, body?.wa_id, body?.from, body?.sender, body?.sender_phone,
+    body?.contact?.phone, body?.contact?.phone_number, body?.contact?.wa_id, body?.contact?.identifier, body?.contact?.source_id,
+    body?.message?.from, body?.message?.sender, body?.message?.phone,
+    body?.conversation?.contact?.phone, body?.conversation?.contact?.phone_number, body?.conversation?.meta?.sender?.phone_number,
+    body?.meta?.sender?.phone_number,
+    body?.payload?.phone, body?.payload?.phone_number, body?.payload?.contact?.phone, body?.payload?.contact?.phone_number,
+    body?.data?.phone, body?.data?.phone_number, body?.data?.contact?.phone, body?.data?.contact?.phone_number
+  ];
+  for(const candidate of candidates){
+    const raw=String(candidate??'').trim();
+    if(!raw)continue;
+    const digits=raw.replace(/\D/g,'');
+    if(digits.length>=10&&digits.length<=15)return raw;
+  }
+  return '';
+}
+
+function formatCustomerAddressSummary(a:any){
+  if(!a)return '';
+  return [
+    [a?.street,a?.number].filter(Boolean).join(', '),
+    a?.complement||'',
+    a?.neighborhood||'',
+    [a?.city,a?.state].filter(Boolean).join(' - '),
+    a?.postal_code?('CEP '+a.postal_code):''
+  ].filter(Boolean).join(' — ');
+}
 async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correlationId:string){
   const supplied=String(
     req.headers.get('x-papoai-tools-key')
@@ -672,7 +701,7 @@ async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correla
   if(auth.error||auth.data!==true)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
 
   const action=String(body?.action||'').trim().toLowerCase().slice(0,80);
-  const phone=String(body?.phone||body?.customer?.phone||'').trim().slice(0,80);
+  const phone=extractPapoAiContactPhone(body).slice(0,80);
 
   try{
     if(action==='health'){
@@ -685,6 +714,72 @@ async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correla
       });
     }
 
+    if(action==='customer_identify'){
+      if(!phone)return jsonResponse({ok:false,error:'phone_not_found_in_payload',hint:'send phone or contact.phone/phone_number/wa_id/from',correlation_id:correlationId},400);
+
+      const customer=await nativeToolsLookupCustomer(sb,phone);
+      if(!customer){
+        return jsonResponse({
+          ok:true, known_customer:false, customer_status:'NEW', phone_received:phone, has_address:false,
+          variables:{customer_known:'NAO',customer_name:'',customer_phone:phone,customer_has_address:'NAO',customer_address:''},
+          assistant_context:'CLIENTE_CADASTRADO: NAO. Trate como novo cliente. Nao invente nome nem endereco.',
+          correlation_id:correlationId
+        });
+      }
+
+      const customerQ=await sb.from('customers')
+        .select('id,name,primary_whatsapp_e164,preferred_reply,order_count,last_order_at,shopping_mode')
+        .eq('id',customer.customer_id)
+        .maybeSingle();
+      if(customerQ.error)throw customerQ.error;
+      const row=customerQ.data||{};
+
+      const addressQ=await sb.from('customer_addresses')
+        .select('street,number,complement,neighborhood,city,state,postal_code,reference,is_default,last_confirmed_at')
+        .eq('customer_id',customer.customer_id)
+        .eq('is_active',true)
+        .order('is_default',{ascending:false})
+        .order('updated_at',{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(addressQ.error)throw addressQ.error;
+
+      const fullName=String(row.name||customer.customer_name||'').trim();
+      const firstName=fullName?fullName.split(/\s+/)[0]:'';
+      const storedPhone=String(row.primary_whatsapp_e164||customer.normalized_phone||phone).trim();
+      const address=addressQ.data||null;
+      const addressSummary=formatCustomerAddressSummary(address);
+      const hasAddress=Boolean(address?.street&&address?.number&&address?.neighborhood&&address?.city);
+
+      const context=[
+        'CLIENTE_CADASTRADO: SIM.',
+        fullName?('NOME: '+fullName+'.'):'',
+        storedPhone?('TELEFONE_CADASTRADO: '+storedPhone+'.'):'',
+        'ENDERECO_CADASTRADO: '+(hasAddress?'SIM':'NAO')+'.',
+        hasAddress?('ENDERECO: '+addressSummary+'.'):'',
+        'Use estes dados apenas para personalizar e confirmar o atendimento.',
+        'Nao mostre CPF. Nao invente dados ausentes.',
+        'Se o cliente estiver apenas iniciando a conversa, use no maximo o primeiro nome.',
+        'Antes de entrega/pedido, confirme telefone e endereco de forma natural.'
+      ].filter(Boolean).join(' ');
+
+      return jsonResponse({
+        ok:true, known_customer:true, customer_status:'REGISTERED',
+        customer_id:row.id||customer.customer_id,
+        name:fullName||null, first_name:firstName||null,
+        phone_received:phone, phone_registered:storedPhone||null,
+        phone_matches_registered:storedPhone ? storedPhone.replace(/\D/g,'')===String(phone).replace(/\D/g,'') : null,
+        has_address:hasAddress, address:hasAddress?address:null, address_summary:hasAddress?addressSummary:null,
+        order_count:Number(row.order_count||0), last_order_at:row.last_order_at||null,
+        preferred_reply:row.preferred_reply||customer.preferred_reply||null,
+        variables:{
+          customer_known:'SIM', customer_name:fullName||'', customer_first_name:firstName||'',
+          customer_phone:storedPhone||phone, customer_has_address:hasAddress?'SIM':'NAO',
+          customer_address:hasAddress?addressSummary:''
+        },
+        assistant_context:context, correlation_id:correlationId
+      });
+    }
     if(action==='customer_profile'){
       if(!phone)return jsonResponse({ok:false,error:'phone_required',correlation_id:correlationId},400);
       const customer=await nativeToolsLookupCustomer(sb,phone);
@@ -938,7 +1033,7 @@ async function handlePapoAiNativeToolRequest(sb:any,req:Request,body:any,correla
       ok:false,
       error:'unsupported_action',
       supported_actions:[
-        'health','customer_profile','customer_address','last_purchase',
+        'health','customer_identify','customer_profile','customer_address','last_purchase',
         'baskets','basket_detail','basket_personalization_preview','product_search_authoritative',
         'papoai_product_sync_status','papoai_product_sync_preview','papoai_product_export_csv'
       ],
