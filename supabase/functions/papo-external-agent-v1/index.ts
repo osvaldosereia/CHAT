@@ -1711,6 +1711,25 @@ Deno.serve(async(req:Request)=>{
       }else{
         text='Oi 😊 Bem-vindo à Dona Antônia. Posso te ajudar com cestas básicas, produtos do mercado ou ofertas. O que você precisa hoje?';
       }
+    }else if(intent.intent==='delivery_schedule'){
+      if(conversationId){
+        const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+          p_conversation_id:conversationId,
+          p_reason:'delivery_schedule_confirmation',
+          p_summary:'Cliente pediu confirmação de horário ou janela específica de entrega.',
+          p_priority:2
+        });
+        if(queued.error)throw queued.error;
+        result=queued.data;
+      }
+      processingStatus='handoff';responseKind='handoff';
+      responseBody=commerceTextResponse({
+        text:'O horário exato depende da rota e da operação do dia. Vou chamar alguém da equipe para confirmar essa janela com você.',
+        sessionKey:normalized.sessionKey,
+        correlationId,
+        handoff:true,
+        reason:'delivery_schedule_confirmation'
+      });
     }else if(intent.intent==='handoff'){
       if(conversationId){
         const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
