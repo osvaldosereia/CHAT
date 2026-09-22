@@ -1532,6 +1532,36 @@ Deno.serve(async(req:Request)=>{
       apiKey,
       model:(Deno.env.get('OPENAI_CONVERSATION_MODEL')||aiRuntimeCfg?.utility_model||'gpt-5.6-luna')
     });
+
+    let pendingProductChoice:any=null;
+    let pendingChoiceResolution:any=null;
+    if(conversationId){
+      const pendingChoiceQ=await sb.from('papoai_commerce_pending_actions')
+        .select('id,payload,expires_at')
+        .eq('conversation_id',conversationId)
+        .eq('action_type','product_choice')
+        .eq('status','pending')
+        .gt('expires_at',new Date().toISOString())
+        .order('created_at',{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(!pendingChoiceQ.error&&pendingChoiceQ.data){
+        pendingProductChoice=pendingChoiceQ.data;
+        const selectedItem=pendingProductChoice?.payload?.selected_item||null;
+        if(selectedItem&&isExplicitPhotoRequest(normalized.messageText)){
+          intent={intent:'selected_product_photo',source:'pending_product_choice'};
+        }else{
+          pendingChoiceResolution=resolvePendingProductChoiceText(normalized.messageText,pendingProductChoice);
+          if(pendingChoiceResolution?.status==='resolved'){
+            intent={intent:'identify_product_choice',source:'pending_product_choice'};
+          }else if(pendingChoiceResolution?.status==='ambiguous'){
+            intent={intent:'clarify_product_choice',source:'pending_product_choice'};
+          }else if(pendingChoiceResolution?.status==='out_of_range'){
+            intent={intent:'product_choice_out_of_range',source:'pending_product_choice'};
+          }
+        }
+      }
+    }
     let result:any=null;
     let text='';
 
