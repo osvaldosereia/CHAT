@@ -91,3 +91,30 @@ Próxima ação física:
 - confirmar destino humano/fila configurado;
 - manter **“Manter IA ativa após transferência” DESLIGADO**;
 - repetir somente o handoff após correção da configuração.
+
+
+## Diagnóstico 22/09/2026 09:05 — estado humano real do PapoAI
+
+Evidência física adicional:
+- após o takeover manual pelo botão **Iniciar Atendimento**, a UI exibiu:
+  - `Osvaldo sereia junior iniciou o atendimento`;
+  - botão **Voltar IA**;
+- com humano ativo, foi enviada a mensagem `TESTE_HUMANO_ATIVO_DONA_ANTONIA` pelo WhatsApp;
+- essa mensagem **não chegou ao Agent External**;
+- não houve nova linha em `channel_provider_agent_lab_calls`;
+- não houve novo `normalized_channel_event` para a sessão;
+- o último correlation_id permaneceu `0b6ec000-567b-4a8e-9df7-48f95fdded45`.
+
+Conclusão física:
+- quando um humano assume de verdade no PapoAI, o Agent External deixa de receber novos turnos;
+- portanto a ausência de chamada ao endpoint + estado visual humano é evidência física equivalente de precedência humana;
+- porém o takeover observado foi **manual**, não provocado automaticamente por `handoff=true`;
+- por isso `handoff` permanece `attempted`, não `verified`.
+
+Diagnóstico de integração:
+- não existe no Supabase credencial/API do PapoAI para controlar o inbox;
+- o adaptador PapoAI permanece `inbound_mode=active`, `outbound_mode=disabled`;
+- a única integração programática atual é o endpoint Agent External;
+- próximo diagnóstico: capturar a requisição real feita pela UI do PapoAI ao clicar em **Iniciar Atendimento**, para descobrir se existe ação HTTP automatizável de takeover.
+
+Produção continua OFF e `ready_for_r8=false`.
