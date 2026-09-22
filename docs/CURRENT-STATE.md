@@ -633,3 +633,29 @@ Estado:
 
 Objetivo desta fase:
 validar atendimento real básico no WhatsApp antes de liberar carrinho/escritas.
+
+
+## PILOTO — CONTEXTO DE CONVERSA E BUSCA COLOQUIAL — 22/09/2026
+
+Erro real observado no piloto:
+- cliente: "O que vem na cesta grande?"
+- IA: "Temos Grande Koblenz e Grande Bonini. Qual delas você quer ver?"
+- cliente: "Bonini"
+- comportamento antigo: buscava produto Bonini (ex.: arroz) em vez de continuar a escolha da cesta.
+
+Correção:
+- roteador agora usa histórico recente para resolver respostas curtas dentro da última escolha pendente;
+- suporta família (Bonini/Koblenz), nome completo, escala, primeira/segunda/terceira e confirmações quando há um único candidato;
+- usa a mensagem anterior do cliente para decidir se a continuação é detalhe da cesta ou início de compra.
+
+Regressão criada:
+- ctx_basket_01: PASSED;
+- sequência "cesta grande -> Bonini" resolveu Grande Bonini e chamou get_basket.
+
+Outros problemas do mesmo piloto corrigidos:
+- "Tem miojo?" agora normaliza para "macarrão lámen"; regressão PASSED;
+- áudio já transcrito pelo PapoAI deixa de cair no fallback "áudio não habilitado" e segue para o cérebro como texto.
+
+Deploy:
+- admin-service-intelligence-v1 v28;
+- papo-external-agent-v1 v70.
