@@ -36,6 +36,9 @@ export function deterministicCommerceIntent(message){
     return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:tem\s+como|aceita|aceitam|passa|passam|posso|pode)\b.*\b(?:d[eé]bito|debito)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:anota|anotar)\b.*\b(?:pago|pagar)\b.*\b(?:dps|depois)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
+  if(/\b(?:da|d[aá]|tem)\s+pra\s+(?:paga|pagar)\s+(?:dps|depois)\b/.test(m)
+     || /\b(?:paga|pagar)\s+(?:dps|depois)\b/.test(m))
+    return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:passa|aceita|aceitam)\b.*\b(?:alimenta[cç][aã]o|refei[cç][aã]o|alelo|sodexo|puxee|caju|flash|ifood)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(/\b(?:anota|pagar|paga)\b.*\b(?:m[eê]s\s+(?:que|q)\s+vem|30\s*dias?|30d)\b/.test(m))return {intent:'payment_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
   if(
@@ -65,7 +68,7 @@ export function deterministicCommerceIntent(message){
     || /\b(?:cuiab[aá]|cba|v[aá]rzea\s+grande|vg|chapada\s+dos\s+guimar[aã]es|cpa|cristo\s+rei|shopping\s+pantanal)\b/.test(m)
        && /\b(?:entrega|manda|chega|frete)\b/.test(m)
   )return {intent:'delivery_info',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
-  if(/\b(atendente|humano|pessoa|falar com algu[eé]m|vendedor(?:a)?|algu[eé]m da equipe|gente de verdade|quero fala?r? com gente|falar com gente|n[aã]o quero falar com rob[oô]|sem rob[oô])\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
+  if(/\b(atendente|humano|pessoa|falar com algu[eé]m|vendedor(?:a)?|algu[eé]m da equipe|gente de verdade|quero fala?r? com gente|falar com gente|n[aã]o quero falar com rob[oô]|sem rob[oô]|me passa (?:pra|para) algu[eé]m|passa (?:pra|para) algu[eé]m)\b/.test(m))return {intent:'handoff',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   if(/\b(voce decide|você decide|pode decidir|escolhe pra mim|escolha pra mim|voce escolhe|você escolhe)\b/.test(m)
      && /\b(tira|tirar|retira|retirar|remove|remover|troca|trocar)\b/.test(m)){
     const mm=m.match(/\b(?:tira|tirar|retira|retirar|remove|remover|troca|trocar)\s+(?:o|a|os|as)?\s*([^,.;!?]+?)(?:\s+e\s+|\s+por\s+|$)/);
