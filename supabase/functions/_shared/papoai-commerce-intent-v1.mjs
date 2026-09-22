@@ -25,7 +25,7 @@ export function deterministicCommerceIntent(message){
   if(/^(9|nono|nona|o nono|a nona)$/i.test(m))return {intent:'select_product_choice',basket:'',query:'',source_query:'',replacement_query:'',quantity:9};
   if(/^(10|decimo|décimo|decima|décima|o decimo|o décimo|a decima|a décima)$/i.test(m))return {intent:'select_product_choice',basket:'',query:'',source_query:'',replacement_query:'',quantity:10};
   if(/^(sim|s|pode|pode sim|confirmo|confirma|isso|isso mesmo|ok|okay|beleza|pode trocar|troca)$/i.test(m)
-     || /\b(?:sim|pode|ok|confirmo)\b.*\b(?:confirma|confirmar|fecha|fechar)\b.*\b(?:pedido|compra)?\b/.test(m)
+     || /\b(?:sim|pode|ok|confirmo)\b.*\b(?:confirma|confirmar)\b(?:.*\b(?:pedido|compra)\b)?/.test(m)
      || /\b(?:confirma|confirmar)\b.*\b(?:pedido|compra)\b/.test(m)){
     return {intent:'confirm_pending',basket:'',query:'',source_query:'',replacement_query:'',quantity:0};
   }
