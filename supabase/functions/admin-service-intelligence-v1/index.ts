@@ -373,6 +373,39 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     }
   }
 
+  if(deterministicIntent?.intent==="greeting"){
+    return await deterministicReturn({
+      response:"Oi 😊 Bem-vindo à Dona Antônia. Posso te ajudar com cestas básicas, produtos do mercado ou ofertas. O que você precisa hoje?",
+      decision:"RESPOND",salesNextStep:"answer_need"
+    });
+  }
+
+  if(deterministicIntent?.intent==="list_baskets"){
+    const rr=await r8ReadTool(sb,"search_baskets",{},conversationId,context);
+    const items=Array.isArray(rr?.result)?rr.result:[];
+    const response=items.length
+      ? "Temos estas cestas: "+items.map((x:any)=>`${x?.display_name||x?.name} — R$ ${Number(x?.commercial_price||0).toFixed(2).replace(".",",")}`).join("; ")+"."
+      : "Não encontrei cestas disponíveis agora.";
+    const tools=[{tool_key:"search_baskets",arguments_json:"{}"}];
+    const toolResults=[{tool_key:"search_baskets",operation_kind:"read",arguments:{},...rr}];
+    return await deterministicReturn({
+      response,decision:"ACT",tools,toolResults,salesNextStep:"show_options"
+    });
+  }
+
+  if(deterministicIntent?.intent==="offers"){
+    const rr=await r8ReadTool(sb,"get_offers",{limit:4},conversationId,context);
+    const items=Array.isArray(rr?.result?.items)?rr.result.items:[];
+    const response=items.length
+      ? "Estas são algumas ofertas de hoje: "+items.map((x:any)=>`${x?.name} — R$ ${Number(x?.commercial_price||x?.offer_price||0).toFixed(2).replace(".",",")}`).join("; ")+"."
+      : "Não encontrei ofertas disponíveis agora.";
+    const tools=[{tool_key:"get_offers",arguments_json:JSON.stringify({limit:4})}];
+    const toolResults=[{tool_key:"get_offers",operation_kind:"read",arguments:{limit:4},...rr}];
+    return await deterministicReturn({
+      response,decision:"ACT",tools,toolResults,salesNextStep:"show_options"
+    });
+  }
+
   if(deterministicIntent?.intent==="basket_disambiguate"){
     const rr=await r8ReadTool(sb,"search_baskets",{},conversationId,context);
     const catalog=Array.isArray(rr?.result)?rr.result:[];
@@ -694,6 +727,21 @@ async function r8RunEvalChunk(sb:any,runId:string,limit:number){
         });
       }
       const b=sim.body||{};
+      const transientPlannerErrors=new Set(["openai_http_error","AbortError","TimeoutError","planner_parse_error","TypeError"]);
+      const transientError=(sim.status>=400||b.ok!==true)
+        && transientPlannerErrors.has(String(b.planner_error||b.error||""));
+      if(transientError&&Number(item.attempt_count||1)<4){
+        await sb.from("papoai_brain_eval_results").update({
+          status:"queued",
+          failure_codes:[],
+          error_code:clean(b.planner_error||b.error||"transient_planner_error",120),
+          error_detail:clean(b.planner_error_message||b.detail||"",1000),
+          started_at:null,
+          finished_at:null
+        }).eq("id",item.result_id);
+        processed++;
+        continue;
+      }
       const checked=r8EvalCheck(item.expected||{},b);
       const metrics=b.metrics||{};
       const status=sim.status>=400||b.ok!==true?"error":(checked.passed?"passed":"failed");
