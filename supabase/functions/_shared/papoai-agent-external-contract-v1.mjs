@@ -71,6 +71,77 @@ function scanObject(value,predicate,seen=new Set()){
   return false;
 }
 
+function normalizeMediaKind(rawType,mime=''){
+  const t=clean(rawType,40).toLowerCase();
+  const m=clean(mime,120).toLowerCase();
+  if(t.includes('audio')||t.includes('voice')||m.startsWith('audio/')) return 'audio';
+  if(t.includes('image')||t.includes('photo')||m.startsWith('image/')) return 'image';
+  if(t.includes('video')||m.startsWith('video/')) return 'video';
+  if(t.includes('document')||t.includes('file')||m.startsWith('application/')) return 'document';
+  return t||'unknown';
+}
+
+function safeMediaUrl(raw){
+  const value=clean(raw,4000);
+  if(!value) return '';
+  try{
+    const u=new URL(value);
+    if(u.protocol!=='https:') return '';
+    return u.toString();
+  }catch{return '';}
+}
+
+export function extractMediaRefs(body={},explicitType=''){
+  const refs=[];
+  const seen=new Set();
+  const add=(candidate={},kindHint='')=>{
+    if(!candidate||typeof candidate!=='object') return;
+    const mime=clean(candidate.mimetype??candidate.mime_type??candidate.mimeType??candidate.content_type??candidate.contentType,120)||null;
+    const url=safeMediaUrl(candidate.media_url??candidate.url??candidate.link??candidate.download_url??candidate.downloadUrl);
+    const mediaId=clean(candidate.media_id??candidate.mediaId??candidate.id,500)||null;
+    const filename=clean(candidate.filename??candidate.file_name??candidate.name,300)||null;
+    const caption=clean(candidate.caption??candidate.text??candidate.body,1000)||null;
+    const kind=normalizeMediaKind(candidate.type??candidate.kind??kindHint??explicitType,mime||'');
+    if(!url&&!mediaId) return;
+    const key=[kind,url||'',mediaId||''].join('|');
+    if(seen.has(key)) return;
+    seen.add(key);
+    refs.push({kind,url:url||null,media_id:mediaId,mime_type:mime,filename,caption});
+  };
+
+  const direct=[
+    ['message',getPath(body,'message')],
+    ['media',getPath(body,'media')],
+    ['audio',getPath(body,'audio')],
+    ['image',getPath(body,'image')],
+    ['video',getPath(body,'video')],
+    ['document',getPath(body,'document')],
+    ['attachment',getPath(body,'attachment')],
+    ['message.audio',getPath(body,'message.audio')],
+    ['message.image',getPath(body,'message.image')],
+    ['message.video',getPath(body,'message.video')],
+    ['message.document',getPath(body,'message.document')],
+    ['data.message',getPath(body,'data.message')],
+    ['payload.message',getPath(body,'payload.message')]
+  ];
+  for(const [hint,val] of direct) add(val,hint);
+
+  for(const path of ['attachments','message.attachments','data.attachments','payload.attachments']){
+    const list=getPath(body,path);
+    if(Array.isArray(list)) for(const item of list) add(item,item?.type||'attachment');
+  }
+
+  const topUrl=safeMediaUrl(pick(body,['media_url','message.media_url','url'],4000));
+  if(topUrl) add({
+    url:topUrl,
+    type:explicitType,
+    mimetype:pick(body,['mimetype','mime_type','message.mimetype','message.mime_type'],120),
+    caption:pick(body,['caption','message.caption'],1000)
+  },explicitType);
+
+  return refs.slice(0,5);
+}
+
 export function normalizeExternalAgentPayload(body={}){
   if(!body||typeof body!=='object'||Array.isArray(body)) throw new Error('invalid_json');
   const rawPhone=pick(body,[
@@ -86,33 +157,46 @@ export function normalizeExternalAgentPayload(body={}){
   const sessionKey=pick(body,['session.uid','session.id','session.session_id','session_id','conversation_id'],300)||`phone:${phoneE164}`;
   const history=parseMessages(body.messages);
   const latestMessage=history.length?history[history.length-1]:null;
-  const fallback=pick(body,['text','message','body','content','message.text','message.body'],4000);
+  const fallback=pick(body,['text','message','body','content','message.text','message.body','caption','message.caption'],4000);
+  const externalMessageId=pick(body,['message_id','messageId','message.id','data.message.id','payload.message.id'],300)||null;
+  const externalEventId=pick(body,['event_id','eventId','event.id','data.event.id','payload.event.id'],300)||null;
+  let messageType=(pick(body,['message_type','type','message.type','data.message.type'],80)||'text').toLowerCase();
+  const mediaRefs=extractMediaRefs(body,messageType);
+  if((!messageType||messageType==='text'||messageType==='unknown')&&mediaRefs.length){
+    const inferred=mediaRefs[0]?.kind;
+    if(['audio','image','video','document'].includes(inferred)) messageType=inferred;
+  }
+
   const triggerRole=latestMessage?.role||'user';
-  const triggerText=latestMessage?.content||fallback;
+  let triggerText=latestMessage?.content||fallback;
+  if(!triggerText&&mediaRefs.length){
+    const caption=mediaRefs.find(x=>x.caption)?.caption||'';
+    triggerText=caption||`[${String(mediaRefs[0]?.kind||messageType||'media').toUpperCase()} RECEBIDO]`;
+  }
   if(!triggerText) throw new Error('empty_message');
   const messageText=triggerRole==='user'?triggerText:'';
 
-  const externalMessageId=pick(body,['message_id','messageId','message.id','data.message.id','payload.message.id'],300)||null;
-  const externalEventId=pick(body,['event_id','eventId','event.id','data.event.id','payload.event.id'],300)||null;
-  const messageType=(pick(body,['message_type','type','message.type','data.message.type'],80)||'text').toLowerCase();
   const rawHumanRequired=getPath(body,'session.human_required')??getPath(body,'human_required');
   const sessionHumanRequired=rawHumanRequired===true
     || ['true','1','yes','sim'].includes(clean(rawHumanRequired,20).toLowerCase());
   const sessionStatus=pick(body,['session.status','status'],80)||null;
   const sessionHumanUserId=pick(body,['session.user_id','session.assigned_user_id','user_id'],160)||null;
-  const hasMedia=scanObject(body,(key,val)=>{
+  const hasMedia=mediaRefs.length>0||scanObject(body,(key,val)=>{
     const k=String(key).toLowerCase();
-    if(['url','mimetype','mime_type','base64'].includes(k)&&val) return true;
-    return typeof val==='string'&&val.startsWith('data:');
+    if(['url','mimetype','mime_type'].includes(k)&&val) return true;
+    return false;
   });
   const hasReply=scanObject(body,key=>/^(quoted|reply_to|replyto|contextinfo|in_reply_to)$/i.test(String(key)));
 
   return {
     phoneE164,displayName,sessionKey,messageText,history,externalMessageId,externalEventId,messageType,
+    mediaRefs,
     triggerRole,triggerText,sessionHumanRequired,sessionStatus,sessionHumanUserId,
     providerContext:{
       history_count:history.length,
       has_media:hasMedia,
+      media_count:mediaRefs.length,
+      media_kinds:[...new Set(mediaRefs.map(x=>x.kind))],
       has_reply:hasReply,
       trigger_role:triggerRole,
       session_human_required:sessionHumanRequired,

@@ -8,6 +8,8 @@ import {
   buildLabHandoffResponse,
   buildLabSilentResponse,
 } from "../_shared/papoai-agent-external-contract-v1.mjs";
+import {transcribeAudioUrl,analyzeImageUrl,synthesizeVoiceToStorage} from "../_shared/papoai-multimodal-v1.mjs";
+import {buildPapoAiExternalDelivery,fallbackTextForDelivery} from "../_shared/papoai-channel-adapter-v1.mjs";
 import {classifyCommerceIntent} from "../_shared/papoai-commerce-intent-v1.mjs";
 import {buildGovernorTopicKey,decideConversationAction,detectCustomerDelegation} from "../_shared/papoai-conversation-governor-v1.mjs";
 import {parseCheckoutProfile,missingCheckoutProfileFields,checkoutProfileMissingPrompt} from "../_shared/papoai-checkout-profile-v1.mjs";
@@ -28,6 +30,12 @@ function safeEqual(a:string,b:string){
   const x=new TextEncoder().encode(a),y=new TextEncoder().encode(b);
   if(x.length!==y.length)return false;
   let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;
+}
+function channelCapabilityVerified(matrix:any,key:string){
+  return matrix?.capabilities?.[key]?.verified===true;
+}
+function mediaHost(rawUrl:any){
+  try{return new URL(String(rawUrl||'')).hostname.toLowerCase()}catch{return null}
 }
 
 
@@ -210,7 +218,7 @@ Deno.serve(async(req:Request)=>{
     p_direction:'inbound',
     p_message_type:normalized.messageType||'text',
     p_body_text:normalized.messageText,
-    p_media_refs:[],
+    p_media_refs:normalized.mediaRefs||[],
     p_tags:[],
     p_provider_context:{...normalized.providerContext,agent_external:true,session_key:normalized.sessionKey},
     p_referral:{provider_adapter:PROVIDER_KEY,agent_external_lab:true},
@@ -221,6 +229,135 @@ Deno.serve(async(req:Request)=>{
   const conversationId=ingested?.conversation_id||null;
   let aiRuntimeCfg:any=null;
   let aiContextPack:any=null;
+  let channelRuntimeCfg:any=null;
+  let channelCapabilities:any=null;
+  let mediaProcessing:any=null;
+  let mediaFallbackText:string|null=null;
+
+  if(conversationId){
+    const [channelCfgQ,capQ]=await Promise.all([
+      sb.from('papoai_channel_runtime_config').select('*').eq('id',1).maybeSingle(),
+      sb.rpc('get_papoai_channel_capability_matrix_v1')
+    ]);
+    if(!channelCfgQ.error)channelRuntimeCfg=channelCfgQ.data;
+    if(!capQ.error)channelCapabilities=capQ.data?.capabilities||{};
+  }
+
+  const primaryMedia=Array.isArray(normalized.mediaRefs)
+    ? normalized.mediaRefs.find((m:any)=>['audio','image'].includes(String(m?.kind||'')))
+    : null;
+
+  if(primaryMedia&&['audio','image'].includes(String(primaryMedia.kind||''))){
+    try{
+      await sb.rpc('set_channel_provider_capability_state_v1',{
+        p_adapter_id:adapter.id,
+        p_capability_key:primaryMedia.kind==='audio'
+          ? 'agent_external.inbound_audio'
+          : 'agent_external.inbound_image',
+        p_state:'observed_payload',
+        p_evidence_source:'agent_external_payload',
+        p_evidence:{
+          correlation_id:correlationId,
+          message_type:normalized.messageType,
+          has_url:Boolean(primaryMedia.url),
+          has_media_id:Boolean(primaryMedia.media_id),
+          mime_type:primaryMedia.mime_type||null,
+          url_host:primaryMedia.url?mediaHost(primaryMedia.url):null
+        }
+      });
+    }catch{}
+  }
+
+  if(conversationId&&primaryMedia){
+    const kind=String(primaryMedia.kind||'');
+    const mediaUrl=String(primaryMedia.url||'');
+    const apiKey=channelRuntimeCfg?.enabled===true?await resolveOpenAiKey(sb):'';
+    const common={
+      url:mediaUrl,
+      allowedHosts:Array.isArray(channelRuntimeCfg?.allowed_media_hosts)?channelRuntimeCfg.allowed_media_hosts:[],
+      apiKey
+    };
+
+    if(
+      kind==='audio'
+      && channelRuntimeCfg?.enabled===true
+      && channelRuntimeCfg?.inbound_audio_enabled===true
+      && channelCapabilityVerified({capabilities:channelCapabilities},'inbound_audio')
+      && mediaUrl
+    ){
+      mediaProcessing=await transcribeAudioUrl({
+        ...common,
+        mimeType:primaryMedia.mime_type||'audio/ogg',
+        maxBytes:Number(channelRuntimeCfg?.max_audio_bytes||16777216),
+        model:channelRuntimeCfg?.transcription_model||'gpt-4o-mini-transcribe'
+      });
+      if(mediaProcessing?.ok&&mediaProcessing?.text){
+        normalized.messageText=String(mediaProcessing.text);
+        normalized.providerContext.transcribed_audio=true;
+      }else{
+        mediaFallbackText='Recebi seu áudio, mas não consegui transcrevê-lo com segurança agora. Se puder, me mande em texto o que você precisa.';
+      }
+    }else if(
+      kind==='image'
+      && channelRuntimeCfg?.enabled===true
+      && channelRuntimeCfg?.inbound_image_enabled===true
+      && channelCapabilityVerified({capabilities:channelCapabilities},'inbound_image')
+      && mediaUrl
+    ){
+      mediaProcessing=await analyzeImageUrl({
+        ...common,
+        model:channelRuntimeCfg?.vision_model||'gpt-5.6-luna',
+        detail:channelRuntimeCfg?.vision_detail||'low',
+        caption:primaryMedia.caption||''
+      });
+      if(mediaProcessing?.ok&&mediaProcessing?.analysis){
+        const a=mediaProcessing.analysis;
+        const parts=[
+          primaryMedia.caption||'',
+          a?.likely_product?`Produto provável: ${a.likely_product}.`:'',
+          a?.brand?`Marca: ${a.brand}.`:'',
+          a?.search_query?`Busca sugerida: ${a.search_query}.`:'',
+          a?.answer_note||''
+        ].filter(Boolean);
+        normalized.messageText=parts.join(' ').trim()||'[IMAGEM ANALISADA]';
+        normalized.providerContext.image_analyzed=true;
+      }else{
+        mediaFallbackText='Recebi sua imagem, mas não consegui identificar com segurança o produto agora. Se puder, me diga o nome ou o que você quer encontrar.';
+      }
+    }else if(kind==='audio'){
+      mediaFallbackText='Recebi seu áudio. A leitura de áudio ainda não está habilitada neste canal; se puder, me mande em texto o que você precisa.';
+    }else if(kind==='image'&&!String(primaryMedia.caption||'').trim()){
+      mediaFallbackText='Recebi sua imagem. A análise de imagem ainda não está habilitada neste canal; me diga o que você quer saber sobre ela.';
+    }
+
+    if(mediaProcessing){
+      await sb.from('papoai_media_processing_runs').insert({
+        correlation_id:correlationId,
+        conversation_id:conversationId,
+        media_kind:kind,
+        source_url_host:mediaHost(mediaUrl),
+        source_mime_type:primaryMedia.mime_type||null,
+        operation:kind==='audio'?'transcribe':'vision',
+        model:mediaProcessing?.model||(
+          kind==='audio'
+            ? channelRuntimeCfg?.transcription_model
+            : channelRuntimeCfg?.vision_model
+        )||null,
+        detail:kind==='image'?(channelRuntimeCfg?.vision_detail||'low'):null,
+        success:mediaProcessing?.ok===true,
+        output_text:kind==='audio'
+          ? (mediaProcessing?.text||null)
+          : (mediaProcessing?.analysis?JSON.stringify(mediaProcessing.analysis).slice(0,6000):null),
+        input_bytes:Number(mediaProcessing?.input_bytes||0)||null,
+        input_tokens:Number(mediaProcessing?.usage?.input_tokens||0)||null,
+        output_tokens:Number(mediaProcessing?.usage?.output_tokens||0)||null,
+        latency_ms:Number(mediaProcessing?.latency_ms||0)||null,
+        error_code:mediaProcessing?.ok===true?null:String(mediaProcessing?.error||'media_processing_failed'),
+        metadata:{capability_verified:true,no_customer_side_effect:true}
+      });
+    }
+  }
+
   if(conversationId){
     const [aiCfgQ,contextQ]=await Promise.all([
       sb.rpc('get_papoai_ai_runtime_config_v1'),
@@ -249,10 +386,37 @@ Deno.serve(async(req:Request)=>{
         p_metadata:{
           correlation_id:correlationId,
           provider_event_key:providerEventKey,
-          provider_session_key:normalized.sessionKey
+          provider_session_key:normalized.sessionKey,
+          media_refs:normalized.mediaRefs||[]
         }
       });
       canonicalInboundMessageId=persisted.data?.message_id||null;
+      if(canonicalInboundMessageId&&mediaProcessing?.ok){
+        try{
+          if(primaryMedia?.kind==='audio'){
+            await sb.from('messages').update({
+              transcript:String(mediaProcessing?.text||'').slice(0,12000),
+              ai_interpretation:{
+                source:'papoai_multimodal_v1',
+                operation:'transcribe',
+                model:mediaProcessing?.model||channelRuntimeCfg?.transcription_model||null
+              },
+              updated_at:new Date().toISOString()
+            }).eq('id',canonicalInboundMessageId);
+          }else if(primaryMedia?.kind==='image'){
+            await sb.from('messages').update({
+              ai_interpretation:{
+                source:'papoai_multimodal_v1',
+                operation:'vision',
+                model:mediaProcessing?.model||channelRuntimeCfg?.vision_model||null,
+                detail:channelRuntimeCfg?.vision_detail||'low',
+                analysis:mediaProcessing?.analysis||{}
+              },
+              updated_at:new Date().toISOString()
+            }).eq('id',canonicalInboundMessageId);
+          }
+        }catch{}
+      }
       if(canonicalInboundMessageId){
         await sb.rpc('maybe_enqueue_papoai_commerce_learning_v1',{
           p_conversation_id:ingested.conversation_id,
@@ -318,6 +482,8 @@ Deno.serve(async(req:Request)=>{
   let processingStatus='responded';
   let responseKind='text';
   let observedPlanner:any=null;
+  let channelResolution:any=null;
+  let ttsResult:any=null;
   const pausedUntil=freshSession?.paused_until?new Date(freshSession.paused_until):null;
   const labHumanActive=freshSession?.status==='paused'&&(!pausedUntil||pausedUntil.getTime()>Date.now());
 
@@ -387,8 +553,19 @@ Deno.serve(async(req:Request)=>{
       responseBody=buildLabTextResponse({text:String(lab.fixed_response_text),sessionKey:normalized.sessionKey,correlationId});
     }
   }else{
+    if(mediaFallbackText){
+      responseBody=buildLabTextResponse({
+        text:mediaFallbackText,
+        sessionKey:normalized.sessionKey,
+        correlationId
+      });
+      processingStatus='responded';
+      responseKind='text';
+    }
+
     if(
-      conversationId
+      !responseBody
+      && conversationId
       && commerceCfg?.ai_enabled===true
       && aiRuntimeCfg?.enabled===true
       && aiRuntimeCfg?.execution_mode==='observe'
@@ -1101,6 +1278,105 @@ Deno.serve(async(req:Request)=>{
 
   if(
     commerceEnabled
+    && !labHumanActive
+    && lab.enabled!==true
+    && responseBody
+    && !responseBody?.silent
+  ){
+    let requestedType=responseBody?.handoff
+      ? 'handoff'
+      : responseBody?.message?.media_type==='audio'
+        ? 'voice'
+        : responseBody?.message?.media_url
+          ? 'image_caption'
+          : 'text';
+
+    const customerWantsVoice=
+      normalized.messageType==='audio'
+      || aiContextPack?.conversation?.response_preference==='audio';
+
+    if(
+      requestedType==='text'
+      && customerWantsVoice
+      && channelRuntimeCfg?.enabled===true
+      && channelRuntimeCfg?.outbound_voice_enabled===true
+      && channelCapabilityVerified({capabilities:channelCapabilities},'voice')
+      && typeof responseBody?.message?.text==='string'
+      && responseBody.message.text.trim()
+    ){
+      const key=await resolveOpenAiKey(sb);
+      ttsResult=await synthesizeVoiceToStorage({
+        text:responseBody.message.text,
+        apiKey:key,
+        model:channelRuntimeCfg?.tts_model||'gpt-4o-mini-tts',
+        voice:channelRuntimeCfg?.tts_voice||'marin',
+        instructions:channelRuntimeCfg?.tts_instructions||'',
+        supabase:sb,
+        bucket:channelRuntimeCfg?.media_storage_bucket||'shopping-room-media',
+        correlationId
+      });
+      if(ttsResult?.ok){
+        requestedType='voice';
+        await sb.from('papoai_media_processing_runs').insert({
+          correlation_id:correlationId,
+          conversation_id:conversationId,
+          media_kind:'audio',
+          operation:'tts',
+          model:ttsResult?.model||channelRuntimeCfg?.tts_model||null,
+          success:true,
+          input_bytes:Number(ttsResult?.input_bytes||0)||null,
+          latency_ms:Number(ttsResult?.latency_ms||0)||null,
+          metadata:{voice:ttsResult?.voice||channelRuntimeCfg?.tts_voice||null}
+        });
+      }
+    }
+
+    const deliveryPayload={
+      text:responseBody?.message?.text||'',
+      media_url:requestedType==='voice'
+        ? ttsResult?.media_url
+        : responseBody?.message?.media_url||null
+    };
+
+    const resolved=await sb.rpc('resolve_papoai_channel_delivery_v1',{
+      p_requested_type:requestedType,
+      p_payload:deliveryPayload
+    });
+    if(!resolved.error&&resolved.data){
+      channelResolution=resolved.data;
+      responseBody=buildPapoAiExternalDelivery({
+        requestedType,
+        resolution:channelResolution,
+        payload:deliveryPayload,
+        sessionKey:normalized.sessionKey,
+        correlationId,
+        handoff:Boolean(responseBody?.handoff),
+        reason:responseBody?.reason||null
+      });
+      responseKind=channelResolution?.resolved_type||responseKind;
+
+      await sb.from('papoai_channel_delivery_audit').insert({
+        correlation_id:correlationId,
+        conversation_id:conversationId,
+        requested_type:requestedType,
+        resolved_type:channelResolution?.resolved_type||'text',
+        capability_key:channelResolution?.capability||null,
+        capability_state:channelResolution?.capability_state||null,
+        fallback_used:Boolean(channelResolution?.fallback_used),
+        fallback_reason:channelResolution?.fallback_used
+          ? String(channelResolution?.reason||'fallback')
+          : null,
+        payload_summary:{
+          has_text:Boolean(deliveryPayload.text),
+          has_media_url:Boolean(deliveryPayload.media_url),
+          tts_generated:Boolean(ttsResult?.ok)
+        }
+      });
+    }
+  }
+
+  if(
+    commerceEnabled
     && commerceCfg?.canonical_message_persistence_enabled!==false
     && ingested?.conversation_id
     && responseBody?.message
@@ -1138,6 +1414,15 @@ Deno.serve(async(req:Request)=>{
         within_budget:aiContextPack?.context_budget?.within_budget!==false,
         recent_messages:Array.isArray(aiContextPack?.recent_messages)?aiContextPack.recent_messages.length:0,
         runtime_enabled:aiRuntimeCfg?.enabled===true
+      },
+      channel:{
+        requested_type:channelResolution?.requested_type||null,
+        resolved_type:channelResolution?.resolved_type||null,
+        fallback_used:Boolean(channelResolution?.fallback_used),
+        capability_state:channelResolution?.capability_state||null,
+        media_inbound:Boolean(primaryMedia),
+        media_processed:Boolean(mediaProcessing?.ok),
+        tts_generated:Boolean(ttsResult?.ok)
       },
       planner_observe:{
         ran:Boolean(observedPlanner),
