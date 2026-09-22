@@ -480,9 +480,9 @@ Próxima etapa: **R8 — Admin mínimo do cérebro, separado, sem inbox/chat**.
 
 Programação concluída, aguardando somente smoke físico.
 
-- `admin-service-intelligence-v1`: **v8 ACTIVE**;
+- `admin-service-intelligence-v1`: **v9 ACTIVE**;
 - `admin-pin-auth-v1`: **v6 ACTIVE**;
-- UI do Commerce OS embutida no bundle;
+- UI do Commerce OS publicada em `https://donaantonia.com.br/admin/commerce-os/`;
 - áreas: Overview, Intelligence, Knowledge, Products, Customers/Memory, Orders, Health, Simulator;
 - simulator = sem efeitos colaterais e sem writes;
 - versionamento + rollback implementados;
