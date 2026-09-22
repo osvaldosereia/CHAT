@@ -547,7 +547,7 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
   }
 
   const model=cfgQ.data.primary_model||"gpt-5.6-terra";
-  const planned=await planPapoAiTurn({
+  let planned=await planPapoAiTurn({
     message,
     contextPack:context,
     tools:Array.isArray(toolsQ.data)?toolsQ.data:[],
@@ -556,6 +556,30 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     reasoningEffort:cfgQ.data.primary_reasoning_effort||"low",
     maxOutputTokens:Math.min(800,Number(cfgQ.data.max_output_tokens||500))
   });
+  if(evalMode&&planned?.ok!==true){
+    await new Promise(resolve=>setTimeout(resolve,900));
+    planned=await planPapoAiTurn({
+      message,
+      contextPack:context,
+      tools:Array.isArray(toolsQ.data)?toolsQ.data:[],
+      apiKey:key,
+      model,
+      reasoningEffort:cfgQ.data.primary_reasoning_effort||"low",
+      maxOutputTokens:Math.min(800,Number(cfgQ.data.max_output_tokens||500))
+    });
+  }
+  if(evalMode&&planned?.ok!==true){
+    await new Promise(resolve=>setTimeout(resolve,1800));
+    planned=await planPapoAiTurn({
+      message,
+      contextPack:context,
+      tools:Array.isArray(toolsQ.data)?toolsQ.data:[],
+      apiKey:key,
+      model,
+      reasoningEffort:cfgQ.data.primary_reasoning_effort||"low",
+      maxOutputTokens:Math.min(800,Number(cfgQ.data.max_output_tokens||500))
+    });
+  }
 
   const tr:any[]=[];
   for(const call of Array.isArray(planned?.plan?.tool_calls)?planned.plan.tool_calls.slice(0,6):[]){
@@ -624,6 +648,9 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
       estimated_cost_usd:cost,latency_ms:row.latency_ms,context_bytes:cb
     },
     policy:{adjusted:Boolean(planned?.policy_adjusted),violations:planned?.policy_violations||[]},
+    planner_error:success?null:(planned?.error||"planner_failed"),
+    planner_error_status:success?null:(planned?.status??null),
+    planner_error_message:success?null:(planned?.error_message||null),
     external_side_effect:false,writes_executed:false,context_mode:"strict_read_only"
   }};
 }
@@ -682,8 +709,8 @@ async function r8RunEvalChunk(sb:any,runId:string,limit:number){
         media_preview:b.media_preview||null,
         checks:checked.checks||{},
         failure_codes:status==="error"?["simulation_error"]:checked.failures,
-        error_code:status==="error"?clean(b.error||"simulation_error",120):null,
-        error_detail:status==="error"?clean(b.detail||"",1000):null,
+        error_code:status==="error"?clean(b.planner_error||b.error||"simulation_error",120):null,
+        error_detail:status==="error"?clean(b.planner_error_message||b.detail||"",1000):null,
         input_tokens:Number(metrics.input_tokens||0),
         cached_input_tokens:Number(metrics.cached_input_tokens||0),
         output_tokens:Number(metrics.output_tokens||0),
