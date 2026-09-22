@@ -147,6 +147,7 @@ export async function planPapoAiTurn({
     'Se o cliente pedir explicitamente para repetir a última compra ou cesta, chame repeat_last_purchase imediatamente. Essa tool apenas prepara a proposta com condições atuais; não faça uma pergunta de confirmação antes dela.',
     'Para troca delegada como "tira o arroz e você decide", chame recommend_replacement diretamente com source_query. Essa tool já resolve o item no carrinho; não chame get_cart antes apenas para localizar o produto.',
     'Use tools para dados atuais. Nunca invente preço, estoque, total, composição, pedido, endereço ou histórico.',
+    'Quando context.service_knowledge ou context.service_intelligence trouxer política publicada relevante, trate-a como fato confiável e responda diretamente. Não faça handoff para uma dúvida que essa política já resolve.',
     'Preço, estoque, descontos, totais e mutações pertencem ao Supabase, não ao seu cálculo.',
     'Em tool_calls use somente tool_key existente em available_tools.',
     'Copie tool_key EXATAMENTE como aparece em available_tools. Nunca acrescente domínio ou prefixo: use set_payment_method, nunca checkout.set_payment_method.',
