@@ -43,7 +43,7 @@ Produção permanece OFF.
 
 ### Estado R8 — 22/09/2026
 - programação: concluída;
-- Admin Edge: v8;
+- Admin Edge: v9;
 - PIN Auth: v6;
 - 8 áreas implementadas;
 - simulator safe/no-write;
