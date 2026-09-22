@@ -392,7 +392,7 @@ async function runR6PlannerEval(sb:any,body:any){
 }
 function basketsText(items:any[]){
   const lines=(Array.isArray(items)?items:[]).map((b:any)=>`• ${b.display_name||b.name} — ${moneyBR(b.commercial_price)}`);
-  return lines.length?`Estas são nossas cestas disponíveis:\n\n${lines.join('\n')}\n\nSe quiser, me diga o nome de uma delas que eu mando a lista completa do que vem.`:'Não encontrei cestas disponíveis agora.';
+  return lines.length?`Estas são nossas cestas disponíveis:\n\n${lines.join('\n\n')}\n\nSe quiser, me diga o nome de uma delas que eu mando a lista completa do que vem.`:'Não encontrei cestas disponíveis agora.';
 }
 function productsText(items:any[]){
   const list=(Array.isArray(items)?items:[]).slice(0,6);
