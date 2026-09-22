@@ -440,3 +440,19 @@ Segurança:
 
 Nenhum gate foi ativado.
 Produção continua OFF.
+
+
+## R7 HANDOFF ASSISTIDO — 22/09/2026
+
+- Edge atual: **v54 ACTIVE**;
+- takeover automático do PapoAI: não suportado/comprovado;
+- estratégia oficial: **assisted_manual**;
+- fila interna de handoff: pronta;
+- link direto PapoAI por `provider_session_uid`: pronto;
+- precedência humana: pronta;
+- pausa absoluta da IA: pronta;
+- retomada explícita: pronta;
+- dry-run transacional da fila aprovado;
+- último teste físico do fluxo integrado preparado;
+- R7 permanece 4/5 até esse teste final;
+- produção OFF.
