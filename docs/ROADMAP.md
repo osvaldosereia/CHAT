@@ -11,7 +11,7 @@ Data: 21/09/2026
 - R2 — AI Core, contexto, tools, executor seguro e planner de observação — **CONCLUÍDA**;
 - R3 — vendedora humanizada e Governor comercial — **CONCLUÍDA**;
 - R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa — **CONCLUÍDA**;
-- R5 — checkout, pedido e handoff completos;
+- R5 — checkout, pedido e handoff completos — **CONCLUÍDA**;
 - R6 — suíte de testes conversacionais;
 - R7 — homologação física PapoAI/Meta;
 - R8 — Admin mínimo do cérebro, sem inbox;

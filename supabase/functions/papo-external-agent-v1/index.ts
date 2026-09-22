@@ -13,7 +13,13 @@ import {transcribeAudioUrl,analyzeImageUrl,synthesizeVoiceToStorage} from "../_s
 import {buildPapoAiExternalDelivery,fallbackTextForDelivery} from "../_shared/papoai-channel-adapter-v1.mjs";
 import {classifyCommerceIntent} from "../_shared/papoai-commerce-intent-v1.mjs";
 import {buildGovernorTopicKey,decideConversationAction,detectCustomerDelegation} from "../_shared/papoai-conversation-governor-v1.mjs";
-import {parseCheckoutProfile,missingCheckoutProfileFields,checkoutProfileMissingPrompt} from "../_shared/papoai-checkout-profile-v1.mjs";
+import {
+  parseCheckoutProfile,
+  missingCheckoutProfileFields,
+  checkoutProfileMissingPrompt,
+  extractCheckoutPaymentMethod,
+  detectCheckoutYesNo
+} from "../_shared/papoai-checkout-profile-v1.mjs";
 import {planPapoAiTurn} from "../_shared/papoai-ai-planner-v1.mjs";
 
 const PROVIDER_KEY='papoai';
@@ -363,7 +369,7 @@ Deno.serve(async(req:Request)=>{
   if(conversationId){
     const [aiCfgQ,contextQ]=await Promise.all([
       sb.rpc('get_papoai_ai_runtime_config_v1'),
-      sb.rpc('get_papoai_ai_context_pack_v2',{
+      sb.rpc('get_papoai_ai_context_pack_v3',{
         p_conversation_id:conversationId,
         p_current_message:normalized.messageText
       })
@@ -651,12 +657,68 @@ Deno.serve(async(req:Request)=>{
 
     if(conversationId){
       const salesStateQ=await sb.from('whatsapp_sales_state')
-        .select('awaiting,pending_name,pending_delivery_address')
+        .select('awaiting,pending_name,pending_delivery_address,pending_payment_method')
         .eq('conversation_id',conversationId)
         .maybeSingle();
+      const awaiting=String(salesStateQ.data?.awaiting||'');
 
-      if(salesStateQ.data?.awaiting==='checkout_profile'){
-        const currentProfileQ=await sb.rpc('get_papoai_commerce_checkout_profile_v1',{
+      if(awaiting==='checkout_address_confirmation'){
+        intent={intent:'handled_checkout_profile',source:'checkout_address_confirmation'};
+        const decision=detectCheckoutYesNo(normalized.messageText);
+
+        if(decision===null){
+          const nextQ=await sb.rpc('get_papoai_checkout_next_step_v1',{
+            p_conversation_id:conversationId
+          });
+          result=nextQ.data;
+          text=nextQ.data?.prompt
+            ||'Só preciso confirmar o endereço de entrega. Ele continua o mesmo que usei acima?';
+        }else if(commerceCfg?.write_enabled!==true){
+          text='Entendi sua confirmação, mas a gravação do checkout ainda está desativada nesta homologação.';
+        }else{
+          const addressQ=await sb.rpc('confirm_papoai_checkout_saved_address_v1',{
+            p_conversation_id:conversationId,
+            p_accept:decision
+          });
+          if(addressQ.error)throw addressQ.error;
+
+          const nextQ=await sb.rpc('begin_papoai_checkout_v2',{
+            p_conversation_id:conversationId
+          });
+          if(nextQ.error)throw nextQ.error;
+          result={address:addressQ.data,next:nextQ.data};
+
+          if(nextQ.data?.step==='needs_human'){
+            const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+              p_conversation_id:conversationId,
+              p_reason:'checkout_question_limit_reached',
+              p_summary:'Checkout não ficou completo após o limite de duas perguntas.',
+              p_priority:2
+            });
+            if(queued.error)throw queued.error;
+            processingStatus='handoff';responseKind='handoff';
+            responseBody=commerceTextResponse({
+              text:'Para não ficar te fazendo mais perguntas, vou chamar alguém da nossa equipe para terminar essa confirmação com você.',
+              sessionKey:normalized.sessionKey,
+              correlationId,
+              handoff:true,
+              reason:'checkout_question_limit_reached'
+            });
+          }else{
+            text=nextQ.data?.prompt
+              ||(decision
+                ?'Perfeito. Agora só preciso da forma de pagamento.'
+                :'Sem problema. Me mande o novo endereço e a forma de pagamento em uma mensagem.');
+          }
+        }
+      }
+
+      if(
+        !responseBody
+        && intent.intent!=='handled_checkout_profile'
+        && awaiting==='checkout_profile'
+      ){
+        const currentProfileQ=await sb.rpc('get_papoai_commerce_checkout_profile_v2',{
           p_conversation_id:conversationId
         });
         const currentProfile=currentProfileQ.data||{};
@@ -668,53 +730,47 @@ Deno.serve(async(req:Request)=>{
           model:(Deno.env.get('OPENAI_CONVERSATION_MODEL')||aiRuntimeCfg?.utility_model||'gpt-5.6-luna'),
           needName
         });
+        const paymentMethod=extractCheckoutPaymentMethod(normalized.messageText);
         const missing=missingCheckoutProfileFields(parsed,{needName});
-        const topicKey='checkout_profile:delivery';
-        const governorStateQ=await sb.rpc('get_papoai_conversation_governor_state_v1',{
-          p_conversation_id:conversationId,
-          p_topic_key:topicKey
-        });
-        const asked=Number(governorStateQ.data?.clarification_count||0);
+        intent={intent:'handled_checkout_profile',source:'checkout_profile_v2'};
 
         if(missing.length){
-          if(asked>=2){
-            await sb.rpc('record_papoai_conversation_governor_decision_v1',{
-              p_conversation_id:conversationId,
-              p_topic_key:topicKey,
-              p_intent:'checkout_profile',
-              p_action:'ACT',
-              p_reason:'checkout_profile_question_limit_reached',
-              p_candidate_count:null,
-              p_delegated:false,
-              p_question_key:null,
-              p_metadata:{missing,parser_source:parsed.source}
-            });
-            processingStatus='handoff';responseKind='handoff';
-            responseBody=commerceTextResponse({
-              text:'Pra não te prender aqui com mais perguntas, vou chamar alguém da nossa equipe para confirmar seus dados de entrega.',
-              sessionKey:normalized.sessionKey,
-              correlationId,
-              handoff:true,
-              reason:'checkout_profile_question_limit_reached'
-            });
-          }else{
-            await sb.rpc('record_papoai_conversation_governor_decision_v1',{
-              p_conversation_id:conversationId,
-              p_topic_key:topicKey,
-              p_intent:'checkout_profile',
-              p_action:'ASK',
-              p_reason:'checkout_profile_incomplete',
-              p_candidate_count:null,
-              p_delegated:false,
-              p_question_key:'missing_checkout_profile_fields',
-              p_metadata:{missing,parser_source:parsed.source}
-            });
-            intent={intent:'handled_checkout_profile',source:'system'};
+          if(commerceCfg?.write_enabled!==true){
             text=checkoutProfileMissingPrompt(missing);
             result={profile:parsed,missing};
+          }else{
+            const counted=await sb.rpc('record_papoai_checkout_prompt_v1',{
+              p_conversation_id:conversationId,
+              p_prompt_key:'missing_checkout_profile_fields'
+            });
+            if(counted.error)throw counted.error;
+
+            if(counted.data?.ok!==true){
+              const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+                p_conversation_id:conversationId,
+                p_reason:'checkout_question_limit_reached',
+                p_summary:'Dados de entrega incompletos após duas perguntas de checkout.',
+                p_priority:2
+              });
+              if(queued.error)throw queued.error;
+              processingStatus='handoff';responseKind='handoff';
+              responseBody=commerceTextResponse({
+                text:'Para não te prender aqui com mais perguntas, vou chamar alguém da nossa equipe para confirmar seus dados de entrega.',
+                sessionKey:normalized.sessionKey,
+                correlationId,
+                handoff:true,
+                reason:'checkout_question_limit_reached'
+              });
+            }else{
+              text=checkoutProfileMissingPrompt(missing);
+              result={profile:parsed,missing,question_count:counted.data?.question_count};
+            }
           }
+        }else if(commerceCfg?.write_enabled!==true){
+          text='Perfeito, entendi seus dados. A gravação do checkout ainda está desativada nesta homologação.';
+          result={profile:parsed,payment_method:paymentMethod||null};
         }else{
-          const saved=await sb.rpc('save_papoai_commerce_checkout_profile_pending_v1',{
+          const saved=await sb.rpc('save_papoai_commerce_checkout_profile_pending_v2',{
             p_conversation_id:conversationId,
             p_name:parsed.name||currentProfile?.name||'',
             p_street:parsed.street,
@@ -723,29 +779,94 @@ Deno.serve(async(req:Request)=>{
             p_neighborhood:parsed.neighborhood,
             p_city:parsed.city,
             p_postal_code:parsed.postal_code||null,
-            p_reference:parsed.reference||null
+            p_reference:parsed.reference||null,
+            p_payment_method:paymentMethod||null
           });
           if(saved.error)throw saved.error;
           result=saved.data;
-          intent={intent:'handled_checkout_profile',source:'system'};
+
           if(result?.ok){
-            await sb.rpc('record_papoai_conversation_governor_decision_v1',{
-              p_conversation_id:conversationId,
-              p_topic_key:topicKey,
-              p_intent:'checkout_profile',
-              p_action:'ACT',
-              p_reason:'checkout_profile_captured',
-              p_candidate_count:null,
-              p_delegated:false,
-              p_question_key:null,
-              p_metadata:{parser_source:parsed.source}
+            const nextQ=await sb.rpc('get_papoai_checkout_next_step_v1',{
+              p_conversation_id:conversationId
             });
-            text='Perfeito 😊 Já tenho seus dados de entrega. Como você prefere pagar? Pode ser **Pix, dinheiro, cartão de crédito ou cartão alimentação/refeição**.';
+            if(nextQ.error)throw nextQ.error;
+
+            if(nextQ.data?.step==='ready_to_prepare_confirmation'){
+              const prep=await sb.rpc('prepare_papoai_commerce_order_confirmation_v2',{
+                p_conversation_id:conversationId,
+                p_payment_method:nextQ.data?.payment_method
+              });
+              if(prep.error)throw prep.error;
+              result={...result,confirmation:prep.data};
+              if(prep.data?.ok){
+                text=(prep.data?.summary?.message_text||`Total do pedido: ${moneyBR(prep.data?.total)}`)
+                  +`\n\nPagamento: **${prep.data?.payment_label||''}**\n\nEstá tudo certo? Posso confirmar o pedido?`;
+              }else{
+                text='Entendi seus dados, mas ainda preciso revisar uma informação antes de confirmar o pedido.';
+              }
+            }else if(nextQ.data?.step==='collect_payment'){
+              const beginQ=await sb.rpc('begin_papoai_checkout_v2',{
+                p_conversation_id:conversationId
+              });
+              if(beginQ.error)throw beginQ.error;
+              if(beginQ.data?.step==='needs_human'){
+                const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+                  p_conversation_id:conversationId,
+                  p_reason:'checkout_question_limit_reached',
+                  p_summary:'Forma de pagamento não informada dentro do limite do checkout.',
+                  p_priority:2
+                });
+                if(queued.error)throw queued.error;
+                processingStatus='handoff';responseKind='handoff';
+                responseBody=commerceTextResponse({
+                  text:'Para não ficar te fazendo mais perguntas, vou chamar alguém da equipe para concluir o pagamento e a entrega com você.',
+                  sessionKey:normalized.sessionKey,
+                  correlationId,
+                  handoff:true,
+                  reason:'checkout_question_limit_reached'
+                });
+              }else{
+                text=beginQ.data?.prompt||'Como você prefere pagar?';
+              }
+            }else if(nextQ.data?.step==='needs_human'){
+              const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+                p_conversation_id:conversationId,
+                p_reason:'checkout_question_limit_reached',
+                p_summary:'Checkout ainda incompleto após o limite de perguntas.',
+                p_priority:2
+              });
+              if(queued.error)throw queued.error;
+              processingStatus='handoff';responseKind='handoff';
+              responseBody=commerceTextResponse({
+                text:'Vou chamar alguém da nossa equipe para terminar essa confirmação com você.',
+                sessionKey:normalized.sessionKey,
+                correlationId,
+                handoff:true,
+                reason:'checkout_question_limit_reached'
+              });
+            }else{
+              text=nextQ.data?.prompt||'Perfeito. Vamos continuar o fechamento do seu pedido.';
+            }
           }else if(result?.reason==='delivery_city_not_supported'){
-            text='No momento entregamos em **Cuiabá e Várzea Grande**. Qual dessas duas cidades é o endereço de entrega?';
+            text='No momento entregamos em **Cuiabá e Várzea Grande**.';
           }else{
-            text='Ainda faltou algum dado do endereço. Pode me mandar rua, número, bairro e cidade em uma única mensagem?';
+            text='Não consegui validar seu endereço com segurança.';
           }
+        }
+      }
+
+      if(
+        !responseBody
+        && intent.intent!=='handled_checkout_profile'
+        && awaiting==='payment_method'
+      ){
+        const paymentMethod=extractCheckoutPaymentMethod(normalized.messageText);
+        if(paymentMethod){
+          intent={
+            intent:'set_payment_method',
+            query:paymentMethod,
+            source:'checkout_payment_state'
+          };
         }
       }
     }
@@ -1078,31 +1199,66 @@ Deno.serve(async(req:Request)=>{
       result=q.data;
       text=result?.message_text||'Você ainda não começou um pedido.';
     }else if(intent.intent==='checkout_readiness'&&conversationId){
-      const q=await sb.rpc('execute_papoai_commerce_command_v1',{
-        p_conversation_id:conversationId,p_command:{type:'checkout_readiness'}
-      });
+      const q=commerceCfg?.write_enabled===true
+        ? await sb.rpc('begin_papoai_checkout_v2',{p_conversation_id:conversationId})
+        : await sb.rpc('get_papoai_checkout_next_step_v1',{p_conversation_id:conversationId});
       if(q.error)throw q.error;
-      result=q.data;
-      if(result?.ready){
-        text=(result?.summary?.message_text||'Seu pedido está pronto para a confirmação final.')
-          +'\n\nComo você prefere pagar? Pode ser **Pix, dinheiro, cartão de crédito ou cartão alimentação/refeição**.';
-      }else{
-        const missing=Array.isArray(result?.missing)?result.missing:[];
-        if(missing.includes('cart')){
-          text='Você ainda não começou um pedido. Posso te mostrar as cestas.';
-        }else if(missing.includes('checkout_profile')){
-          const profileQ=await sb.rpc('begin_papoai_commerce_checkout_profile_v1',{p_conversation_id:conversationId});
-          if(profileQ.error)throw profileQ.error;
-          result={...result,checkout_profile:profileQ.data};
-          text=profileQ.data?.prompt||'Para finalizar, preciso confirmar seu nome e endereço de entrega.';
+      result=q.data||{};
+      const step=String(result?.step||'');
+
+      if(step==='cart_missing'){
+        text='Você ainda não começou um pedido. Posso te mostrar nossas cestas ou produtos.';
+      }else if(['confirm_saved_address','collect_profile','collect_payment'].includes(step)){
+        text=result?.prompt||'Só preciso confirmar alguns dados para finalizar.';
+      }else if(step==='ready_to_prepare_confirmation'){
+        if(commerceCfg?.write_enabled===true){
+          const prep=await sb.rpc('prepare_papoai_commerce_order_confirmation_v2',{
+            p_conversation_id:conversationId,
+            p_payment_method:result?.payment_method||null
+          });
+          if(prep.error)throw prep.error;
+          result=prep.data||{};
+          text=result?.ok
+            ? (result?.summary?.message_text||`Total do pedido: ${moneyBR(result?.total)}`)
+              +`\n\nPagamento: **${result?.payment_label||''}**\n\nEstá tudo certo? Posso confirmar o pedido?`
+            :'Não consegui preparar a confirmação final agora.';
         }else{
-          text='Seu pedido ainda precisa de uma validação antes da confirmação final.';
+          const preview=await sb.rpc('get_papoai_order_preview_v2',{
+            p_conversation_id:conversationId,
+            p_payment_method:result?.payment_method||null
+          });
+          result=preview.data||result;
+          text=(result?.summary?.message_text||'Seu pedido está pronto para revisão.')
+            +'\n\nA confirmação final ainda está desativada nesta homologação.';
         }
+      }else if(step==='awaiting_final_confirmation'){
+        const pending=result?.pending_action||{};
+        text=`Seu pedido já está pronto para a confirmação final, no valor de **${moneyBR(pending?.prepared_total)}**. Se estiver tudo certo, pode me dizer **confirmo**.`;
+      }else if(step==='needs_human'){
+        if(commerceCfg?.write_enabled===true){
+          const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
+            p_conversation_id:conversationId,
+            p_reason:'checkout_question_limit_reached',
+            p_summary:'Checkout precisa de ajuda humana após o limite de duas perguntas.',
+            p_priority:2
+          });
+          if(queued.error)throw queued.error;
+        }
+        processingStatus='handoff';responseKind='handoff';
+        responseBody=commerceTextResponse({
+          text:'Para não te prender em mais perguntas, vou chamar alguém da nossa equipe para finalizar com você.',
+          sessionKey:normalized.sessionKey,
+          correlationId,
+          handoff:true,
+          reason:'checkout_question_limit_reached'
+        });
+      }else{
+        text='Vou revisar o pedido antes de finalizar.';
       }
     }else if((intent.intent==='confirm_pending'||intent.intent==='cancel_pending')&&conversationId){
       const pending=await sb.rpc('get_papoai_commerce_pending_action_v1',{p_conversation_id:conversationId});
-      if(!pending.data?.has_pending){
-        text=intent.intent==='confirm_pending'?'Não tenho nenhuma alteração pendente para confirmar agora.':'Tudo certo. Não há nenhuma alteração pendente.';
+      if(!pending.data?.has_pending&&intent.intent==='cancel_pending'){
+        text='Tudo certo. Não há nenhuma alteração pendente.';
       }else if(commerceCfg?.write_enabled!==true){
         text='A alteração está identificada, mas a gravação do pedido ainda está desativada.';
       }else{
@@ -1155,7 +1311,7 @@ Deno.serve(async(req:Request)=>{
       }else if(result?.checkout_not_ready){
         const missing=Array.isArray(result?.missing)?result.missing:[];
         if(missing.includes('checkout_profile')){
-          const profileQ=await sb.rpc('begin_papoai_commerce_checkout_profile_v1',{p_conversation_id:conversationId});
+          const profileQ=await sb.rpc('begin_papoai_checkout_v2',{p_conversation_id:conversationId});
           if(profileQ.error)throw profileQ.error;
           result={...result,checkout_profile:profileQ.data};
           text=profileQ.data?.prompt||'Antes de confirmar, preciso completar seus dados de entrega.';

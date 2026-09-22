@@ -176,3 +176,58 @@ Estado físico atual:
 - buttons/list/Flow/handoff/silent/typing/read receipt: não verificados.
 
 Próxima rodada: **R5 — Checkout, pedido e handoff completos**, executada inteira antes de avançar.
+
+
+## R5 — CONCLUÍDA
+
+Checkout, pedido local, snapshot imutável, idempotência e handoff concluídos.
+
+Entregue:
+- checkout v2 com estado próprio;
+- máximo de 2 perguntas de checkout;
+- cliente conhecido confirma endereço salvo em vez de redigitar;
+- cliente novo informa somente dados faltantes;
+- endereço salvo recusado: segunda pergunta combina novo endereço + pagamento;
+- parser determinístico de confirmação de endereço e forma de pagamento;
+- Context Pack v3 com estado de checkout sem endereço completo;
+- preview final antes do pedido;
+- confirmação final explícita obrigatória;
+- carrinho alterado após preview força reconfirmação;
+- pedido local nasce antes de qualquer fila Bling;
+- snapshot imutável do pedido com hash;
+- itens do pedido usam os valores efetivos do carrinho confirmado;
+- confirmação repetida retorna replay idempotente e nunca duplica pedido;
+- promoção de novo cliente/endereço ocorre somente na confirmação final;
+- Bling continua desacoplado: falha de identidade/ERP não perde pedido local;
+- fila Bling só é criada quando o gate estiver habilitado e a identidade estiver pronta;
+- handoff ativa precedência humana absoluta;
+- IA não retoma enquanto houver handoff aberto;
+- retomada exige resolução explícita;
+- Edge `papo-external-agent-v1` atualizada para v36;
+- 24/24 tools prontas, 0 runtime-enabled;
+- readiness R5 retorna `ready_for_r6=true`.
+
+Testes transacionais com rollback passaram para:
+- cliente novo;
+- cliente conhecido;
+- endereço antigo aceito;
+- endereço antigo recusado;
+- pagamento;
+- resumo final;
+- pedido local;
+- snapshot;
+- replay idempotente;
+- carrinho alterado antes da confirmação;
+- Bling habilitado sem CPF mantendo pedido local;
+- handoff e bloqueio de retomada da IA.
+
+Gates continuam OFF:
+- Commerce Brain;
+- write;
+- AI Runtime;
+- Commercial Policy;
+- Channel Runtime;
+- Bling queue;
+- runtime tools.
+
+Próxima rodada: **R6 — suíte de testes conversacionais**, executada inteira antes de avançar.

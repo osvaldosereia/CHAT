@@ -156,3 +156,41 @@ export function checkoutProfileMissingPrompt(missing=[]){
   if(!labels.length)return '';
   return `Só faltou ${labels.join(', ')}. Pode me mandar esses dados em uma única mensagem?`;
 }
+
+
+function normalizeCheckoutPhrase(value){
+  return clean(value,500)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'');
+}
+
+export function extractCheckoutPaymentMethod(message){
+  const m=normalizeCheckoutPhrase(message);
+  if(!m)return '';
+  if(/\bpix\b/.test(m))return 'pix';
+  if(/\b(dinheiro|especie)\b/.test(m))return 'cash';
+  if(/\b(cartao\s*(de\s*)?credito|credito)\b/.test(m))return 'credit_card';
+  if(/\b(cartao\s*(alimentacao|refeicao)|alimentacao|refeicao|vale\s*(alimentacao|refeicao)|\bva\b|\bvr\b)/.test(m))return 'food_card';
+  return '';
+}
+
+export function detectCheckoutYesNo(message){
+  const m=normalizeCheckoutPhrase(message)
+    .replace(/[.!?;,]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim();
+  if(!m)return null;
+
+  if(
+    /^(nao|não)$/.test(String(message||'').trim().toLowerCase())
+    || /\b(nao e|nao,|mudou|mudei|outro endereco|novo endereco|endereco novo|nao mais)\b/.test(m)
+  ) return false;
+
+  if(
+    /^(sim|isso|correto|certo|pode|pode ser|isso mesmo|sim e esse|e esse|esse mesmo)$/.test(m)
+    || /\b(sim.*esse|esse.*certo|endereco.*correto|continua.*esse)\b/.test(m)
+  ) return true;
+
+  return null;
+}
