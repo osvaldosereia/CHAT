@@ -659,3 +659,41 @@ Outros problemas do mesmo piloto corrigidos:
 Deploy:
 - admin-service-intelligence-v1 v28;
 - papo-external-agent-v1 v70.
+
+
+## CATÁLOGO CONVERSACIONAL V2 — 22/09/2026
+
+Ajustes aplicados no piloto PapoAI:
+
+- lista de produtos ampliada para até 20 itens;
+- produtos com nome + preço devem aparecer um por linha;
+- consulta de catálogo foi separada de recomendação:
+  - "quais/tem/lista/mostra" → catálogo amplo;
+  - "melhor/recomenda/ideal/me indica" → recomendação curta/governada;
+- escolha de produto passa a manter estado conversacional mesmo com escrita comercial desligada;
+- escolha aceita:
+  - número da opção;
+  - nome/marca;
+  - nome + preço aproximado;
+- quando nome/preço não fecham com segurança, o cérebro pergunta "você quis dizer este?" em vez de assumir;
+- confirmação "sim/não" dessa pergunta fica persistida entre turnos;
+- foto não é enviada automaticamente;
+- após escolha de produto não básico com imagem disponível, pode ser oferecida a foto;
+- arroz, feijão, açúcar, sal, óleo e café não recebem oferta proativa de foto;
+- se o cliente pedir foto explicitamente, ela pode ser enviada;
+- transcrição já fornecida pelo PapoAI passa a ter precedência para áudio recebido;
+- normalização de busca ignora palavras conversacionais como "quais", "vocês", "tem", "mostra", "preço";
+- sinônimo observado: "miojo" → "lámen".
+
+Validações:
+- "quais sabao em po voces tem" retorna 15 sabões em pó ativos, sem completar com itens irrelevantes;
+- "miojo" retorna produto de lámen ativo;
+- regressão contextual "O que vem na cesta grande?" → "Bonini" passou 1/1 e resolve Grande Bonini;
+- Grande Bonini já é formatada por categorias e produtos em linhas separadas.
+
+Versões:
+- papo-external-agent-v1: v72 ACTIVE;
+- admin-service-intelligence-v1: v29 ACTIVE.
+
+Princípio de arquitetura:
+estado de conversa e seleção de catálogo são estado operacional seguro e não devem depender do gate de escrita comercial do carrinho/pedido.
