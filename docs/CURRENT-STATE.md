@@ -857,3 +857,31 @@ Bloco implementado sem nova bateria extensa de testes:
 - `write_enabled=false`, Bling OFF e learning OFF permanecem intactos.
 
 Política: busca pode ser tolerante para encontrar candidatos; execução/seleção deve ser conservadora para não escolher produto errado.
+
+
+## CORREÇÃO CRÍTICA DE INTENÇÃO — PERFIL DO CLIENTE — 22/09/2026
+
+Bug físico observado:
+- cliente: `Você tem meu endereço ?`
+- resposta incorreta: catálogo de produtos contendo a palavra “meu”.
+
+Causa raiz:
+- o roteador determinístico aceitava palavras genéricas como `tem/quero/qual/quanto` como sinal suficiente de busca de produto;
+- isso permitia que perguntas pessoais fossem sequestradas pelo catálogo.
+
+Correção estrutural:
+- perguntas sobre próprio endereço, cadastro, telefone, CPF, dados, nome e histórico têm precedência sobre busca de produto;
+- `customer_context` passou a responder especificamente a endereço/cadastro;
+- pergunta `você tem meu endereço?` responde apenas se existe endereço salvo e não despeja o endereço completo sem necessidade;
+- quando o cliente pergunta qual endereço está salvo, o endereço do próprio cadastro pode ser confirmado;
+- CPF não é exibido no WhatsApp;
+- palavras genéricas como `tem/quero/qual/quanto` **não forçam mais** `search_products`;
+- busca determinística de produto exige sinal concreto de produto/categoria; casos abertos seguem para a IA classificadora com histórico.
+
+Deploy:
+- `papo-external-agent-v1`: **v77 ACTIVE**.
+
+Objetivo da mudança:
+- reduzir falsos positivos por intenção;
+- parar de corrigir frases isoladas;
+- deixar o determinístico cuidar apenas de casos seguros e a IA interpretar linguagem aberta/contextual.
