@@ -936,3 +936,24 @@ Cobertura atual do cadastro:
 Pendente no painel PapoAI:
 - validar como a ação nativa `Enviar Webhook` mapeia a resposta HTTP para campos/variáveis/contexto da IA;
 - se a resposta for apenas fire-and-forget, usar fallback por CRM/campos ou outra ação nativa confirmada no painel.
+
+
+## PAPOAI FLOW -> CADASTRO CANÔNICO DE CLIENTES — 22/09/2026
+
+Implementado no Supabase principal `ssbesxgaijknwsjbsbcz`:
+- entrada por webhook PapoAI reutilizando `papo-external-agent-v1`, modo `flow_customer_ingest`;
+- autenticação dedicada por chave em query string, validada por hash server-side;
+- parser tolerante a JSON, form-urlencoded, `interactive.nfm_reply.response_json`, `response_json`, `flow_data`, `answers` e respostas textuais no formato campo: valor;
+- identifica telefone/nome do contato enviados pelo PapoAI e os campos preenchidos no Flow;
+- resolve identidade no cadastro canônico usando `resolve_customer_identity_v1`;
+- atualiza cliente existente ou cria novo em `public.customers`;
+- registra telefone verificado em `public.customer_phones`;
+- grava/atualiza endereço em `public.customer_addresses`;
+- não sobrescreve documento conflitante;
+- conflitos de identidade/telefone são bloqueados;
+- payload bruto e dados parseados são auditados em `papoai_flow_customer_webhook_events`, com RLS e sem acesso anon/authenticated;
+- Edge `papo-external-agent-v1` v82 ACTIVE.
+
+Banco canônico permanece o Supabase principal, atualmente com 515 clientes ativos.
+
+Pendente apenas validação com 1 submissão real do Flow do PapoAI para confirmar os nomes exatos dos campos enviados pelo painel. O adaptador já cobre os formatos mais comuns e registra o payload integral para ajuste sem perda de dados.
