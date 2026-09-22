@@ -1,46 +1,23 @@
-# ROADMAP CURTO — GO-LIVE
+# ROADMAP — PapoAI Commerce OS
 
-Objetivo: colocar o atendente real em funcionamento o mais rápido possível, em rodadas pequenas.
+Status: APROVADO PARA IMPLEMENTAÇÃO
+Data: 21/09/2026
 
-## R1 — Catálogo real
-- ampliar busca de 306 para o conjunto vendável correto;
-- gerar conhecimento determinístico para produtos vendáveis;
-- testar buscas reais;
-- sem pesquisa externa obrigatória.
+## Concluído
+- R0 — estratégia e arquitetura canônica;
+- R1 — catálogo real e conhecimento determinístico para 1.415 produtos.
 
-## R2 — Conversa ponta a ponta
-- revisar rotas da Edge;
-- testar cesta, produto, substituição, oferta, recompra e checkout;
-- testar limite de perguntas e “você decide”.
+## Execução restante
+- R2 — AI Core, contexto e tools;
+- R3 — vendedora humanizada e Governor comercial;
+- R4 — Channel Adapter Meta/PapoAI + áudio/imagem/UX nativa;
+- R5 — checkout, pedido e handoff completos;
+- R6 — suíte de testes conversacionais;
+- R7 — homologação física PapoAI/Meta;
+- R8 — Admin mínimo do cérebro, sem inbox;
+- R9 — piloto, ativação gradual, Bling e liberação geral.
 
-## R3 — PapoAI real
-- confirmar canal/agente;
-- rotacionar chave;
-- testar texto;
-- testar mídia;
-- testar handoff/silêncio;
-- registrar capacidades reais.
+Plano detalhado:
+`docs/PROGRAMMING-PLAN-TO-PRODUCTION.md`
 
-## R4 — Ativação controlada
-- ligar leitura/Commerce Brain primeiro;
-- validar conversas;
-- ligar escrita/carrinho/pedido;
-- manter Bling fora até validação final;
-- grupo pequeno antes da abertura geral.
-
-## R5 — Admin mínimo
-Admin separado, sem inbox:
-- saúde;
-- inteligência;
-- conhecimento;
-- produtos;
-- simulador;
-- clientes/memória;
-- pedidos/conversão.
-
-## Depois do go-live
-- pesquisa externa para lacunas de produto;
-- botões/listas/Flow se comprovados;
-- tags/campos/funil/automações PapoAI se comprovados;
-- Bling;
-- pós-venda/recompra avançada.
+Regra de execução: rodada pequena, objetivo único, teste, commit e checkpoint antes da próxima.
