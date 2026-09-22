@@ -1730,6 +1730,20 @@ Deno.serve(async(req:Request)=>{
         handoff:true,
         reason:'customer_requested_human'
       });
+    }else if(intent.intent==='basket_disambiguate'){
+      const q=await sb.rpc('get_papoai_commerce_basket_catalog_v1');
+      const catalog=Array.isArray(q.data)?q.data:[];
+      const scale=String(intent.basket||intent.query||'').toLowerCase();
+      const matches=catalog.filter((x:any)=>String(x?.name||x?.display_name||'').toLowerCase().includes(scale));
+      result=matches;
+      if(matches.length>1){
+        const names=matches.slice(0,4).map((x:any)=>x?.display_name||x?.name).filter(Boolean);
+        text=`Temos ${names.join(' e ')}. Qual delas você quer ver?`;
+      }else if(matches.length===1){
+        text=`Você quer a **${matches[0]?.display_name||matches[0]?.name}**?`;
+      }else{
+        text='Tenho mais de uma cesta disponível. Você quer Bonini ou Koblenz?';
+      }
     }else if(intent.intent==='list_baskets'){
       const q=await sb.rpc('get_papoai_commerce_basket_catalog_v1');
       result=q.data;
