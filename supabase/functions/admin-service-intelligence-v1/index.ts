@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { planPapoAiTurn } from "../_shared/papoai-ai-planner-v1.mjs";
-import { deterministicCommerceIntent } from "../_shared/papoai-commerce-intent-v1.mjs";
+import { deterministicCommerceIntent, contextualCommerceIntent } from "../_shared/papoai-commerce-intent-v1.mjs";
 
 const CORS={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,x-client-info,apikey,content-type","Access-Control-Allow-Methods":"GET,POST,OPTIONS"};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...CORS,"Content-Type":"application/json","Cache-Control":"no-store"}});
@@ -310,7 +310,13 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
   const paymentPolicy=Array.isArray(serviceKnowledge)
     ? serviceKnowledge.find((x:any)=>x?.key==="payment_baseline")
     : null;
-  const deterministicIntent=deterministicCommerceIntent(message);
+  const simulatorHistory=Array.isArray(context?.recent_messages)
+    ? context.recent_messages.map((m:any)=>({
+        role:m?.role||(m?.direction==='outbound'?'assistant':'user'),
+        content:m?.content??m?.text??m?.body_text??''
+      }))
+    : [];
+  const deterministicIntent=contextualCommerceIntent(message,simulatorHistory)||deterministicCommerceIntent(message);
 
   const deterministicReturn=async({
     response,
