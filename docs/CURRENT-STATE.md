@@ -1,6 +1,6 @@
 # CURRENT STATE — PapoAI Commerce OS
 
-Atualizado: 21/09/2026
+Atualizado: 22/09/2026
 Status: PROJETO APROVADO / IMPLEMENTAÇÃO EM ANDAMENTO
 
 ## Fontes oficiais
@@ -11,10 +11,13 @@ Status: PROJETO APROVADO / IMPLEMENTAÇÃO EM ANDAMENTO
 
 ## Runtime
 - Edge: `papo-external-agent-v1`
-- versão auditada: v28
-- request/session/text_reply: verificados em laboratório
-- media_reply: observado na UI
-- button/list/flow/handoff/silent: precisam homologação física
+- versão ativa/auditada: **v53**
+- request/session/text_reply: verificados fisicamente
+- outbound image/media_reply: verificado fisicamente
+- inbound image/audio: verificados
+- silent: verificado fisicamente
+- outbound voice: unsupported no Agent External → fallback texto
+- handoff automático: único core pendente; bloqueado por contrato server-side do PapoAI
 
 ## Catálogo
 - produtos totais: 1.814
@@ -367,3 +370,38 @@ Não reabrir investigação de imagem/áudio salvo se houver regressão; esses i
 
 Bloqueio externo necessário para concluir R7:
 obter do PapoAI o contrato oficial/server-side para takeover humano de uma sessão do **Agente Externo**, ou confirmação formal de que esse recurso não é suportado nesse contrato.
+
+
+## PRE-ACTIVATION CLEANUP — 22/09/2026 09:25 Cuiabá
+
+Enquanto aguardamos o suporte do PapoAI, foram removidos blockers antigos que já tinham evidência física suficiente:
+
+- `external_customer_e2e_verified=true`;
+- rotação da chave v2 registrada como finalizada;
+- `papoai_lab_key_rotation_required=false`;
+- vínculo atual PapoAI ↔ Agent External marcado como verificado;
+- `agent_external.media_reply` promovido de `observed_ui` para `verified_lab` usando a evidência física já existente de outbound image;
+- nenhum teste físico já aprovado foi repetido.
+
+Resultado de `get_papoai_commerce_activation_readiness_v1()`:
+- data_ready=true;
+- transport_ready=true;
+- safety_ready=true;
+- E2E externo=true;
+- rotação pendente=false;
+- vínculo PapoAI=true;
+- warnings=[];
+- blocker legado restante: somente `production_activation_not_authorized`.
+
+IMPORTANTE: esse readiness é anterior ao gate R7 e sozinho **não autoriza produção**.
+A política canônica de ativação passa a exigir conjuntamente:
+1. `get_papoai_commerce_activation_readiness_v1().ready_for_production=true`;
+2. `get_papoai_r7_readiness_v1().ready_for_r8=true`.
+
+Como a R7 ainda está 4/5 por causa do handoff, produção permanece OFF e R8 ainda não foi iniciada.
+
+Preflight de segurança focado:
+- RPCs críticos de R7/readiness/handoff são `SECURITY DEFINER`, mas `anon` e `authenticated` não possuem EXECUTE;
+- `service_role` mantém EXECUTE;
+- tabelas PapoAI sensíveis permanecem protegidas por RLS sem políticas públicas;
+- advisors gerais do projeto possuem itens de manutenção amplos/legados, mas nenhum deles substitui ou remove o bloqueio específico do handoff R7.
