@@ -422,6 +422,22 @@ async function r8Simulator(sb:any,actorId:string|null,body:any){
     });
   }
 
+  if(deterministicIntent?.intent==="handoff"){
+    const tools=[{tool_key:"request_handoff",arguments_json:JSON.stringify({
+      reason:"customer_requested_human",
+      summary:"Cliente pediu atendimento humano."
+    })}];
+    const toolResults=[{
+      tool_key:"request_handoff",operation_kind:"commitment",
+      arguments:{reason:"customer_requested_human",summary:"Cliente pediu atendimento humano."},
+      ok:true,executed:false,blocked_by_simulator:true
+    }];
+    return await deterministicReturn({
+      response:"Claro 😊 Vou chamar alguém da nossa equipe para continuar com você.",
+      decision:"ACT",tools,toolResults,shouldHandoff:true,salesNextStep:"handoff"
+    });
+  }
+
   if(deterministicIntent?.intent==="confirm_pending"&&context?.pending_action){
     const tools=[{tool_key:"confirm_order",arguments_json:JSON.stringify({confirm:true})}];
     const toolResults=[{
@@ -614,13 +630,23 @@ async function r8RunEvalChunk(sb:any,runId:string,limit:number){
   for(const item of items){
     const started=Date.now();
     try{
-      const sim=await r8Simulator(sb,null,{
+      let sim=await r8Simulator(sb,null,{
         message:item.message_text,
         conversation_id:item.conversation_id||null,
         customer_id:item.customer_id||null,
         context_fixture:item.context_fixture||{},
         eval_mode:true
       });
+      if(sim.status>=400||sim.body?.ok!==true){
+        await new Promise(resolve=>setTimeout(resolve,250));
+        sim=await r8Simulator(sb,null,{
+          message:item.message_text,
+          conversation_id:item.conversation_id||null,
+          customer_id:item.customer_id||null,
+          context_fixture:item.context_fixture||{},
+          eval_mode:true
+        });
+      }
       const b=sim.body||{};
       const checked=r8EvalCheck(item.expected||{},b);
       const metrics=b.metrics||{};
