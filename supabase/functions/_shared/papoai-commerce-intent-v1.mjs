@@ -244,7 +244,12 @@ export function deterministicCommerceIntent(message){
     quantity:0
   };
 
-  if(/\b(?:voce sabe quem eu sou|você sabe quem eu sou|sabe quem eu sou|o que eu costumo comprar|oq eu costumo comprar|meu hist[oó]rico|minhas compras)\b/.test(m))
+  if(
+    /\b(?:voce sabe quem eu sou|você sabe quem eu sou|sabe quem eu sou|o que eu costumo comprar|oq eu costumo comprar|meu hist[oó]rico|minhas compras)\b/.test(m)
+    || /\b(?:meu|minha|meus|minhas)\s+(?:endere[cç]o|cadastro|telefone|celular|cpf|dados|bairro|nome)\b/.test(m)
+    || /\b(?:endere[cç]o|cadastro|telefone|celular|cpf|dados)\s+(?:salvo|cadastrado|cadastrada|guardado|guardada)\b/.test(m)
+    || /\b(?:tem|t[eê]m|sabe|possui|guardou|salvou)\b.{0,35}\b(?:meu|minha|meus|minhas)\s+(?:endere[cç]o|cadastro|telefone|celular|cpf|dados|bairro|nome)\b/.test(m)
+  )
     return {intent:'customer_context',basket:'',query:m,source_query:'',replacement_query:'',quantity:0};
 
   if(/\b(?:senha|chave api|api key|service[_ -]?role|token|segredo|credencial|pre[cç]o de custo|custo dos produtos|custo do arroz|ignora (?:as |suas )?regras|finge que sou administrador|vende sem cobrar|confirma sem pagar|desconto de 50|desconto de 90)\b/.test(m))
@@ -290,6 +295,7 @@ export async function classifyCommerceIntent({message,history,apiKey,model='gpt-
         'Você classifica mensagens de clientes do mercado Dona Antônia.',
         'Sua função é SOMENTE extrair intenção e entidades. Nunca calcule preços, totais, descontos ou estoque.',
         'Para uma saudação simples use greeting.',
+        'Para perguntas sobre o próprio cliente, cadastro, endereço, telefone, CPF, dados salvos ou histórico use customer_context. Isso tem precedência sobre search_products, mesmo que a frase contenha "tem".',
         'Para perguntas de produto use search_products e coloque em query o que o cliente procura.',
         'Se o cliente escolher uma opção numerada mostrada anteriormente use select_product_choice e coloque o número da opção em quantity.',
         'Para conteúdo, preço, foto ou itens de uma cesta com nome identificável use basket_detail. Para escolher cesta use start_basket. Se o cliente disser apenas cesta grande sem informar Bonini ou Koblenz, use basket_disambiguate.',
