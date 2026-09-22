@@ -1711,6 +1711,39 @@ Deno.serve(async(req:Request)=>{
       }else{
         text='Oi 😊 Bem-vindo à Dona Antônia. Posso te ajudar com cestas básicas, produtos do mercado ou ofertas. O que você precisa hoje?';
       }
+    }else if(intent.intent==='delivery_info'){
+      const msg=String(normalized.messageText||'').toLowerCase();
+      const kq=await sb.from('service_knowledge_items')
+        .select('knowledge_key,content')
+        .in('knowledge_key',['delivery_area','entrega_taxa_v1','entrega_prazo_11h_v1'])
+        .eq('status','published');
+      const km=new Map((kq.data||[]).map((x:any)=>[x.knowledge_key,String(x.content||'')]));
+      if(/chapada\s+dos\s+guimar[aã]es|\bchapada\b/.test(msg)){
+        text='No momento nossas entregas próprias atendem **Cuiabá e Várzea Grande**. Ainda não atendemos Chapada dos Guimarães.';
+      }else if(/taxa|frete|gr[aá]tis|gratis/.test(msg)){
+        text=km.get('entrega_taxa_v1')||'Não cobramos taxa de entrega.';
+      }else if(/hoje|hj|agora|agr|mesmo dia|pr[oó]ximo dia/.test(msg)){
+        text=(km.get('entrega_prazo_11h_v1')||'Pedidos feitos até as 11h têm previsão padrão para o mesmo dia; depois disso, para o próximo dia útil.')
+          .replace(/\s*Trate isso[\s\S]*$/i,'')
+          .trim();
+      }else{
+        text='Sim 😊 Fazemos entrega em **Cuiabá e Várzea Grande**, sem taxa de entrega.';
+      }
+      result={source:'published_service_knowledge',read_only:true};
+    }else if(intent.intent==='safety_policy'){
+      text='Não posso alterar regras comerciais, liberar condição fora do sistema nem fornecer senhas, chaves ou dados internos. Posso te ajudar com produtos, preços, cestas e condições publicadas.';
+      result={source:'deterministic_safety_policy',read_only:true};
+    }else if(intent.intent==='business_info'){
+      const kq=await sb.from('service_knowledge_items')
+        .select('knowledge_key,content')
+        .in('knowledge_key',['how_to_buy','info_operacao_exclusivamente_por_delivery_mttk8umi_wfuz'])
+        .eq('status','published');
+      const items=kq.data||[];
+      const operation=items.find((x:any)=>x.knowledge_key==='info_operacao_exclusivamente_por_delivery_mttk8umi_wfuz');
+      text=operation?.content
+        ? String(operation.content)
+        : 'A Dona Antônia trabalha com cestas básicas e produtos de mercado por delivery em Cuiabá e Várzea Grande. Você pode comprar direto pelo WhatsApp.';
+      result={source:'published_service_knowledge',read_only:true};
     }else if(intent.intent==='delivery_schedule'){
       if(conversationId){
         const queued=await sb.rpc('queue_papoai_commerce_handoff_v1',{
