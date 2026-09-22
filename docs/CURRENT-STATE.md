@@ -456,3 +456,21 @@ Produção continua OFF.
 - último teste físico do fluxo integrado preparado;
 - R7 permanece 4/5 até esse teste final;
 - produção OFF.
+
+
+## R7 OFICIALMENTE CONCLUÍDA — 22/09/2026
+
+- Edge: `papo-external-agent-v1` **v54 ACTIVE**;
+- run R7: `44d24129-b4a0-40b9-8b2d-2ed196614dbe`;
+- status: **passed**;
+- core: **5/5**;
+- pending: **0**;
+- handoff: **verified** via `assisted_manual_handoff`;
+- capability `agent_external.handoff`: **verified_lab**;
+- key rotation: finalized;
+- `ready_for_r8=true`;
+- laboratório R7: **OFF**;
+- produção: **OFF**;
+- blocker de ativação restante: apenas `production_activation_not_authorized`.
+
+Próxima etapa: **R8 — Admin mínimo do cérebro, separado, sem inbox/chat**.
