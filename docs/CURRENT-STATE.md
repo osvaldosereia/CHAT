@@ -567,3 +567,31 @@ R9:
 - liberada para programação;
 - ativação real de clientes ainda não autorizada;
 - próxima prioridade: piloto controlado PapoAI, automações nativas, writes gradualmente, pedido local e só depois Bling.
+
+
+## PapoAI — WEBHOOKS NATIVOS / COMMAND BUS — 22/09/2026
+
+Evidência visual nova no painel PapoAI:
+- automação tem ação nativa `Enviar Webhook`;
+- PapoAI informa que nome e telefone do contato são enviados automaticamente junto com o webhook;
+- webhook de entrada tem estados Inativo/Teste/Ativo;
+- modo Teste captura requisição/mapeamento e não executa ações;
+- aceita exemplo ou JSON colado;
+- campos JSON aninhados ficam disponíveis para mapeamento;
+- webhook de entrada exige Buscar/criar contato por telefone;
+- ações observadas: adicionar/remover etiquetas, mover no funil, transferir para atendente, enviar mensagem, enviar webhook, atualizar campo do contato, parar resposta do assistente, concluir atendimento e aguardar.
+
+Implicação arquitetural:
+- cérebro → PapoAI pode usar webhook de entrada como command bus oficial;
+- PapoAI → Supabase pode usar automação Enviar Webhook como event bus;
+- isso é preferível a API privada/WebSocket do frontend;
+- novo candidato oficial para handoff: webhook de entrada com Parar resposta do assistente + Transferir para atendente.
+
+Plano:
+- ativar primeiro o atendimento básico;
+- pós-venda, aprendizado humano e automações avançadas entram depois;
+- documento canônico: `docs/PAPOAI-CAPABILITY-MATRIX-AND-BASIC-GOLIVE.md`.
+
+Teste autônomo:
+- uma requisição sintética de homologação foi preparada/disparada do Supabase para o webhook de entrada que estava em modo Teste;
+- o pg_net permaneceu em fila no momento da verificação; não considerar o teste homologado até observar a requisição no painel PapoAI ou receber resposta HTTP.
