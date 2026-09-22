@@ -1283,8 +1283,22 @@ Deno.serve(async(req:Request)=>{
         handoff:false
       });
     }else if(isReservedLabHandoff(normalized.messageText)&&normalized.messageText.toUpperCase()===RESERVED_HANDOFF_COMMAND){
+      const localPauseUntil=lab?.metadata?.expires_at
+        ? String(lab.metadata.expires_at)
+        : new Date(Date.now()+60*60*1000).toISOString();
+      try{
+        await sb.from('channel_provider_agent_lab_sessions').update({
+          status:'paused',
+          paused_until:localPauseUntil,
+          updated_at:new Date().toISOString()
+        }).eq('id',labSession.id);
+      }catch{}
       if(r7HomologationActive){
-        await recordR7Case(sb,r7RunId,'handoff','attempted',{correlation_id:correlationId},'r7_handoff_probe');
+        await recordR7Case(sb,r7RunId,'handoff','attempted',{
+          correlation_id:correlationId,
+          local_fail_safe_paused:true,
+          local_pause_until:localPauseUntil
+        },'r7_handoff_probe');
       }
       processingStatus='handoff';responseKind='handoff';
       responseBody=buildLabHandoffResponse({text:'Vou transferir este teste para atendimento humano.',sessionKey:normalized.sessionKey,correlationId,reason:'lab_reserved_command'});
