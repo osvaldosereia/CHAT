@@ -659,6 +659,381 @@ async function nativeToolsLookupCustomer(sb:any,phone:string){
   return Array.isArray(q.data)?(q.data[0]||null):null;
 }
 
+async function parseFlexibleWebhookBody(req:Request){
+  const raw=await req.text();
+  if(!raw.trim())return {};
+  try{return JSON.parse(raw)}catch{}
+  try{
+    const params=new URLSearchParams(raw);
+    const out:any={};
+    for(const [k,v] of params.entries())out[k]=v;
+    if(Object.keys(out).length)return out;
+  }catch{}
+  return {raw_text:raw.slice(0,20000)};
+}
+
+function normalizePapoAiFlowKey(value:any){
+  return String(value??'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'')
+    .slice(0,100);
+}
+
+function normalizePapoAiFlowPhone(value:any){
+  let digits=String(value??'').replace(/\D+/g,'');
+  if(digits.startsWith('00'))digits=digits.slice(2);
+  if(digits.startsWith('55')&&(digits.length===12||digits.length===13))return '+'+digits;
+  if(digits.length===10||digits.length===11)return '+55'+digits;
+  return '';
+}
+
+function parseMaybeJsonObject(value:any){
+  if(value&&typeof value==='object')return value;
+  const s=String(value??'').trim();
+  if(!s)return null;
+  try{
+    const parsed=JSON.parse(s);
+    return parsed&&typeof parsed==='object'?parsed:null;
+  }catch{return null}
+}
+
+function flattenPapoAiFlowObject(value:any,out:any={},prefix='',depth=0){
+  if(depth>7||value===null||value===undefined)return out;
+  if(Array.isArray(value)){
+    value.slice(0,50).forEach((item,index)=>flattenPapoAiFlowObject(item,out,prefix?prefix+'_'+index:String(index),depth+1));
+    return out;
+  }
+  if(typeof value==='object'){
+    for(const [key,val] of Object.entries(value).slice(0,120)){
+      const nk=normalizePapoAiFlowKey(key);
+      const path=prefix?prefix+'_'+nk:nk;
+      if(val!==null&&typeof val==='object')flattenPapoAiFlowObject(val,out,path,depth+1);
+      else if(typeof val!=='undefined'&&String(val).trim()!=='')out[path]=String(val).trim().slice(0,2000);
+      if(!prefix&&val!==null&&typeof val!=='object'&&typeof val!=='undefined'&&String(val).trim()!=='')out[nk]=String(val).trim().slice(0,2000);
+    }
+  }
+  return out;
+}
+
+function findDeepPapoAiFlowValue(value:any,keys:Set<string>,depth=0):any{
+  if(depth>8||value===null||value===undefined)return null;
+  if(Array.isArray(value)){
+    for(const item of value.slice(0,50)){
+      const found=findDeepPapoAiFlowValue(item,keys,depth+1);
+      if(found!==null&&found!==undefined)return found;
+    }
+    return null;
+  }
+  if(typeof value==='object'){
+    for(const [key,val] of Object.entries(value)){
+      if(keys.has(normalizePapoAiFlowKey(key)))return val;
+    }
+    for(const val of Object.values(value)){
+      const found=findDeepPapoAiFlowValue(val,keys,depth+1);
+      if(found!==null&&found!==undefined)return found;
+    }
+  }
+  return null;
+}
+
+function extractPapoAiFlowData(body:any){
+  const direct=[
+    body?.interactive?.nfm_reply?.response_json,
+    body?.message?.interactive?.nfm_reply?.response_json,
+    body?.messages?.[0]?.interactive?.nfm_reply?.response_json,
+    body?.data?.interactive?.nfm_reply?.response_json,
+    body?.payload?.interactive?.nfm_reply?.response_json,
+    body?.response_json,
+    body?.flow_response,
+    body?.flow_data,
+    body?.answers,
+    body?.data?.response_json,
+    body?.payload?.response_json
+  ];
+  for(const candidate of direct){
+    const parsed=parseMaybeJsonObject(candidate);
+    if(parsed)return parsed;
+  }
+  const nested=findDeepPapoAiFlowValue(body,new Set(['response_json','flow_response','flow_data','answers','nfm_reply']));
+  const parsed=parseMaybeJsonObject(nested);
+  if(parsed?.response_json){
+    const inner=parseMaybeJsonObject(parsed.response_json);
+    if(inner)return inner;
+  }
+  return parsed||{};
+}
+
+function extractPapoAiFlowMessageText(body:any){
+  const candidates=[
+    body?.message?.text, body?.message?.body, body?.message?.content,
+    body?.text, body?.body, body?.content,
+    body?.payload?.message?.text, body?.payload?.text,
+    body?.data?.message?.text, body?.data?.text,
+    body?.last_message?.text, body?.last_message
+  ];
+  for(const candidate of candidates){
+    if(typeof candidate==='string'&&candidate.trim())return candidate.trim().slice(0,12000);
+  }
+  return '';
+}
+
+function parsePapoAiFlowKeyValueText(text:any){
+  const out:any={};
+  for(const rawLine of String(text??'').split(/\r?\n/).slice(0,120)){
+    const line=rawLine.replace(/^[\s•*#>-]+/,'').trim();
+    const m=line.match(/^([^:=]{2,60})\s*[:=]\s*(.+)$/);
+    if(!m)continue;
+    const key=normalizePapoAiFlowKey(m[1]);
+    const value=String(m[2]||'').trim();
+    if(key&&value)out[key]=value.slice(0,2000);
+  }
+  return out;
+}
+
+function pickPapoAiFlowField(flat:any,aliases:string[]){
+  const entries=Object.entries(flat||{});
+  const normalized=aliases.map(normalizePapoAiFlowKey);
+  for(const alias of normalized){
+    const exact=entries.find(([key])=>key===alias);
+    if(exact&&String(exact[1]??'').trim())return String(exact[1]).trim();
+  }
+  for(const alias of normalized){
+    const fuzzy=entries.find(([key])=>
+      key.endsWith('_'+alias)
+      || key.startsWith(alias+'_')
+      || (alias.length>=5&&key.includes('_'+alias+'_'))
+    );
+    if(fuzzy&&String(fuzzy[1]??'').trim())return String(fuzzy[1]).trim();
+  }
+  return '';
+}
+
+function extractPapoAiContactName(body:any){
+  const candidates=[
+    body?.name, body?.nome, body?.contact_name, body?.display_name,
+    body?.contact?.name, body?.contact?.display_name,
+    body?.lead?.name, body?.lead?.nome,
+    body?.sender?.name, body?.sender_name,
+    body?.payload?.contact?.name, body?.data?.contact?.name
+  ];
+  for(const candidate of candidates){
+    const s=String(candidate??'').replace(/\s+/g,' ').trim();
+    if(s)return s.slice(0,180);
+  }
+  return '';
+}
+
+async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,correlationId:string){
+  const url=new URL(req.url);
+  const supplied=String(url.searchParams.get('key')||body?.key||'').trim().slice(0,240);
+  if(!supplied)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
+  const auth=await sb.rpc('verify_papoai_flow_customer_webhook_key_v1',{p_key:supplied});
+  if(auth.error||auth.data!==true)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
+
+  const contactName=extractPapoAiContactName(body);
+  const rawPhone=extractPapoAiContactPhone(body);
+  const flowData=extractPapoAiFlowData(body);
+  const flowFlat=flattenPapoAiFlowObject(flowData,{});
+  const textFields=parsePapoAiFlowKeyValueText(extractPapoAiFlowMessageText(body));
+  const flat={...textFields,...flowFlat};
+
+  const formPhone=pickPapoAiFlowField(flat,['telefone','celular','whatsapp','phone','phone_number']);
+  const phone=normalizePapoAiFlowPhone(rawPhone||formPhone);
+  const formName=pickPapoAiFlowField(flat,['nome_completo','nome','full_name','customer_name','name']);
+  const name=String(formName||contactName||'').replace(/\s+/g,' ').trim().slice(0,180);
+  const cpfRaw=pickPapoAiFlowField(flat,['cpf_cnpj','cpf','cnpj','documento','document','tax_id']);
+  const documentDigits=String(cpfRaw||'').replace(/\D+/g,'');
+  const document=(documentDigits.length===11||documentDigits.length===14)?documentDigits:'';
+
+  const parsed:any={
+    name:name||null,
+    phone_e164:phone||null,
+    cpf_cnpj:document||null,
+    postal_code:pickPapoAiFlowField(flat,['cep','postal_code','codigo_postal','zipcode'])||null,
+    street:pickPapoAiFlowField(flat,['logradouro','rua','endereco','street','address'])||null,
+    number:pickPapoAiFlowField(flat,['numero_casa','numero','number','house_number'])||null,
+    complement:pickPapoAiFlowField(flat,['complemento','complement','quadra','bloco'])||null,
+    neighborhood:pickPapoAiFlowField(flat,['bairro','neighborhood','district'])||null,
+    city:pickPapoAiFlowField(flat,['cidade','municipio','city'])||null,
+    state:pickPapoAiFlowField(flat,['uf','estado','state'])||null,
+    reference:pickPapoAiFlowField(flat,['ponto_referencia','referencia','reference'])||null,
+    google_maps_url:pickPapoAiFlowField(flat,['google_maps_url','maps_url','localizador','localizacao','location_url'])||null,
+    flow_fields:flat
+  };
+
+  const eventInsert=await sb.from('papoai_flow_customer_webhook_events').insert({
+    correlation_id:correlationId,
+    contact_phone_e164:phone||null,
+    contact_name:contactName||null,
+    payload:body||{},
+    parsed_data:parsed,
+    status:'received'
+  }).select('id').single();
+  const eventId=eventInsert.data?.id||null;
+
+  const finishEvent=async(status:string,customerId:any=null,errorCode:any=null,extra:any={})=>{
+    if(!eventId)return;
+    try{
+      await sb.from('papoai_flow_customer_webhook_events').update({
+        status,
+        customer_id:customerId||null,
+        error_code:errorCode||null,
+        parsed_data:{...parsed,...extra}
+      }).eq('id',eventId);
+    }catch{}
+  };
+
+  if(!phone){
+    await finishEvent('ignored',null,'phone_missing');
+    return jsonResponse({ok:true,saved:false,reason:'phone_missing',correlation_id:correlationId});
+  }
+
+  try{
+    const resolved=await sb.rpc('resolve_customer_identity_v1',{
+      p_phone:phone,
+      p_document:document||null,
+      p_bling_contact_id:null,
+      p_channel:'whatsapp',
+      p_channel_account_id:null,
+      p_external_user_id:phone,
+      p_source:'papoai_flow',
+      p_persist:true
+    });
+    if(resolved.error)throw resolved.error;
+    if(resolved.data?.decision==='conflict'){
+      await finishEvent('conflict',null,'identity_conflict',{identity_resolution:resolved.data});
+      return jsonResponse({ok:true,saved:false,reason:'identity_conflict',correlation_id:correlationId});
+    }
+
+    let customerId=resolved.data?.decision==='matched'?String(resolved.data.customer_id||''):'';
+    let created=false;
+    let documentConflict=false;
+
+    if(!customerId){
+      const insertPayload:any={
+        name:name||null,
+        primary_whatsapp_e164:phone,
+        is_active:true
+      };
+      if(document)insertPayload.cpf_cnpj=document;
+      const createdQ=await sb.from('customers').insert(insertPayload).select('id').single();
+      if(createdQ.error){
+        if(String(createdQ.error.code||'')==='23505'){
+          const retry=await sb.rpc('lookup_customer_by_phone',{p_phone:phone});
+          const row=Array.isArray(retry.data)?retry.data[0]:retry.data;
+          customerId=String(row?.customer_id||'');
+          if(!customerId)throw createdQ.error;
+        }else throw createdQ.error;
+      }else{
+        customerId=String(createdQ.data.id);
+        created=true;
+      }
+    }
+
+    const currentQ=await sb.from('customers')
+      .select('id,name,cpf_cnpj,primary_whatsapp_e164')
+      .eq('id',customerId)
+      .maybeSingle();
+    if(currentQ.error)throw currentQ.error;
+    const current=currentQ.data||{};
+
+    const updates:any={is_active:true};
+    if(name)updates.name=name;
+    if(document){
+      const existingDoc=String(current.cpf_cnpj||'').replace(/\D+/g,'');
+      if(!existingDoc||existingDoc===document)updates.cpf_cnpj=document;
+      else documentConflict=true;
+    }
+    if(!current.primary_whatsapp_e164)updates.primary_whatsapp_e164=phone;
+    const updateQ=await sb.from('customers').update(updates).eq('id',customerId);
+    if(updateQ.error)throw updateQ.error;
+
+    const phoneQ=await sb.from('customer_phones')
+      .select('id,customer_id,is_primary')
+      .eq('phone_e164',phone)
+      .maybeSingle();
+    if(phoneQ.error)throw phoneQ.error;
+    if(phoneQ.data&&String(phoneQ.data.customer_id)!==customerId){
+      await finishEvent('conflict',customerId,'phone_owned_by_other_customer',{
+        document_conflict:documentConflict,
+        identity_resolution:resolved.data
+      });
+      return jsonResponse({ok:true,saved:false,reason:'phone_conflict',correlation_id:correlationId});
+    }
+    if(!phoneQ.data){
+      const phoneInsert=await sb.from('customer_phones').insert({
+        customer_id:customerId,
+        phone_e164:phone,
+        source:'papoai_flow',
+        is_primary:!current.primary_whatsapp_e164||current.primary_whatsapp_e164===phone,
+        verified_at:new Date().toISOString()
+      });
+      if(phoneInsert.error&&String(phoneInsert.error.code||'')!=='23505')throw phoneInsert.error;
+    }
+
+    const addressFields=['street','number','complement','neighborhood','city','state','postal_code','reference','google_maps_url'];
+    const hasAddress=addressFields.some(key=>Boolean(parsed[key]));
+    let addressSaved=false;
+    if(hasAddress){
+      const existingAddressQ=await sb.from('customer_addresses')
+        .select('id,street,number,complement,neighborhood,city,state,postal_code,reference,google_maps_url,is_default')
+        .eq('customer_id',customerId)
+        .eq('is_active',true)
+        .order('is_default',{ascending:false})
+        .order('updated_at',{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(existingAddressQ.error)throw existingAddressQ.error;
+      const existingAddress=existingAddressQ.data||null;
+      const addressUpdate:any={
+        last_confirmed_at:new Date().toISOString(),
+        is_active:true,
+        is_default:true
+      };
+      for(const key of addressFields){
+        if(parsed[key])addressUpdate[key]=String(parsed[key]).trim().slice(0,key==='google_maps_url'?1000:300);
+      }
+      if(existingAddress?.id){
+        await sb.from('customer_addresses').update({is_default:false}).eq('customer_id',customerId).neq('id',existingAddress.id);
+        const aq=await sb.from('customer_addresses').update(addressUpdate).eq('id',existingAddress.id);
+        if(aq.error)throw aq.error;
+      }else{
+        await sb.from('customer_addresses').update({is_default:false}).eq('customer_id',customerId);
+        const aq=await sb.from('customer_addresses').insert({
+          customer_id:customerId,
+          label:'Principal',
+          ...addressUpdate
+        });
+        if(aq.error)throw aq.error;
+      }
+      addressSaved=true;
+    }
+
+    await finishEvent('processed',customerId,null,{
+      customer_created:created,
+      address_saved:addressSaved,
+      document_conflict:documentConflict,
+      identity_resolution:resolved.data
+    });
+
+    return jsonResponse({
+      ok:true,
+      saved:true,
+      customer_id:customerId,
+      customer_created:created,
+      address_saved:addressSaved,
+      document_conflict:documentConflict,
+      correlation_id:correlationId
+    });
+  }catch(error){
+    console.error('papoai_flow_customer_webhook_error',correlationId,error);
+    await finishEvent('error',null,String(error?.message||'internal_error').slice(0,180));
+    return jsonResponse({ok:false,error:'internal_error',correlation_id:correlationId},500);
+  }
+}
+
 function extractPapoAiContactPhone(body:any){
   const candidates=[
     body?.phone, body?.phone_number, body?.wa_id, body?.from, body?.sender, body?.sender_phone,
@@ -1050,17 +1425,30 @@ Deno.serve(async(req:Request)=>{
   const correlationId=crypto.randomUUID();
   if(req.method!=='POST')return jsonResponse({error:'method_not_allowed',correlation_id:correlationId},405);
 
+  const requestUrl=new URL(req.url);
+  const requestedMode=String(requestUrl.searchParams.get('mode')||'').toLowerCase();
   let body:any;
-  try{body=await req.json();}
-  catch{return jsonResponse({error:'invalid_json',correlation_id:correlationId},400);}
+  if(requestedMode==='flow_customer_ingest'){
+    body=await parseFlexibleWebhookBody(req);
+  }else{
+    try{body=await req.json();}
+    catch{return jsonResponse({error:'invalid_json',correlation_id:correlationId},400);}
+  }
 
   const supabaseUrl=Deno.env.get('SUPABASE_URL');
   const serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if(!supabaseUrl||!serviceKey)return jsonResponse({error:'server_config',correlation_id:correlationId},500);
   const sb=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
 
+  const flowCustomerMode=
+    requestedMode==='flow_customer_ingest'
+    || String(body?.mode||'').toLowerCase()==='flow_customer_ingest';
+  if(flowCustomerMode){
+    return await handlePapoAiFlowCustomerWebhook(sb,req,body,correlationId);
+  }
+
   const nativeToolsMode=
-    new URL(req.url).searchParams.get('mode')==='native_tools'
+    requestedMode==='native_tools'
     || String(body?.mode||'').toLowerCase()==='native_tools';
   if(nativeToolsMode){
     return await handlePapoAiNativeToolRequest(sb,req,body,correlationId);
