@@ -297,3 +297,54 @@ Estado atual:
 - todos os gates de produção OFF.
 
 Bloqueio real: definir um telefone de teste e configurar a chave v2 no Agente Externo do PapoAI. Depois executar o roteiro físico de `docs/R7-PHYSICAL-HOMOLOGATION.md`.
+
+
+## R7 — CHECKPOINT FÍSICO 22/09/2026 08:40 Cuiabá
+
+Estado real no Supabase:
+- Edge `papo-external-agent-v1`: **v52 ACTIVE**;
+- run físico: `44d24129-b4a0-40b9-8b2d-2ed196614dbe`;
+- telefone de teste real do PapoAI: `+556599828360` (persistido na R7 apenas por hash);
+- chave v2 comprovada fisicamente e rotação finalizada;
+- **4/5 requisitos core verificados**;
+- **1 único requisito core pendente: handoff**;
+- R7 ainda `ready_for_r8=false`;
+- produção continua OFF.
+
+Capabilities físicas:
+- request: verified;
+- session: verified;
+- text reply: verified em WhatsApp real;
+- silent: verified em WhatsApp real;
+- handoff: **pending**;
+- outbound image: verified em WhatsApp real;
+- inbound image: verified;
+- inbound audio: verified;
+- outbound voice: **unsupported no contrato Agent External atual**; fallback obrigatório para texto;
+- buttons: manual_setup_required → fallback texto numerado;
+- list: manual_setup_required → fallback texto numerado;
+- Flow: manual_setup_required → fallback conversa progressiva;
+- typing/read receipt: manual_setup_required → no-op.
+
+Descobertas físicas importantes:
+1. A allowlist inicial usava hash do número digitado `+5565999828360`, mas o PapoAI envia `+556599828360`. Isso foi corrigido.
+2. Imagem de entrada não chega como URL/arquivo. O PapoAI envia no histórico:
+   `[ANEXO IMAGE RECEBIDO]: ... description=...`
+   A Edge usa essa descrição visual diretamente, evitando uma segunda chamada de visão.
+3. Áudio de entrada também chega como descrição/transcrição produzida pelo PapoAI; a Edge usa essa transcrição diretamente.
+4. Imagem de saída precisou compatibilidade WebP→JPEG/cache para renderizar no WhatsApp; foi confirmada visualmente.
+5. Áudio de saída foi gerado corretamente (OGG/TTS válido), mas o PapoAI Agent External não renderizou após múltiplos probes; capability marcada `unsupported`, fallback `text`.
+6. Silent foi confirmado: HTTP 200, `message=null`, nenhuma mensagem no WhatsApp.
+7. Restou somente testar `TESTE_HANDOFF_DONA_ANTONIA` e confirmar que o PapoAI entra em atendimento humano e que a IA fica silenciosa depois.
+
+Próximo passo obrigatório:
+- abrir/renovar a janela R7 se necessário;
+- enviar `TESTE_HANDOFF_DONA_ANTONIA` pelo número de teste;
+- confirmar no PapoAI que a conversa foi transferida para humano;
+- validar `session.human_required=true` ou evidência equivalente;
+- confirmar precedência humana/silêncio;
+- marcar handoff verified;
+- executar `finish_papoai_r7_homologation_v1`;
+- só então R7 pode ficar `ready_for_r8=true`.
+
+Não reabrir investigação de imagem/áudio salvo se houver regressão; esses itens já foram resolvidos.

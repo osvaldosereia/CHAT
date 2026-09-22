@@ -97,6 +97,83 @@ function mediaUrlHost(raw){
   return match[1].replace(/:\d+$/,'').toLowerCase();
 }
 
+function extractLatestHistoryMediaRefs(body={},explicitType=''){
+  const refs=[];
+  const seen=new Set();
+  let raw=body?.messages;
+  if(typeof raw==='string'){
+    try{ raw=JSON.parse(raw); }catch{ raw=[]; }
+  }
+  if(!Array.isArray(raw)||!raw.length) return refs;
+
+  const latest=raw[raw.length-1];
+  const add=(candidate={},kindHint='')=>{
+    if(!candidate) return;
+    if(typeof candidate==='string'){
+      const urls=[...candidate.matchAll(/https:\/\/[^\s<>"'\])}]+/gi)].map(m=>m[0]);
+      for(const urlRaw of urls){
+        const url=safeMediaUrl(urlRaw);
+        if(!url) continue;
+        const lower=candidate.toLowerCase();
+        const kind=normalizeMediaKind(
+          kindHint||
+          (lower.includes('image')||lower.includes('imagem')||lower.includes('foto')?'image':
+           lower.includes('audio')||lower.includes('áudio')||lower.includes('voice')?'audio':'unknown'),
+          ''
+        );
+        const key=[kind,url,''].join('|');
+        if(seen.has(key)) continue;
+        seen.add(key);
+        refs.push({kind,url,media_id:null,mime_type:null,filename:null,caption:null});
+      }
+      return;
+    }
+    if(typeof candidate!=='object') return;
+
+    const mime=clean(candidate.mimetype??candidate.mime_type??candidate.mimeType??candidate.content_type??candidate.contentType,120)||null;
+    const nestedImageUrl=typeof candidate.image_url==='string'
+      ? candidate.image_url
+      : candidate.image_url?.url;
+    const nestedAudioUrl=typeof candidate.audio_url==='string'
+      ? candidate.audio_url
+      : candidate.audio_url?.url;
+    const url=safeMediaUrl(
+      candidate.media_url??candidate.url??candidate.link??candidate.download_url??candidate.downloadUrl??
+      nestedImageUrl??nestedAudioUrl
+    );
+    const mediaId=clean(candidate.media_id??candidate.mediaId??candidate.id,500)||null;
+    const filename=clean(candidate.filename??candidate.file_name??candidate.name,300)||null;
+    const caption=clean(candidate.caption??candidate.text??candidate.body,1000)||null;
+    const kind=normalizeMediaKind(
+      candidate.type??candidate.kind??kindHint??
+      (nestedImageUrl?'image':nestedAudioUrl?'audio':explicitType),
+      mime||''
+    );
+    if(url||mediaId){
+      const key=[kind,url||'',mediaId||''].join('|');
+      if(!seen.has(key)){
+        seen.add(key);
+        refs.push({kind,url:url||null,media_id:mediaId,mime_type:mime,filename,caption});
+      }
+    }
+
+    for(const key of ['media','image','audio','video','document','attachment','image_url','audio_url']){
+      if(candidate[key]) add(candidate[key],key);
+    }
+    if(Array.isArray(candidate.attachments)){
+      for(const item of candidate.attachments) add(item,item?.type||'attachment');
+    }
+    if(Array.isArray(candidate.content)){
+      for(const part of candidate.content) add(part,part?.type||'content');
+    }else if(typeof candidate.content==='string'){
+      add(candidate.content,candidate.type||kindHint);
+    }
+  };
+
+  add(latest,latest?.type||'latest_message');
+  return refs.slice(0,5);
+}
+
 export function extractMediaRefs(body={},explicitType=''){
   const refs=[];
   const seen=new Set();
@@ -160,6 +237,35 @@ export function redactMediaRefsForStorage(refs=[]){
   }));
 }
 
+function extractPapoAiAttachmentDescriptor(text=''){
+  const value=clean(text,4000);
+  if(!value) return null;
+  const image=value.match(/^\[ANEXO\s+IMAGE\s+RECEBIDO\]\s*:\s*(.*)$/i);
+  if(image){
+    const rest=image[1]||'';
+    const descMatch=rest.match(/(?:^|\|)\s*description\s*=\s*(.*?)(?=\s*\|\s*\w+\s*=|$)/i);
+    const clientMatch=rest.match(/(?:^|\|)\s*texto_cliente\s*=\s*(.*?)(?=\s*\|\s*\w+\s*=|$)/i);
+    return {
+      kind:'image',
+      provider_description:clean(descMatch?.[1]||rest,3000)||null,
+      client_text:clean(clientMatch?.[1]||'',1000)||null,
+      source:'papoai_attachment_description'
+    };
+  }
+  const audio=value.match(/^\[ANEXO\s+(?:AUDIO|ÁUDIO)\s+RECEBIDO\]\s*:\s*(.*)$/i);
+  if(audio){
+    const rest=audio[1]||'';
+    const transcriptMatch=rest.match(/(?:^|\|)\s*(?:transcription|transcript|transcricao|transcrição|description)\s*=\s*(.*?)(?=\s*\|\s*\w+\s*=|$)/i);
+    return {
+      kind:'audio',
+      provider_description:clean(transcriptMatch?.[1]||rest,3000)||null,
+      client_text:null,
+      source:'papoai_attachment_description'
+    };
+  }
+  return null;
+}
+
 export function normalizeExternalAgentPayload(body={}){
   if(!body||typeof body!=='object'||Array.isArray(body)) throw new Error('invalid_json');
   const rawPhone=pick(body,[
@@ -179,7 +285,40 @@ export function normalizeExternalAgentPayload(body={}){
   const externalMessageId=pick(body,['message_id','messageId','message.id','data.message.id','payload.message.id'],300)||null;
   const externalEventId=pick(body,['event_id','eventId','event.id','data.event.id','payload.event.id'],300)||null;
   let messageType=(pick(body,['message_type','type','message.type','data.message.type'],80)||'text').toLowerCase();
-  const mediaRefs=extractMediaRefs(body,messageType);
+  const directMediaRefs=extractMediaRefs(body,messageType);
+  const historyMediaRefs=extractLatestHistoryMediaRefs(body,messageType);
+  const latestRaw=Array.isArray(body?.messages)&&body.messages.length
+    ? body.messages[body.messages.length-1]
+    : null;
+  const latestRawContent=typeof latestRaw==='string'
+    ? latestRaw
+    : (latestRaw&&typeof latestRaw==='object'&&typeof latestRaw.content==='string'
+      ? latestRaw.content
+      : '');
+  const papoAttachment=extractPapoAiAttachmentDescriptor(latestRawContent);
+  const mediaRefs=[...directMediaRefs];
+  for(const ref of historyMediaRefs){
+    const exists=mediaRefs.some(x=>
+      String(x?.kind||'')===String(ref?.kind||'')
+      && String(x?.url||'')===String(ref?.url||'')
+      && String(x?.media_id||'')===String(ref?.media_id||'')
+    );
+    if(!exists) mediaRefs.push(ref);
+    if(mediaRefs.length>=5) break;
+  }
+  if(papoAttachment&&mediaRefs.length<5){
+    mediaRefs.push({
+      kind:papoAttachment.kind,
+      url:null,
+      media_id:null,
+      mime_type:null,
+      filename:null,
+      caption:papoAttachment.provider_description||null,
+      provider_description:papoAttachment.provider_description||null,
+      provider_attachment:true,
+      source:papoAttachment.source
+    });
+  }
   if((!messageType||messageType==='text'||messageType==='unknown')&&mediaRefs.length){
     const inferred=mediaRefs[0]?.kind;
     if(['audio','image','video','document'].includes(inferred)) messageType=inferred;
@@ -187,7 +326,14 @@ export function normalizeExternalAgentPayload(body={}){
 
   const triggerRole=latestMessage?.role||'user';
   let triggerText=latestMessage?.content||fallback;
-  if(!triggerText&&mediaRefs.length){
+  if(papoAttachment?.provider_description){
+    triggerText=papoAttachment.provider_description;
+    if(papoAttachment.kind==='image'){
+      triggerText=`Imagem recebida. Descrição visual do PapoAI: ${papoAttachment.provider_description}`;
+    }else if(papoAttachment.kind==='audio'){
+      triggerText=`Áudio recebido. Transcrição/descrição do PapoAI: ${papoAttachment.provider_description}`;
+    }
+  }else if(!triggerText&&mediaRefs.length){
     const caption=mediaRefs.find(x=>x.caption)?.caption||'';
     triggerText=caption||`[${String(mediaRefs[0]?.kind||messageType||'media').toUpperCase()} RECEBIDO]`;
   }
@@ -215,6 +361,9 @@ export function normalizeExternalAgentPayload(body={}){
       has_media:hasMedia,
       media_count:mediaRefs.length,
       media_kinds:[...new Set(mediaRefs.map(x=>x.kind))],
+      provider_attachment:Boolean(papoAttachment),
+      provider_attachment_kind:papoAttachment?.kind||null,
+      provider_attachment_description:Boolean(papoAttachment?.provider_description),
       has_reply:hasReply,
       trigger_role:triggerRole,
       session_human_required:sessionHumanRequired,

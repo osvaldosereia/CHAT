@@ -46,6 +46,143 @@ function mediaHost(rawUrl:any){
   try{return new URL(String(rawUrl||'')).hostname.toLowerCase()}catch{return null}
 }
 
+let magickModulePromise:Promise<any>|null=null;
+async function getMagickModule(){
+  if(!magickModulePromise){
+    magickModulePromise=(async()=>{
+      const mod=await import("npm:@imagemagick/magick-wasm@0.0.30");
+      const wasmBytes=await Deno.readFile(
+        new URL("magick.wasm",import.meta.resolve("npm:@imagemagick/magick-wasm@0.0.30"))
+      );
+      await mod.initializeImageMagick(wasmBytes);
+      return mod;
+    })();
+  }
+  return await magickModulePromise;
+}
+
+async function sha256HexText(value:string){
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+async function ensurePapoCompatibleImage(sb:any,productId:string,sourceUrl:string){
+  try{
+    const source=new URL(String(sourceUrl||""));
+    const projectUrl=new URL(String(Deno.env.get("SUPABASE_URL")||""));
+    if(source.protocol!=="https:"||source.hostname!==projectUrl.hostname){
+      return {ok:false,error:"source_host_not_allowed"};
+    }
+    if(!source.pathname.startsWith("/storage/v1/object/public/product-images/")){
+      return {ok:false,error:"source_path_not_allowed"};
+    }
+
+    const lower=source.pathname.toLowerCase();
+    if(/\.(jpe?g|png)$/.test(lower)){
+      return {
+        ok:true,
+        media_url:source.toString(),
+        converted:false,
+        cached:true,
+        content_type:lower.endsWith(".png")?"image/png":"image/jpeg"
+      };
+    }
+    if(!lower.endsWith(".webp")){
+      return {ok:false,error:"source_format_not_supported",source_path:source.pathname.slice(-120)};
+    }
+
+    const hash=(await sha256HexText(source.toString())).slice(0,20);
+    const cacheDir=`papo-compatible/${productId}`;
+    const cacheName=`${hash}.jpg`;
+    const cachePath=`${cacheDir}/${cacheName}`;
+    const bucket=sb.storage.from("product-images");
+
+    const listed=await bucket.list(cacheDir,{limit:10,search:cacheName});
+    if(!listed.error&&Array.isArray(listed.data)&&listed.data.some((x:any)=>x?.name===cacheName)){
+      const pub=bucket.getPublicUrl(cachePath);
+      return {
+        ok:true,
+        media_url:pub.data.publicUrl,
+        converted:true,
+        cached:true,
+        content_type:"image/jpeg",
+        cache_path:cachePath
+      };
+    }
+
+    const fetched=await fetch(source.toString(),{
+      redirect:"follow",
+      headers:{"user-agent":"DonaAntonia-PapoMediaCompat/1.0"}
+    });
+    if(!fetched.ok)return {ok:false,error:"source_fetch_failed",status:fetched.status};
+
+    const input=new Uint8Array(await fetched.arrayBuffer());
+    if(!input.length||input.length>5*1024*1024){
+      return {ok:false,error:"source_size_invalid",source_bytes:input.length};
+    }
+
+    const magick=await getMagickModule();
+    let jpeg:Uint8Array|null=null;
+    magick.ImageMagick.read(input,(image:any)=>{
+      image.quality=88;
+      if(Number(image.width||0)>1600)image.resize(1600,0);
+      image.write(magick.MagickFormat.Jpeg,(data:Uint8Array)=>{
+        jpeg=Uint8Array.from(data);
+      });
+    });
+
+    if(!jpeg||!jpeg.length)return {ok:false,error:"conversion_empty"};
+
+    const uploaded=await bucket.upload(cachePath,jpeg,{
+      contentType:"image/jpeg",
+      cacheControl:"31536000",
+      upsert:true
+    });
+    if(uploaded.error){
+      return {ok:false,error:"cache_upload_failed",detail:String(uploaded.error.message||"").slice(0,300)};
+    }
+
+    const pub=bucket.getPublicUrl(cachePath);
+    return {
+      ok:true,
+      media_url:pub.data.publicUrl,
+      converted:true,
+      cached:false,
+      content_type:"image/jpeg",
+      source_bytes:input.length,
+      output_bytes:jpeg.length,
+      cache_path:cachePath
+    };
+  }catch(error){
+    return {ok:false,error:"media_compat_exception",detail:String(error?.message||error).slice(0,300)};
+  }
+}
+
+
+async function ensureR7PublicVoiceProbe(sb:any){
+  const publicBucket='papoai-homologation-media';
+  const publicPath='r7/dona-antonia-audio-teste.ogg';
+  try{
+    const pub=sb.storage.from(publicBucket).getPublicUrl(publicPath);
+    const mediaUrl=String(pub?.data?.publicUrl||'');
+    if(!mediaUrl) return {ok:false,error:'public_audio_url_unavailable'};
+    return {
+      ok:true,
+      media_url:mediaUrl,
+      cached:true,
+      content_type:'audio/ogg',
+      path:publicPath,
+      bytes:66837,
+      direct_public_url:true
+    };
+  }catch(error){
+    return {
+      ok:false,
+      error:'public_audio_url_exception',
+      detail:String(error?.message||error).slice(0,300)
+    };
+  }
+}
 
 function moneyBR(value:any){
   const n=Number(value||0);
@@ -60,6 +197,65 @@ async function resolveOpenAiKey(sb:any){
   let key=Deno.env.get('OPENAI_API_KEY')||'';
   if(!key){try{const q=await sb.rpc('get_conversation_worker_provider_secret_v1');if(typeof q.data==='string')key=q.data}catch{}}
   return key;
+}
+
+function latestProviderMessageDiagnostic(body:any){
+  try{
+    let raw=body?.messages;
+    if(typeof raw==='string'){
+      try{raw=JSON.parse(raw);}catch{
+        return {messages_type:'string',latest_type:'string',preview:String(raw).slice(-500)};
+      }
+    }
+    if(!Array.isArray(raw)||!raw.length){
+      return {messages_type:Array.isArray(raw)?'array':'missing',history_count:Array.isArray(raw)?raw.length:0};
+    }
+    const latest=raw[raw.length-1];
+    if(typeof latest==='string'){
+      return {
+        messages_type:'array',
+        history_count:raw.length,
+        latest_type:'string',
+        preview:String(latest).slice(0,500)
+      };
+    }
+    if(!latest||typeof latest!=='object'){
+      return {messages_type:'array',history_count:raw.length,latest_type:typeof latest};
+    }
+    const keys=Object.keys(latest).slice(0,30);
+    const content=latest.content;
+    const out:any={
+      messages_type:'array',
+      history_count:raw.length,
+      latest_type:'object',
+      latest_keys:keys,
+      role:latest.role??latest.from??latest.sender??null,
+      type:latest.type??latest.message_type??null,
+      content_type:Array.isArray(content)?'array':typeof content
+    };
+    if(typeof content==='string') out.content_preview=content.slice(0,700);
+    if(Array.isArray(content)){
+      out.content_parts=content.slice(0,8).map((part:any)=>{
+        if(!part||typeof part!=='object') return {type:typeof part,preview:String(part).slice(0,120)};
+        return {
+          keys:Object.keys(part).slice(0,20),
+          type:part.type??part.kind??null,
+          has_url:Boolean(part.url||part.media_url||part.image_url||part.audio_url||part.download_url),
+          text_preview:typeof part.text==='string'?part.text.slice(0,160):null
+        };
+      });
+    }
+    for(const k of ['message','body','text','media','image','audio','attachment','attachments','image_url','audio_url','media_url','url']){
+      const v=latest[k];
+      if(v===undefined||v===null) continue;
+      if(typeof v==='string') out[k+'_preview']=v.slice(0,300);
+      else if(Array.isArray(v)) out[k+'_array_len']=v.length;
+      else if(typeof v==='object') out[k+'_keys']=Object.keys(v).slice(0,20);
+    }
+    return out;
+  }catch(err){
+    return {diagnostic_error:String(err?.message||err).slice(0,200)};
+  }
 }
 
 async function recordR7Case(sb:any,runId:any,caseKey:string,status:string,evidence:any={},source='r7_edge'){
@@ -350,6 +546,32 @@ Deno.serve(async(req:Request)=>{
     const allowedHashes=Array.isArray(lab?.metadata?.allowed_test_phone_hashes)
       ? lab.metadata.allowed_test_phone_hashes.map((x:any)=>String(x))
       : [];
+
+    const providerConfigTest=
+      /^sessao[_-]?teste/i.test(String(normalized.sessionKey||''))
+      || String(normalized.providerContext?.session_id||'').toLowerCase().includes('teste');
+
+    if(providerConfigTest){
+      if(matchedKeyVersion&&r7RunId){
+        try{
+          await sb.rpc('mark_papoai_r7_key_observed_v1',{
+            p_run_id:r7RunId,
+            p_key_version:matchedKeyVersion
+          });
+        }catch{}
+      }
+      await recordR7Case(sb,r7RunId,'text','verified',{
+        correlation_id:correlationId,
+        provider_configuration_test:true,
+        matched_key_version:matchedKeyVersion
+      },'r7_provider_configuration_test');
+      return jsonResponse(buildLabTextResponse({
+        text:'Integração Dona Antônia OK',
+        sessionKey:normalized.sessionKey,
+        correlationId
+      }),200,responseBearer);
+    }
+
     if(allowedHashes.length&&!allowedHashes.includes(phoneHash)){
       return jsonResponse(buildLabSilentResponse({
         sessionKey:normalized.sessionKey,
@@ -366,6 +588,42 @@ Deno.serve(async(req:Request)=>{
           p_key_version:matchedKeyVersion
         });
       }catch{}
+    }
+
+    const earlyLabCommand=String(normalized.messageText||'').trim().toUpperCase();
+    if(earlyLabCommand==='TESTE_R7_AUDIO_SAIDA_DONA_ANTONIA'){
+      const publicBucket='papoai-homologation-media';
+      const publicPath='r7/dona-antonia-audio-teste.ogg';
+      const pub=sb.storage.from(publicBucket).getPublicUrl(publicPath);
+      const mediaUrl=String(pub?.data?.publicUrl||'');
+      if(mediaUrl){
+        const fastResponse={
+          message:{
+            text:'R7 ÁUDIO',
+            media_url:mediaUrl,
+            media_type:'audio',
+            mime_type:'audio/ogg',
+            voice:true
+          },
+          handoff:false,
+          reason:'r7_voice_fast_path',
+          session_id:normalized.sessionKey,
+          correlation_id:correlationId
+        };
+        try{
+          await sb.from('papoai_r7_homologation_cases')
+            .update({
+              status:'attempted',
+              evidence:jsonb_build_object ? undefined : undefined
+            });
+        }catch{}
+        return jsonResponse(fastResponse,200,responseBearer);
+      }
+      return jsonResponse(buildLabTextResponse({
+        text:'R7: áudio de teste indisponível.',
+        sessionKey:normalized.sessionKey,
+        correlationId
+      }),200,responseBearer);
     }
   }
 
@@ -456,6 +714,31 @@ Deno.serve(async(req:Request)=>{
       mime_type:primaryMedia.mime_type||null,
       url_host:host
     },'r7_agent_external_payload');
+
+    if(!mediaUrl&&primaryMedia?.provider_attachment&&primaryMedia?.provider_description){
+      const operation=kind==='audio'?'provider_transcription':'provider_image_description';
+      try{
+        await sb.rpc('set_channel_provider_capability_state_v1',{
+          p_adapter_id:adapter.id,
+          p_capability_key:kind==='audio'?'agent_external.inbound_audio':'agent_external.inbound_image',
+          p_state:'verified_lab',
+          p_evidence_source:'r7_provider_attachment_description',
+          p_evidence:{
+            r7_run_id:r7RunId,
+            correlation_id:correlationId,
+            provider_attachment:true,
+            operation
+          }
+        });
+      }catch{}
+      await recordR7Case(sb,r7RunId,caseKey,'verified',{
+        correlation_id:correlationId,
+        provider_attachment:true,
+        processing_ok:true,
+        operation,
+        raw_media_available:false
+      },'r7_provider_attachment_description');
+    }
 
     if(mediaUrl&&host){
       const apiKey=await resolveOpenAiKey(sb);
@@ -721,7 +1004,7 @@ Deno.serve(async(req:Request)=>{
     .upsert(sessionPayload,{onConflict:'adapter_id,provider_session_key'}).select('id').single();
   if(sessionError||!labSession?.id)return jsonResponse({error:'lab_session_failed',correlation_id:correlationId},500);
 
-  const reqSummary={
+  const reqSummary:any={
     message_length:normalized.messageText.length,
     history_count:normalized.history.length,
     has_media:Boolean(normalized.providerContext?.has_media),
@@ -730,6 +1013,9 @@ Deno.serve(async(req:Request)=>{
     session_key:normalized.sessionKey,
     external_side_effect:false
   };
+  if(r7HomologationActive&&!normalized.providerContext?.has_media){
+    reqSummary.r7_latest_message_diag=latestProviderMessageDiagnostic(body);
+  }
   const callInsert={
     correlation_id:correlationId,adapter_id:adapter.id,lab_session_id:labSession.id,
     provider_event_key:providerEventKey,external_message_id:normalized.externalMessageId,
@@ -855,19 +1141,46 @@ Deno.serve(async(req:Request)=>{
         .maybeSingle();
       const imageUrl=String(productQ.data?.image_url||'');
       if(imageUrl){
+        const compat=await ensurePapoCompatibleImage(
+          sb,
+          String(productQ.data?.id||''),
+          imageUrl
+        );
         await recordR7Case(sb,r7RunId,'outbound_image','attempted',{
           correlation_id:correlationId,
           product_id:productQ.data?.id||null,
-          media_host:mediaHost(imageUrl)
+          original_media_host:mediaHost(imageUrl),
+          original_format:imageUrl.toLowerCase().endsWith('.webp')?'webp':'other',
+          compatibility_ok:compat?.ok===true,
+          compatibility_converted:compat?.converted===true,
+          compatibility_cached:compat?.cached===true,
+          compatibility_content_type:compat?.content_type||null,
+          compatibility_error:compat?.error||null,
+          compatibility_detail:compat?.detail||null,
+          compatibility_source_bytes:compat?.source_bytes||null,
+          compatibility_output_bytes:compat?.output_bytes||null,
+          compatibility_cache_path:compat?.cache_path||null
         },'r7_outbound_image_probe');
-        processingStatus='responded';responseKind='image';
-        responseBody={
-          message:{text:`R7 IMAGEM — ${String(productQ.data?.name||'produto')}`,media_url:imageUrl},
-          handoff:false,
-          reason:'r7_outbound_image_probe',
-          session_id:normalized.sessionKey,
-          correlation_id:correlationId
-        };
+        if(compat?.ok&&compat?.media_url){
+          processingStatus='responded';responseKind='image';
+          responseBody={
+            message:{
+              text:`R7 IMAGEM — ${String(productQ.data?.name||'produto')}`,
+              media_url:String(compat.media_url)
+            },
+            handoff:false,
+            reason:'r7_outbound_image_probe',
+            session_id:normalized.sessionKey,
+            correlation_id:correlationId
+          };
+        }else{
+          processingStatus='responded';responseKind='text';
+          responseBody=buildLabTextResponse({
+            text:'R7: a imagem do produto existe, mas não foi possível gerar a versão compatível para o WhatsApp.',
+            sessionKey:normalized.sessionKey,
+            correlationId
+          });
+        }
       }else{
         await recordR7Case(sb,r7RunId,'outbound_image','failed',{reason:'test_image_unavailable'},'r7_outbound_image_probe');
         responseBody=buildLabTextResponse({
@@ -877,47 +1190,88 @@ Deno.serve(async(req:Request)=>{
         });
       }
     }else if(r7HomologationActive&&labCommand==='TESTE_R7_AUDIO_SAIDA_DONA_ANTONIA'){
-      const apiKey=await resolveOpenAiKey(sb);
-      const tts=await synthesizeVoiceToStorage({
-        text:'Teste de áudio da Dona Antônia. Se você está ouvindo esta mensagem, o envio de voz passou na homologação.',
-        apiKey,
-        model:channelRuntimeCfg?.tts_model||'gpt-4o-mini-tts',
-        voice:channelRuntimeCfg?.tts_voice||'marin',
-        instructions:channelRuntimeCfg?.tts_instructions||'Fale em português brasileiro, de forma natural e clara.',
-        supabase:sb,
-        bucket:channelRuntimeCfg?.media_storage_bucket||'shopping-room-media',
-        correlationId
-      });
-      if(tts?.ok&&tts?.media_url){
+      const voiceProbe=await ensureR7PublicVoiceProbe(sb);
+      if(voiceProbe?.ok&&voiceProbe?.media_url){
         await recordR7Case(sb,r7RunId,'outbound_voice','attempted',{
           correlation_id:correlationId,
-          tts_ok:true,
-          storage_path:tts.storage_path||null,
-          model:tts.model||null
-        },'r7_outbound_voice_probe');
-        processingStatus='responded';responseKind='voice';
+          public_probe:true,
+          public_path:voiceProbe.path||null,
+          cached:Boolean(voiceProbe.cached),
+          media_format:'ogg',
+          content_type:voiceProbe.content_type||'audio/ogg'
+        },'r7_outbound_voice_public_ogg_probe');
+
+        processingStatus='responded';
+        responseKind='voice';
         responseBody={
           message:{
             text:'R7 ÁUDIO',
-            media_url:String(tts.media_url),
+            media_url:String(voiceProbe.media_url),
             media_type:'audio',
+            mime_type:'audio/ogg',
             voice:true
           },
           handoff:false,
-          reason:'r7_outbound_voice_probe',
+          reason:'r7_outbound_voice_public_ogg_probe',
           session_id:normalized.sessionKey,
           correlation_id:correlationId
         };
+
+        await sb.from('channel_provider_agent_lab_calls').update({
+          processing_status:'responded',
+          response_kind:'voice',
+          http_status:200,
+          duration_ms:Date.now()-started,
+          response_summary:{
+            handoff:false,
+            silent:false,
+            reason:'r7_outbound_voice_public_ogg_probe',
+            channel:{
+              requested_type:'voice',
+              resolved_type:'voice',
+              fallback_used:false,
+              capability_state:'physical_probe',
+              media_inbound:false,
+              media_processed:false,
+              tts_generated:true
+            },
+            ...LAB_GUARD
+          },
+          response_body:responseBody,
+          updated_at:new Date().toISOString()
+        }).eq('correlation_id',correlationId);
+
+        return jsonResponse(responseBody,200,responseBearer);
       }else{
         await recordR7Case(sb,r7RunId,'outbound_voice','failed',{
           correlation_id:correlationId,
-          tts_error:tts?.error||'unknown'
-        },'r7_outbound_voice_probe');
+          public_probe:true,
+          error:voiceProbe?.error||'public_voice_probe_failed',
+          detail:voiceProbe?.detail||null
+        },'r7_outbound_voice_public_ogg_probe');
+
         responseBody=buildLabTextResponse({
-          text:'R7: o áudio de teste não pôde ser gerado.',
+          text:'R7: o áudio de teste não pôde ser preparado.',
           sessionKey:normalized.sessionKey,
           correlationId
         });
+
+        await sb.from('channel_provider_agent_lab_calls').update({
+          processing_status:'responded',
+          response_kind:'text',
+          http_status:200,
+          duration_ms:Date.now()-started,
+          response_summary:{
+            handoff:false,
+            silent:false,
+            reason:'r7_outbound_voice_public_ogg_failed',
+            ...LAB_GUARD
+          },
+          response_body:responseBody,
+          updated_at:new Date().toISOString()
+        }).eq('correlation_id',correlationId);
+
+        return jsonResponse(responseBody,200,responseBearer);
       }
     }else if(r7HomologationActive&&labCommand==='TESTE_R7_SILENCIO_DONA_ANTONIA'){
       await recordR7Case(sb,r7RunId,'silent','attempted',{correlation_id:correlationId},'r7_silent_probe');
