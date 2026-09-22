@@ -811,3 +811,34 @@ Deixar o atendimento básico realmente utilizável para venda no WhatsApp antes 
 - fotos inteligentes;
 - carrinho/personalização depois;
 - handoff físico depois.
+
+
+## BUSCA CONVERSACIONAL V2.1 / DECISÃO DE CATÁLOGO — 22/09/2026
+
+Decisão arquitetural explícita:
+- **NÃO migrar, duplicar nem sincronizar o catálogo de produtos para a Gestão de Produtos nativa do PapoAI nesta fase**;
+- a tela de Gestão de Produtos do PapoAI foi apenas observada como capacidade disponível;
+- **Supabase continua sendo o catálogo canônico/fonte da verdade**;
+- PapoAI continua sendo canal/provider do WhatsApp;
+- Dona Antônia Commerce OS continua sendo o cérebro comercial.
+
+Busca endurecida sem alterar gates comerciais:
+- ranking: `r6-tiered-v2-alias-fuzzy`;
+- registry server-side de nomes populares, sinônimos e erros comuns;
+- typo tolerance limitada para consulta curta, mantendo exato/termos fortes acima de fuzzy;
+- aliases iniciais incluem miojo→lámen, macarrão instantâneo→lámen, Bombril/palha de aço→esponja de aço e erros comuns como aroz→arroz;
+- o registry pode evoluir sem colocar catálogo inteiro no prompt da IA.
+
+Smoke único após o bloco:
+- `aroz` → arroz;
+- `macarrao instantaneo` → lámen;
+- `bombril` → Esponja de Aço Assolan;
+- `quais sabao em po voces tem` → 15 itens relevantes;
+- `write_enabled=false`;
+- Bling OFF;
+- learning OFF.
+
+Política de desenvolvimento a partir deste ponto:
+- programar por blocos amplos;
+- evitar bateria repetitiva de testes durante cada pequena alteração;
+- executar apenas smoke/regressão curta ao final de cada bloco, salvo bug real novo.
