@@ -849,7 +849,26 @@ Deno.serve(async(req:Request)=>{
       apiKey
     };
 
-    if(
+    const providerAudioText=kind==='audio'
+      ? (
+          String(primaryMedia?.provider_description||'').trim()
+          || String(normalized.messageText||'').replace(/^Áudio recebido\.\s*Transcrição\/descrição do PapoAI:\s*/i,'').trim()
+        )
+      : '';
+
+    if(kind==='audio'&&!mediaUrl&&providerAudioText&&providerAudioText!==String(normalized.messageText||'').trim()){
+      normalized.messageText=providerAudioText;
+      normalized.providerContext.transcribed_audio=true;
+      normalized.providerContext.transcription_source='papoai_provider';
+      mediaProcessing={
+        ok:true,
+        text:providerAudioText,
+        model:'papoai-provider-transcription',
+        input_bytes:0,
+        latency_ms:0,
+        usage:{}
+      };
+    }else if(
       kind==='audio'
       && channelRuntimeCfg?.enabled===true
       && channelRuntimeCfg?.inbound_audio_enabled===true
