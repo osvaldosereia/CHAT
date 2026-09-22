@@ -2073,6 +2073,19 @@ Deno.serve(async(req:Request)=>{
             +'\n\nO carrinho mudou antes da confirmação, então não finalizei. Confira o novo resumo e me diga a forma de pagamento novamente.';
         }else text='Não consegui confirmar essa alteração. Vou precisar que você me diga novamente o que deseja fazer.';
       }
+    }else if(intent.intent==='payment_info'){
+      const policyQ=await sb.from('service_knowledge_items')
+        .select('knowledge_key,title,content')
+        .eq('knowledge_key','payment_baseline')
+        .eq('status','published')
+        .maybeSingle();
+      result={
+        policy_key:policyQ.data?.knowledge_key||'payment_baseline',
+        source:'published_service_knowledge',
+        read_only:true
+      };
+      text=policyQ.data?.content
+        ||'Aceitamos Pix, dinheiro, cartão de débito, cartão de crédito e cartão alimentação/refeição. Não vendemos para 30 dias nem boleto.';
     }else if(intent.intent==='set_payment_method'&&conversationId&&commerceCfg?.write_enabled===true){
       const q=await sb.rpc('execute_papoai_commerce_command_v1',{
         p_conversation_id:conversationId,
