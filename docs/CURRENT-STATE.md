@@ -909,3 +909,30 @@ Prioridade imediata:
 3. configurar CRM/Kanban/tags;
 4. configurar automações de vitrine enviada, pedido recebido e handoff;
 5. somente depois integrar pedido/Supabase/Bling e pós-venda.
+
+
+## IDENTIFICAÇÃO DE CLIENTE PELO PAPOAI — 22/09/2026
+
+Objetivo:
+- quando uma nova mensagem entrar no WhatsApp/PapoAI, consultar o cadastro canônico pelo telefone;
+- devolver ao PapoAI apenas dados seguros para personalização/confirmacao: nome, telefone cadastrado, existência de endereço, endereço salvo e indicadores básicos;
+- CPF não é retornado;
+- a IA nativa do PapoAI continua sendo o cérebro; Supabase apenas consulta dados.
+
+Implementado:
+- nova ação segura `customer_identify` na rota `mode=native_tools`;
+- extração robusta de telefone de múltiplos formatos de payload PapoAI;
+- lookup no cadastro pelo telefone;
+- retorno estruturado com `variables` e `assistant_context`;
+- endereço padrão/ativo é retornado quando existe;
+- cliente inexistente retorna `customer_status=NEW`;
+- edge `papo-external-agent-v1` **v81 ACTIVE**.
+
+Cobertura atual do cadastro:
+- 515 clientes ativos;
+- 458 com telefone;
+- 237 endereços ativos.
+
+Pendente no painel PapoAI:
+- validar como a ação nativa `Enviar Webhook` mapeia a resposta HTTP para campos/variáveis/contexto da IA;
+- se a resposta for apenas fire-and-forget, usar fallback por CRM/campos ou outra ação nativa confirmada no painel.
