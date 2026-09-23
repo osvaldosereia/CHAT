@@ -882,6 +882,42 @@ async function handlePapoAiOutboundProbe(sb:any,req:Request,body:any,correlation
   }
 }
 
+function inferPapoAiFlowSemanticFields(flat:any){
+  const entries=Object.entries(flat||{})
+    .map(([key,value])=>({key:String(key),value:String(value??'').trim()}))
+    .filter(x=>x.value&&x.value!=='[object Object]');
+
+  const custom=entries.filter(x=>/^custom_\d+$/i.test(x.key));
+  const values=[...custom,...entries.filter(x=>!/^custom_\d+$/i.test(x.key))];
+
+  const pickValue=(fn:(v:string,k:string)=>boolean)=>{
+    const hit=values.find(x=>fn(x.value,x.key));
+    return hit?.value||'';
+  };
+
+  const email=pickValue((v)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.toLowerCase()));
+  const cpfCnpj=pickValue((v)=>{
+    const d=v.replace(/\D+/g,'');
+    return d.length===11||d.length===14;
+  });
+  const address=pickValue((v)=>/\b(rua|r\.|avenida|av\.?|travessa|estrada|rodovia|alameda|residencial|condom[ií]nio|casa|quadra|q\.?)\b/i.test(v));
+  const city=pickValue((v)=>/^(cuiab[aá]|v[aá]rzea\s+grande)$/i.test(v.normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+  const state=pickValue((v)=>/^(mt|mato\s+grosso)$/i.test(v));
+  const cep=pickValue((v)=>/^\d{5}-?\d{3}$/.test(v.replace(/\s+/g,'')));
+
+  const rejected=new Set([email,cpfCnpj,address,city,state,cep].filter(Boolean));
+  const name=pickValue((v,k)=>{
+    if(rejected.has(v))return false;
+    if(/flow_token|consent/i.test(k))return false;
+    if(/^\d+$/.test(v))return false;
+    if(v.length<3||v.length>180)return false;
+    if(/https?:\/\//i.test(v))return false;
+    return /[A-Za-zÀ-ÿ]/.test(v)&&v.trim().split(/\s+/).length>=2;
+  });
+
+  return {email,cpf_cnpj:cpfCnpj,address,city,state,postal_code:cep,name};
+}
+
 async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,correlationId:string){
   const url=new URL(req.url);
   const supplied=String(url.searchParams.get('key')||body?.key||'').trim().slice(0,240);
@@ -896,13 +932,19 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
   const textFields=parsePapoAiFlowKeyValueText(extractPapoAiFlowMessageText(body));
   const flat={...textFields,...flowFlat};
 
+  const inferred=inferPapoAiFlowSemanticFields(flat);
   const formPhone=pickPapoAiFlowField(flat,['telefone','celular','whatsapp','phone','phone_number']);
   const phone=normalizePapoAiFlowPhone(rawPhone||formPhone);
-  const formName=pickPapoAiFlowField(flat,['nome_completo','nome','full_name','customer_name','name','custom_3']);
-  const name=String(formName||contactName||'').replace(/\s+/g,' ').trim().slice(0,180);
-  const email=pickPapoAiFlowField(flat,['email','e_mail','correio_eletronico','custom_1']).trim().toLowerCase().slice(0,320);
-  const rawAddress=pickPapoAiFlowField(flat,['endereco_completo','endereco','address','custom_2']).trim().slice(0,500);
-  const cpfRaw=pickPapoAiFlowField(flat,['cpf_cnpj','cpf','cnpj','documento','document','tax_id']);
+  const formName=pickPapoAiFlowField(flat,['nome_completo','nome','full_name','customer_name','name']);
+  const name=String(formName||inferred.name||contactName||'').replace(/\s+/g,' ').trim().slice(0,180);
+  const explicitEmail=pickPapoAiFlowField(flat,['email','e_mail','correio_eletronico']);
+  const email=String(explicitEmail||inferred.email||'').trim().toLowerCase().slice(0,320);
+  const rawAddress=String(
+    pickPapoAiFlowField(flat,['endereco_completo','endereco','address'])
+    || inferred.address
+    || ''
+  ).trim().slice(0,500);
+  const cpfRaw=pickPapoAiFlowField(flat,['cpf_cnpj','cpf','cnpj','documento','document','tax_id'])||inferred.cpf_cnpj;
   const documentDigits=String(cpfRaw||'').replace(/\D+/g,'');
   const document=(documentDigits.length===11||documentDigits.length===14)?documentDigits:'';
 
@@ -912,13 +954,13 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
     email:email||null,
     cpf_cnpj:document||null,
     data_sharing_consent:pickPapoAiFlowField(flat,['data_sharing_consent','compartilhamento_de_dados'])||null,
-    postal_code:pickPapoAiFlowField(flat,['cep','postal_code','codigo_postal','zipcode'])||null,
+    postal_code:pickPapoAiFlowField(flat,['cep','postal_code','codigo_postal','zipcode'])||inferred.postal_code||null,
     street:pickPapoAiFlowField(flat,['logradouro','rua','street'])||rawAddress||null,
     number:pickPapoAiFlowField(flat,['numero_casa','numero','number','house_number'])||null,
     complement:pickPapoAiFlowField(flat,['complemento','complement','quadra','bloco'])||null,
     neighborhood:pickPapoAiFlowField(flat,['bairro','neighborhood','district'])||null,
-    city:pickPapoAiFlowField(flat,['cidade','municipio','city'])||null,
-    state:pickPapoAiFlowField(flat,['uf','estado','state'])||null,
+    city:pickPapoAiFlowField(flat,['cidade','municipio','city'])||inferred.city||null,
+    state:pickPapoAiFlowField(flat,['uf','estado','state'])||inferred.state||null,
     reference:pickPapoAiFlowField(flat,['ponto_referencia','referencia','reference'])||null,
     google_maps_url:pickPapoAiFlowField(flat,['google_maps_url','maps_url','localizador','localizacao','location_url'])||null,
     flow_fields:flat
