@@ -834,7 +834,8 @@ async function handlePapoAiOutboundProbe(sb:any,req:Request,body:any,correlation
     const flat=flattenPapoAiFlowObject(flowData,{});
     const messageText=extractPapoAiFlowMessageText(body);
     const eventType=String(
-      body?.event
+      body?.event?.type
+      || body?.event
       || body?.type
       || body?.event_type
       || body?.eventType
@@ -868,8 +869,7 @@ async function handlePapoAiOutboundProbe(sb:any,req:Request,body:any,correlation
     if(ins.error)throw ins.error;
 
     const flowLike=
-      messageType==='interactive'
-      && /data_sharing_consent\s*:/i.test(messageText)
+      /data_sharing_consent\s*:/i.test(messageText)
       && /flow_token\s*:/i.test(messageText);
     if(flowLike){
       return await handlePapoAiFlowCustomerWebhook(sb,req,body,correlationId);
@@ -1164,11 +1164,11 @@ function extractPapoAiContactPhone(body:any){
   const candidates=[
     body?.phone, body?.phone_number, body?.wa_id, body?.from, body?.sender, body?.sender_phone,
     body?.contact?.phone, body?.contact?.phone_number, body?.contact?.wa_id, body?.contact?.identifier, body?.contact?.source_id,
-    body?.message?.from, body?.message?.sender, body?.message?.phone,
+    body?.message?.from, body?.message?.sender, body?.message?.phone, body?.message?.phone_number_from,
     body?.conversation?.contact?.phone, body?.conversation?.contact?.phone_number, body?.conversation?.meta?.sender?.phone_number,
     body?.meta?.sender?.phone_number,
-    body?.payload?.phone, body?.payload?.phone_number, body?.payload?.contact?.phone, body?.payload?.contact?.phone_number,
-    body?.data?.phone, body?.data?.phone_number, body?.data?.contact?.phone, body?.data?.contact?.phone_number
+    body?.payload?.phone, body?.payload?.phone_number, body?.payload?.contact?.phone, body?.payload?.contact?.phone_number, body?.payload?.message?.phone_number_from,
+    body?.data?.phone, body?.data?.phone_number, body?.data?.contact?.phone, body?.data?.contact?.phone_number, body?.data?.message?.phone_number_from
   ];
   for(const candidate of candidates){
     const raw=String(candidate??'').trim();
