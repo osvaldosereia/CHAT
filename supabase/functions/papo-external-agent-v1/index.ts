@@ -1061,26 +1061,24 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
 
     let emailSaved=false;
     if(email&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-      const existingEmail=await sb.from('customer_emails')
-        .select('id,customer_id')
+      const ownEmail=await sb.from('customer_emails')
+        .select('id')
+        .eq('customer_id',customerId)
         .eq('email_normalized',email)
         .order('created_at',{ascending:false})
         .limit(1)
         .maybeSingle();
-      if(existingEmail.error)throw existingEmail.error;
-      if(existingEmail.data?.id){
-        if(!existingEmail.data.customer_id||String(existingEmail.data.customer_id)===customerId){
-          const eq=await sb.from('customer_emails').update({
-            customer_id:customerId,
-            email,
-            email_normalized:email,
-            source:'papoai_flow',
-            is_primary:true,
-            evidence:{source:'papoai_flow',correlation_id:correlationId}
-          }).eq('id',existingEmail.data.id);
-          if(eq.error)throw eq.error;
-          emailSaved=true;
-        }
+      if(ownEmail.error)throw ownEmail.error;
+      if(ownEmail.data?.id){
+        const eq=await sb.from('customer_emails').update({
+          email,
+          email_normalized:email,
+          source:'papoai_flow',
+          is_primary:true,
+          evidence:{source:'papoai_flow',correlation_id:correlationId}
+        }).eq('id',ownEmail.data.id);
+        if(eq.error)throw eq.error;
+        emailSaved=true;
       }else{
         const eq=await sb.from('customer_emails').insert({
           customer_id:customerId,
@@ -1100,6 +1098,8 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
     const hasAddress=addressFields.some(key=>Boolean(parsed[key]));
     let addressSaved=false;
     if(hasAddress){
+      const structuredParts=['number','complement','neighborhood','city','state','postal_code','reference','google_maps_url'];
+      const rawOnlyAddress=Boolean(parsed.street)&&!structuredParts.some(key=>Boolean(parsed[key]));
       const existingAddressQ=await sb.from('customer_addresses')
         .select('id,street,number,complement,neighborhood,city,state,postal_code,reference,google_maps_url,is_default')
         .eq('customer_id',customerId)
@@ -1118,7 +1118,27 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
       for(const key of addressFields){
         if(parsed[key])addressUpdate[key]=String(parsed[key]).trim().slice(0,key==='google_maps_url'?1000:300);
       }
-      if(existingAddress?.id){
+
+      if(rawOnlyAddress){
+        await sb.from('customer_addresses').update({is_default:false}).eq('customer_id',customerId);
+        const aq=await sb.from('customer_addresses').insert({
+          customer_id:customerId,
+          label:'Flow PapoAI',
+          street:String(parsed.street).trim().slice(0,300),
+          number:null,
+          complement:null,
+          neighborhood:null,
+          city:null,
+          state:null,
+          postal_code:null,
+          reference:null,
+          google_maps_url:null,
+          last_confirmed_at:new Date().toISOString(),
+          is_active:true,
+          is_default:true
+        });
+        if(aq.error)throw aq.error;
+      }else if(existingAddress?.id){
         await sb.from('customer_addresses').update({is_default:false}).eq('customer_id',customerId).neq('id',existingAddress.id);
         const aq=await sb.from('customer_addresses').update(addressUpdate).eq('id',existingAddress.id);
         if(aq.error)throw aq.error;
