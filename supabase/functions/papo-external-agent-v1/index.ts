@@ -1060,6 +1060,28 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
       }
     }
 
+    if(document){
+      const docOwnerQ=await sb.from('customers')
+        .select('id')
+        .eq('cpf_cnpj',document)
+        .maybeSingle();
+      if(docOwnerQ.error)throw docOwnerQ.error;
+      if(docOwnerQ.data?.id&&String(docOwnerQ.data.id)!==customerId){
+        await finishEvent('conflict',customerId,'document_owned_by_other_customer',{
+          document_conflict:true,
+          exact_match_method:exactMatchMethod||null,
+          conflicting_document_owner_id:String(docOwnerQ.data.id)
+        });
+        return jsonResponse({
+          ok:true,
+          saved:false,
+          reason:'document_conflict',
+          customer_id:customerId,
+          correlation_id:correlationId
+        });
+      }
+    }
+
     const currentQ=await sb.from('customers')
       .select('id,name,cpf_cnpj,primary_whatsapp_e164')
       .eq('id',customerId)
