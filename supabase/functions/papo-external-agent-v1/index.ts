@@ -825,6 +825,54 @@ function extractPapoAiContactName(body:any){
   return '';
 }
 
+async function handlePapoAiOutboundProbe(sb:any,body:any,correlationId:string){
+  try{
+    const contactName=extractPapoAiContactName(body);
+    const rawPhone=extractPapoAiContactPhone(body);
+    const phone=normalizePapoAiFlowPhone(rawPhone);
+    const flowData=extractPapoAiFlowData(body);
+    const flat=flattenPapoAiFlowObject(flowData,{});
+    const messageText=extractPapoAiFlowMessageText(body);
+    const eventType=String(
+      body?.event
+      || body?.type
+      || body?.event_type
+      || body?.eventType
+      || body?.action
+      || body?.topic
+      || ''
+    ).slice(0,120);
+    const messageType=String(
+      body?.message?.type
+      || body?.data?.message?.type
+      || body?.payload?.message?.type
+      || body?.messages?.[0]?.type
+      || body?.message_type
+      || ''
+    ).slice(0,120);
+
+    const ins=await sb.from('papoai_flow_customer_webhook_events').insert({
+      correlation_id:correlationId,
+      contact_phone_e164:phone||null,
+      contact_name:contactName||null,
+      payload:body||{},
+      parsed_data:{
+        probe:true,
+        event_type:eventType||null,
+        message_type:messageType||null,
+        message_text:messageText||null,
+        detected_flow_data:Object.keys(flat).length?flat:null
+      },
+      status:'outbound_probe'
+    });
+    if(ins.error)throw ins.error;
+    return jsonResponse({ok:true,probe:true,correlation_id:correlationId});
+  }catch(error){
+    console.error('papoai_outbound_probe_error',correlationId,error);
+    return jsonResponse({ok:false,error:'probe_store_failed',correlation_id:correlationId},500);
+  }
+}
+
 async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,correlationId:string){
   const url=new URL(req.url);
   const supplied=String(url.searchParams.get('key')||body?.key||'').trim().slice(0,240);
@@ -1439,6 +1487,17 @@ Deno.serve(async(req:Request)=>{
   const serviceKey=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if(!supabaseUrl||!serviceKey)return jsonResponse({error:'server_config',correlation_id:correlationId},500);
   const sb=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+
+  const outboundProbeMode=
+    requestedMode==='webhook_out_probe'
+    || String(body?.mode||'').toLowerCase()==='webhook_out_probe';
+  if(outboundProbeMode){
+    const supplied=String(requestUrl.searchParams.get('key')||body?.key||'').trim().slice(0,240);
+    if(!supplied)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
+    const auth=await sb.rpc('verify_papoai_flow_customer_webhook_key_v1',{p_key:supplied});
+    if(auth.error||auth.data!==true)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
+    return await handlePapoAiOutboundProbe(sb,body,correlationId);
+  }
 
   const flowCustomerMode=
     requestedMode==='flow_customer_ingest'
