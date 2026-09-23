@@ -769,8 +769,8 @@ function extractPapoAiFlowMessageText(body:any){
   const candidates=[
     body?.message?.text, body?.message?.body, body?.message?.content,
     body?.text, body?.body, body?.content,
-    body?.payload?.message?.text, body?.payload?.text,
-    body?.data?.message?.text, body?.data?.text,
+    body?.payload?.message?.text, body?.payload?.message?.content, body?.payload?.text,
+    body?.data?.message?.text, body?.data?.message?.content, body?.data?.text,
     body?.last_message?.text, body?.last_message
   ];
   for(const candidate of candidates){
@@ -825,7 +825,7 @@ function extractPapoAiContactName(body:any){
   return '';
 }
 
-async function handlePapoAiOutboundProbe(sb:any,body:any,correlationId:string){
+async function handlePapoAiOutboundProbe(sb:any,req:Request,body:any,correlationId:string){
   try{
     const contactName=extractPapoAiContactName(body);
     const rawPhone=extractPapoAiContactPhone(body);
@@ -866,7 +866,16 @@ async function handlePapoAiOutboundProbe(sb:any,body:any,correlationId:string){
       status:'outbound_probe'
     });
     if(ins.error)throw ins.error;
-    return jsonResponse({ok:true,probe:true,correlation_id:correlationId});
+
+    const flowLike=
+      messageType==='interactive'
+      && /data_sharing_consent\s*:/i.test(messageText)
+      && /flow_token\s*:/i.test(messageText);
+    if(flowLike){
+      return await handlePapoAiFlowCustomerWebhook(sb,req,body,correlationId);
+    }
+
+    return jsonResponse({ok:true,probe:true,ignored_non_flow:true,correlation_id:correlationId});
   }catch(error){
     console.error('papoai_outbound_probe_error',correlationId,error);
     return jsonResponse({ok:false,error:'probe_store_failed',correlation_id:correlationId},500);
@@ -889,8 +898,10 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
 
   const formPhone=pickPapoAiFlowField(flat,['telefone','celular','whatsapp','phone','phone_number']);
   const phone=normalizePapoAiFlowPhone(rawPhone||formPhone);
-  const formName=pickPapoAiFlowField(flat,['nome_completo','nome','full_name','customer_name','name']);
+  const formName=pickPapoAiFlowField(flat,['nome_completo','nome','full_name','customer_name','name','custom_3']);
   const name=String(formName||contactName||'').replace(/\s+/g,' ').trim().slice(0,180);
+  const email=pickPapoAiFlowField(flat,['email','e_mail','correio_eletronico','custom_1']).trim().toLowerCase().slice(0,320);
+  const rawAddress=pickPapoAiFlowField(flat,['endereco_completo','endereco','address','custom_2']).trim().slice(0,500);
   const cpfRaw=pickPapoAiFlowField(flat,['cpf_cnpj','cpf','cnpj','documento','document','tax_id']);
   const documentDigits=String(cpfRaw||'').replace(/\D+/g,'');
   const document=(documentDigits.length===11||documentDigits.length===14)?documentDigits:'';
@@ -898,9 +909,11 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
   const parsed:any={
     name:name||null,
     phone_e164:phone||null,
+    email:email||null,
     cpf_cnpj:document||null,
+    data_sharing_consent:pickPapoAiFlowField(flat,['data_sharing_consent','compartilhamento_de_dados'])||null,
     postal_code:pickPapoAiFlowField(flat,['cep','postal_code','codigo_postal','zipcode'])||null,
-    street:pickPapoAiFlowField(flat,['logradouro','rua','endereco','street','address'])||null,
+    street:pickPapoAiFlowField(flat,['logradouro','rua','street'])||rawAddress||null,
     number:pickPapoAiFlowField(flat,['numero_casa','numero','number','house_number'])||null,
     complement:pickPapoAiFlowField(flat,['complemento','complement','quadra','bloco'])||null,
     neighborhood:pickPapoAiFlowField(flat,['bairro','neighborhood','district'])||null,
@@ -939,23 +952,48 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
   }
 
   try{
-    const resolved=await sb.rpc('resolve_customer_identity_v1',{
-      p_phone:phone,
-      p_document:document||null,
-      p_bling_contact_id:null,
-      p_channel:'whatsapp',
-      p_channel_account_id:null,
-      p_external_user_id:phone,
-      p_source:'papoai_flow',
-      p_persist:true
-    });
-    if(resolved.error)throw resolved.error;
-    if(resolved.data?.decision==='conflict'){
-      await finishEvent('conflict',null,'identity_conflict',{identity_resolution:resolved.data});
-      return jsonResponse({ok:true,saved:false,reason:'identity_conflict',correlation_id:correlationId});
+    let customerId='';
+    let exactMatchMethod='';
+    const exactCustomer=await sb.from('customers')
+      .select('id')
+      .eq('primary_whatsapp_e164',phone)
+      .maybeSingle();
+    if(exactCustomer.error)throw exactCustomer.error;
+    if(exactCustomer.data?.id){
+      customerId=String(exactCustomer.data.id);
+      exactMatchMethod='customers.primary_whatsapp_e164';
+    }else{
+      const exactPhone=await sb.from('customer_phones')
+        .select('customer_id')
+        .eq('phone_e164',phone)
+        .maybeSingle();
+      if(exactPhone.error)throw exactPhone.error;
+      if(exactPhone.data?.customer_id){
+        customerId=String(exactPhone.data.customer_id);
+        exactMatchMethod='customer_phones.phone_e164';
+      }
     }
 
-    let customerId=resolved.data?.decision==='matched'?String(resolved.data.customer_id||''):'';
+    let resolved:any={data:null,error:null};
+    if(!customerId){
+      resolved=await sb.rpc('resolve_customer_identity_v1',{
+        p_phone:phone,
+        p_document:document||null,
+        p_bling_contact_id:null,
+        p_channel:'whatsapp',
+        p_channel_account_id:null,
+        p_external_user_id:phone,
+        p_source:'papoai_flow',
+        p_persist:true
+      });
+      if(resolved.error)throw resolved.error;
+      if(resolved.data?.decision==='conflict'){
+        await finishEvent('conflict',null,'identity_conflict',{identity_resolution:resolved.data});
+        return jsonResponse({ok:true,saved:false,reason:'identity_conflict',correlation_id:correlationId});
+      }
+      customerId=resolved.data?.decision==='matched'?String(resolved.data.customer_id||''):'';
+    }
+
     let created=false;
     let documentConflict=false;
 
@@ -1021,6 +1059,43 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
       if(phoneInsert.error&&String(phoneInsert.error.code||'')!=='23505')throw phoneInsert.error;
     }
 
+    let emailSaved=false;
+    if(email&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      const existingEmail=await sb.from('customer_emails')
+        .select('id,customer_id')
+        .eq('email_normalized',email)
+        .order('created_at',{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(existingEmail.error)throw existingEmail.error;
+      if(existingEmail.data?.id){
+        if(!existingEmail.data.customer_id||String(existingEmail.data.customer_id)===customerId){
+          const eq=await sb.from('customer_emails').update({
+            customer_id:customerId,
+            email,
+            email_normalized:email,
+            source:'papoai_flow',
+            is_primary:true,
+            evidence:{source:'papoai_flow',correlation_id:correlationId}
+          }).eq('id',existingEmail.data.id);
+          if(eq.error)throw eq.error;
+          emailSaved=true;
+        }
+      }else{
+        const eq=await sb.from('customer_emails').insert({
+          customer_id:customerId,
+          email,
+          email_normalized:email,
+          verification_status:'observed',
+          is_primary:true,
+          source:'papoai_flow',
+          evidence:{source:'papoai_flow',correlation_id:correlationId}
+        });
+        if(eq.error)throw eq.error;
+        emailSaved=true;
+      }
+    }
+
     const addressFields=['street','number','complement','neighborhood','city','state','postal_code','reference','google_maps_url'];
     const hasAddress=addressFields.some(key=>Boolean(parsed[key]));
     let addressSaved=false;
@@ -1063,6 +1138,8 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
       customer_created:created,
       address_saved:addressSaved,
       document_conflict:documentConflict,
+      email_saved:emailSaved,
+      exact_match_method:exactMatchMethod||null,
       identity_resolution:resolved.data
     });
 
@@ -1072,6 +1149,7 @@ async function handlePapoAiFlowCustomerWebhook(sb:any,req:Request,body:any,corre
       customer_id:customerId,
       customer_created:created,
       address_saved:addressSaved,
+      email_saved:emailSaved,
       document_conflict:documentConflict,
       correlation_id:correlationId
     });
@@ -1496,7 +1574,7 @@ Deno.serve(async(req:Request)=>{
     if(!supplied)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
     const auth=await sb.rpc('verify_papoai_flow_customer_webhook_key_v1',{p_key:supplied});
     if(auth.error||auth.data!==true)return jsonResponse({ok:false,error:'unauthorized',correlation_id:correlationId},401);
-    return await handlePapoAiOutboundProbe(sb,body,correlationId);
+    return await handlePapoAiOutboundProbe(sb,req,body,correlationId);
   }
 
   const flowCustomerMode=
