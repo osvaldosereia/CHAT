@@ -257,7 +257,7 @@ def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
         runner.close(wait=True)
 
 
-def test_physical_nozzle_confirmation_is_required_again_after_job_or_profile_change(qapp, tmp_path):
+def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_change(qapp, tmp_path, monkeypatch):
     profiles = (
         PrinterProfile(
             printer_id="Bambu Lab A1 mini 0.4 nozzle",
@@ -294,12 +294,22 @@ def test_physical_nozzle_confirmation_is_required_again_after_job_or_profile_cha
 
     assert window.nozzle_confirm.isEnabled()
     assert not window.nozzle_confirm.isChecked()
+    assert not window.material_plate_confirm.isChecked()
+    assert "Generic PLA @BBL A1M" in window.material_plate_confirm.text()
+    assert "Textured PEI Plate" in window.material_plate_confirm.text()
     assert not window.analyze_button.isEnabled()
+    submitted = []
+    monkeypatch.setattr(window, "_submit", lambda *args: submitted.append(args))
     window.nozzle_confirm.setChecked(True)
+    window._analyze()
+    assert submitted == []
+    assert not window.analyze_button.isEnabled()
+    window.material_plate_confirm.setChecked(True)
     assert window.analyze_button.isEnabled()
 
     window.profile_combo.setCurrentIndex(1)
     assert not window.nozzle_confirm.isChecked()
+    assert not window.material_plate_confirm.isChecked()
     assert not window.analyze_button.isEnabled()
 
     second_job = JobRecord(
@@ -310,8 +320,10 @@ def test_physical_nozzle_confirmation_is_required_again_after_job_or_profile_cha
         state=JobState.NEEDS_REVIEW,
     )
     window.nozzle_confirm.setChecked(True)
+    window.material_plate_confirm.setChecked(True)
     window._job_created(second_job)
     assert not window.nozzle_confirm.isChecked()
+    assert not window.material_plate_confirm.isChecked()
     assert not window.analyze_button.isEnabled()
 
     window.close()
