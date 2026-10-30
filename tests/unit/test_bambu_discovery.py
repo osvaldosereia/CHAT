@@ -181,3 +181,29 @@ def test_windows_probe_passes_create_no_window_to_version_and_help(tmp_path, mon
 
     assert result.cli_available is True
     assert [call[1]["creationflags"] for call in calls] == [no_console, no_console]
+
+
+
+def test_windows_file_metadata_fills_missing_version_without_claiming_cli(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append(command[-1])
+        return CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("bambuprep.bambu.discovery.subprocess.run", fake_run)
+    monkeypatch.setattr(
+        "bambuprep.bambu.discovery._windows_file_version",
+        lambda path: "2.8.2.61",
+        raising=False,
+    )
+
+    result = probe_studio(executable)
+
+    assert result.version == "2.8.2.61"
+    assert result.cli_available is False
+    assert result.capabilities == frozenset()
+    assert "captured stdout/stderr" in result.message.lower()
+    assert calls == ["--version", "--help"]
