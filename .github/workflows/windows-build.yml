@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/windows-build.yml"
       - "pyproject.toml"
+      - "pysidedeploy.spec"
       - "src/**"
   workflow_dispatch:
 
@@ -65,9 +66,7 @@ jobs:
             throw "dumpbin.exe is unavailable after initializing Visual Studio."
           }
 
-          pyside6-deploy src/bambuprep/__main__.py --init --force
-          if ($LASTEXITCODE -ne 0) { throw "Could not initialize standalone deployment settings." }
-          pyside6-deploy src/bambuprep/__main__.py --force --mode standalone
+          pyside6-deploy -c pysidedeploy.spec --force --mode standalone
           if ($LASTEXITCODE -ne 0) { throw "The standalone application build failed." }
 
           $bundle = Join-Path $env:GITHUB_WORKSPACE "dist\BambuPrep.dist"

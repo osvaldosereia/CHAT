@@ -1,18 +1,22 @@
+from configparser import ConfigParser
 from pathlib import Path
-import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_pyproject_declares_standalone_windows_entrypoint():
-    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+def test_deployment_spec_selects_standalone_entrypoint_and_noninteractive_downloads():
+    config = ConfigParser()
+    assert config.read(ROOT / "pysidedeploy.spec", encoding="utf-8")
 
-    deploy = project["tool"]["pyside6"]["deploy"]
-    assert deploy["title"] == "BambuPrep"
-    assert deploy["input_file"] == "src/bambuprep/__main__.py"
-    assert deploy["exec_directory"] == "dist"
-    assert deploy["mode"] == "standalone"
+    app = config["app"]
+    nuitka = config["nuitka"]
+    assert app["title"] == "BambuPrep"
+    assert app["input_file"] == "src/bambuprep/desktop_entry.py"
+    assert app["project_file"] == "pyproject.toml"
+    assert app["exec_directory"] == "dist"
+    assert nuitka["mode"] == "standalone"
+    assert nuitka["extra_args"] == "--assume-yes-for-downloads"
 
 
 def test_windows_build_check_does_not_publish_or_use_secrets():
@@ -20,7 +24,7 @@ def test_windows_build_check_does_not_publish_or_use_secrets():
     workflow = workflow_path.read_text(encoding="utf-8")
 
     assert "runs-on: windows-latest" in workflow
-    assert "pyside6-deploy" in workflow
+    assert "pyside6-deploy -c pysidedeploy.spec --force --mode standalone" in workflow
     assert "vcvars64.bat" in workflow
     assert "dumpbin.exe" in workflow
     assert "ilammy/msvc-dev-cmd@" not in workflow

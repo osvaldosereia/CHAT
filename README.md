@@ -7,7 +7,7 @@ Leia o [guia do protótipo local](docs/user-guide.md) para configurar e usar a a
 O diagnóstico de CLI pode ser executado sem interface ou impressão:
 
 ```powershell
-python tools/bambu_cli_probe.py --executable "C:\\Program Files\\Bambu Studio\\bambu-studio.exe"
+python tools/bambu_cli_probe.py --executable "C:\Program Files\Bambu Studio\bambu-studio.exe"
 ```
 
 Um resultado positivo apenas descreve opções observadas na ajuda local. A compatibilidade de fatiamento só poderá ser declarada após a prova manual documentada em `docs/operations/windows-cli-proof.md`.
