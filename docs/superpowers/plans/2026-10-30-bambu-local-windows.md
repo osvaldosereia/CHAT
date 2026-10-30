@@ -126,12 +126,12 @@
 - As vistas são renderizadas localmente usando Matplotlib Agg. Acima de 50.000 faces, reduzir somente uma cópia visual com Trimesh simplify_quadric_decimation(face_count=50_000), usando fast-simplification; abaixo disso, usar a malha original. Os números do relatório vêm sempre da malha original, e as vistas devem indicar quando foram simplificadas.
 - Candidatos de orientação devem incluir a rotação escolhida e os indicadores usados para ordená-la; não alegar que uma heurística garante sucesso físico.
 
-- [ ] Escrever testes para STL ASCII e binário equivalentes, STL vazio/truncado, hash e bytes de origem preservados, cubo fechado, cubo aberto, múltiplas conchas, facetas degeneradas e escala suspeita.
-- [ ] Escrever teste para o reparo produzir arquivo separado e trilha de operação/hash/medidas antes e depois; entrada original nunca muda.
-- [ ] Escrever teste para renderizar as quatro vistas requeridas em PNG não vazio e associá-las ao relatório correto.
-- [ ] Rodar python -m pytest tests/unit/test_stl_loader.py tests/unit/test_mesh_analysis.py tests/unit/test_mesh_repair.py tests/unit/test_mesh_render.py -v.
-- [ ] Implementar leitura com Trimesh, métricas determinísticas, diagnóstico de balanço/contato e candidatos de orientação. Valores que dependam de estimativa devem aparecer identificados como estimativas.
-- [ ] Se o arquivo exceder limite configurável de tamanho/memória, encerrar a análise com mensagem acionável e preservar o original; não travar a interface.
+- [x] Escrever testes para STL ASCII e binário equivalentes, STL vazio/truncado, hash e bytes de origem preservados, cubo fechado, cubo aberto, múltiplas conchas, facetas degeneradas e escala suspeita.
+- [x] Escrever teste para o reparo produzir arquivo separado e trilha de operação/hash/medidas antes e depois; entrada original nunca muda.
+- [x] Escrever teste para renderizar as quatro vistas requeridas em PNG não vazio e associá-las ao relatório correto.
+- [x] Rodar python -m pytest tests/unit/test_stl_loader.py tests/unit/test_mesh_analysis.py tests/unit/test_mesh_repair.py tests/unit/test_mesh_render.py -v.
+- [x] Implementar leitura com Trimesh, métricas determinísticas, diagnóstico de balanço/contato e candidatos de orientação. Valores que dependam de estimativa devem aparecer identificados como estimativas.
+- [x] Se o arquivo exceder limite configurável de tamanho/memória, encerrar a análise com mensagem acionável e preservar o original; não travar a interface.
 - [ ] Validar localmente o STL Sentinel Busts fornecido quando ele estiver disponível no Windows. Não copiar esse arquivo para GitHub, fixtures ou logs.
 
 ## Tarefa 4: recomendação OpenAI com consentimento e limites estritos
