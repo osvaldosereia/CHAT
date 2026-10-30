@@ -35,6 +35,13 @@ class SettingsDialog(QDialog):
         self.studio_button.clicked.connect(self._choose_studio)
         form.addRow(self.studio_button)
 
+        self.output_directory_status = QLabel(self)
+        self.output_directory_status.setWordWrap(True)
+        form.addRow("Pasta de saída", self.output_directory_status)
+        self.output_directory_button = QPushButton("Escolher pasta de saída…", self)
+        self.output_directory_button.clicked.connect(self._choose_output_directory)
+        form.addRow(self.output_directory_button)
+
         self.key_status = QLabel(self)
         form.addRow("Chave OpenAI", self.key_status)
         self.key_input = QLineEdit(self)
@@ -70,7 +77,7 @@ class SettingsDialog(QDialog):
 
         self.output_note = QLabel(
             "A saída de fatiamento/3MF não está habilitada enquanto a integração real com o Bambu Studio "
-            "não for validada; nenhuma pasta de saída é usada por enquanto.",
+            "não for validada. A pasta escolhida não é usada enquanto essa integração estiver pendente.",
             self,
         )
         self.output_note.setWordWrap(True)
@@ -89,6 +96,7 @@ class SettingsDialog(QDialog):
         layout.addLayout(buttons)
         self._refresh_status()
         self._refresh_studio_status()
+        self._refresh_output_directory_status()
 
     def _choose_studio(self) -> None:
         loader = getattr(self._preferences, "load", None)
@@ -145,6 +153,60 @@ class SettingsDialog(QDialog):
             else "Nenhum executável local salvo."
         )
         self.studio_button.setEnabled(True)
+
+    def _choose_output_directory(self) -> None:
+        loader = getattr(self._preferences, "load", None)
+        saver = getattr(self._preferences, "save_output_directory", None)
+        if not callable(loader) or not callable(saver):
+            QMessageBox.warning(self, "BambuPrep", "As preferências locais da pasta de saída estão indisponíveis.")
+            return
+        try:
+            saved_path = getattr(loader(), "output_directory", None)
+        except Exception:
+            saved_path = None
+        selected = QFileDialog.getExistingDirectory(
+            self,
+            "Escolher pasta de saída",
+            str(saved_path) if saved_path is not None else "",
+        )
+        if not selected:
+            return
+        directory = Path(selected)
+        if not directory.is_absolute() or not directory.is_dir():
+            QMessageBox.warning(self, "BambuPrep", "Selecione uma pasta local existente para a saída.")
+            return
+        try:
+            saver(directory)
+        except Exception:
+            QMessageBox.warning(self, "BambuPrep", "A pasta de saída não pôde ser salva localmente.")
+            return
+        self._refresh_output_directory_status()
+        QMessageBox.information(
+            self,
+            "BambuPrep",
+            "A pasta preferida foi salva. Ela só será usada após a validação da integração com o Studio.",
+        )
+
+    def _refresh_output_directory_status(self) -> None:
+        loader = getattr(self._preferences, "load", None)
+        saver = getattr(self._preferences, "save_output_directory", None)
+        available = callable(loader) and callable(saver)
+        if not available:
+            self.output_directory_status.setText("Preferências locais indisponíveis.")
+            self.output_directory_button.setEnabled(False)
+            return
+        try:
+            directory = getattr(loader(), "output_directory", None)
+        except Exception:
+            self.output_directory_status.setText("A pasta de saída salva não pôde ser lida.")
+            self.output_directory_button.setEnabled(False)
+            return
+        self.output_directory_status.setText(
+            f"Pasta preferida: {directory}"
+            if directory is not None
+            else "Nenhuma pasta de saída selecionada."
+        )
+        self.output_directory_button.setEnabled(True)
 
     def _refresh_status(self) -> None:
         getter = getattr(self._key_store, "get", None)
