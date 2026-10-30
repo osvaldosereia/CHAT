@@ -550,3 +550,9 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
   4. Uma chamada real à OpenAI só pode ser validada se o usuário fornecer a própria chave localmente e der consentimento explícito para aquele trabalho; sem isso ficam os mocks e nenhuma chamada real.
   5. Antes de qualquer distribuição futura, decidir licença/modelo do BambuPrep e concluir revisão humana das obrigações e avisos das dependências. A instrução atual proíbe release/publicação.
 - Não se exige uma impressão física para a prova de integração e nenhuma impressão foi executada ou validada. Depois desta revisão não resta implementação segura independente da evidência/hardware/decisões humanas acima; a recorrência será encerrada.
+
+
+### Encerramento da recorrência
+
+- A automação BambuPrep com jawbone_id 6ae425e42b808191bdaf4f892611b197 foi desativada após a revisão final; automations_update confirmou sucesso e automations_peek confirmou is_enabled=false às 2026-10-30 18:13:48 UTC.
+- Não há código independente seguro pendente sem as ações humanas listadas acima. A recorrência horária foi encerrada. Para retomá-la, o usuário precisa solicitar nova execução depois de fornecer a evidência local do Windows/Bambu Studio ou outros itens aplicáveis.
