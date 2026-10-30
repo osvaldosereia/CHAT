@@ -1,8 +1,11 @@
+import ctypes
 from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
+from types import SimpleNamespace
 
 import pytest
 
+from bambuprep.bambu import discovery
 from bambuprep.bambu.discovery import _format_fixed_file_version, probe_studio
 
 
