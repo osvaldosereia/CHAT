@@ -20,7 +20,7 @@
 - O Bambu Studio instalado localmente é o fatiador; não usar APIs privadas/reversas da Bambu nem iniciar impressão automaticamente.
 - Só marcar slicer_verified depois de um fatiamento local válido, inspeção automatizada do 3MF e revisão/confirmação explícita do usuário no Bambu Studio.
 - Guardar configuração, SQLite, logs e temporários em %LOCALAPPDATA%/BambuPrep; resultados ficam no destino escolhido pelo usuário.
-- Não armazenar chave OpenAI em arquivo, SQLite, repositório ou build. Usar Windows Credential Manager e explicar que a API é cobrada separadamente da assinatura ChatGPT.
+- Não armazenar chave OpenAI em arquivo, SQLite, repositório ou build. Usar Windows Credential Locker e explicar que a API é cobrada separadamente da assinatura ChatGPT.
 - GitHub guarda código, documentação e builds; GitHub Actions não recebe STL/3MF privados nem chaves de API para processar trabalhos.
 - Não alterar geometria para adivinhar a intenção do desenho. Reparos simples só em cópia, com relatório antes/depois; casos ambíguos exigem revisão.
 - Revisar licenças e avisos das dependências PySide6 antes de publicar um build distribuível.
@@ -42,7 +42,7 @@
 - src/bambuprep/config.py — diretórios e preferências locais.
 - src/bambuprep/storage/database.py — criação/migração do SQLite.
 - src/bambuprep/storage/jobs.py — leitura e gravação do histórico.
-- src/bambuprep/security/api_key_store.py — interface e integração com Windows Credential Manager.
+- src/bambuprep/security/api_key_store.py — interface e integração com Windows Credential Locker.
 - src/bambuprep/mesh/loader.py — leitura segura e hash do STL.
 - src/bambuprep/mesh/analyzer.py — medições, diagnósticos e candidatos de orientação.
 - src/bambuprep/mesh/repair.py — reparos simples somente em cópia auditada.
@@ -100,12 +100,12 @@
 - PrinterSelection(printer_id: str, nozzle_mm: float, filament_id: str, plate_id: str).
 - JobRecord(id: str, created_at: datetime, source_path: Path, source_sha256: str, state: JobState, report_json: str | None, output_path: Path | None).
 - JobRepository.create_job(source_path: Path, source_sha256: str) -> JobRecord; JobRepository.transition(job_id: str, expected: JobState, target: JobState, detail: str | None = None) -> JobRecord.
-- ApiKeyStore.save(key: str) -> None; ApiKeyStore.get() -> str | None; ApiKeyStore.delete() -> None. Implementação Windows falha de forma segura se Credential Manager não estiver disponível; nunca usa arquivo como fallback.
+- ApiKeyStore.save(key: str) -> None; ApiKeyStore.get() -> str | None; ApiKeyStore.delete() -> None. Implementação Windows falha de forma segura se Credential Locker não estiver disponível; nunca usa arquivo como fallback.
 
 - [ ] Escrever testes para transições permitidas/proibidas, persistência após reiniciar a conexão SQLite, limpeza do histórico e isolamento do segredo.
 - [ ] Rodar python -m pytest tests/unit/test_job_transitions.py tests/unit/test_local_storage.py tests/unit/test_api_key_store.py -v.
 - [ ] Implementar caminhos padrão sob %LOCALAPPDATA%/BambuPrep, migração versionada de SQLite e repositório de histórico.
-- [ ] Implementar armazenamento de chave usando Windows Credential Manager por meio de keyring; injetar a interface nos serviços para que testes não precisem de credenciais reais.
+- [ ] Implementar armazenamento de chave usando Windows Credential Locker por meio de keyring; injetar a interface nos serviços para que testes não precisem de credenciais reais.
 - [ ] Confirmar que o banco/logs não recebem chave OpenAI nem o conteúdo do STL.
 
 ## Tarefa 3: ingestão, análise geométrica e vistas
