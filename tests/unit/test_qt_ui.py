@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QLineEdit
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
 from bambuprep.domain.models import JobRecord, JobState
 from bambuprep.mesh.analyzer import MeshReport
+from bambuprep.recommendations.openai_client import CONSENT_NOTICE
 from bambuprep.ui.main_window import BambuPrepMainWindow
 from bambuprep.ui.settings_dialog import SettingsDialog
 from bambuprep.workflow.runner import WorkflowTaskRunner
@@ -135,9 +136,11 @@ def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmati
     )
     answers = iter((QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No))
     prompt_count = []
+    prompt_texts = []
 
     def answer_prompt(*args):
         prompt_count.append(True)
+        prompt_texts.append(args[2])
         return next(answers)
 
     monkeypatch.setattr(QMessageBox, "question", answer_prompt)
@@ -153,6 +156,7 @@ def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmati
     window._recommend()
 
     assert len(prompt_count) == 3
+    assert all(CONSENT_NOTICE in text and "Permitir este envio agora?" in text for text in prompt_texts)
     assert workflow.calls == [("job-1", True)]
     poll.stop()
     window.close()
