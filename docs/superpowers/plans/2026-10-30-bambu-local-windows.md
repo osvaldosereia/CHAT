@@ -144,16 +144,18 @@
 
 **Interfaces:**
 - Recommendation(orientation_id: str, support_enabled: bool, support_option: str | None, adhesion_option: str, confidence: float, rationale: list[str], evidence_refs: list[str]).
-- request_recommendation(report: MeshReport, images: dict[str, bytes], selection: PrinterSelection, consent: bool, key_store: ApiKeyStore, client: OpenAIClient) -> Recommendation.
+- request_recommendation(report: MeshReport, images: dict[str, bytes], selection: PrinterSelection, consent: bool, key_store: ApiKeyStore, client: OpenAIClient, *, profile_options: RecommendationProfileOptions | None = None) -> Recommendation. Sem opções extraídas do catálogo local instalado, o serviço falha fechado.
+- OpenAIClient.create_response(*, payload: Mapping[str, object], api_key: str) envia a requisição Responses API; a chave é usada apenas no cabeçalho de autenticação.
 - O aplicativo fornece à IA somente candidatos de orientação já medidos e opções extraídas dos perfis instalados. A IA escolhe/justifica opções; não fornece vértices, código executável, G-code ou valores livres de perfil.
 - Validar todo campo desconhecido, enum, faixa de confiança, referência de evidência e compatibilidade. Resposta inválida é rejeitada e mantém o relatório local.
 
-- [ ] Escrever testes garantindo que sem consentimento não há chamada de rede, e que path, nome local e bytes do STL nunca aparecem no payload.
-- [ ] Escrever testes para chave ausente, falha de rede, JSON/schema inválido, enum desconhecido, orientação não fornecida e perfil incompatível.
-- [ ] Rodar python -m pytest tests/unit/test_recommendation_schema.py tests/unit/test_openai_privacy.py tests/unit/test_recommendation_validation.py -v.
-- [ ] Implementar cliente Responses API com saída estruturada, timeout, erros apresentados como indisponibilidade de recomendação e nenhuma perda do relatório local.
-- [ ] Solicitar consentimento antes da primeira chamada, informar que imagens renderizadas identificam o formato da peça e explicar cobrança separada da API.
-- [ ] Nunca enviar o STL bruto, caminho, nome de arquivo, histórico local ou segredo OpenAI.
+- [x] Escrever testes garantindo que sem consentimento não há leitura da chave nem chamada de rede, e que caminho, nome local e bytes do STL nunca aparecem no corpo do payload.
+- [x] Escrever testes para chave ausente, falha de rede, JSON/schema inválido, enum desconhecido, orientação não fornecida e perfil incompatível.
+- [x] Rodar python -m pytest tests/unit/test_recommendation_schema.py tests/unit/test_openai_privacy.py tests/unit/test_recommendation_validation.py -v.
+- [x] Implementar cliente Responses API com saída estruturada estrita, timeout limitado, erros sanitizados como indisponibilidade da recomendação e preservação do relatório local.
+- [x] Bloquear cada chamada sem consentimento explícito por trabalho e fornecer texto de consentimento que explica o envio de vistas renderizadas e a cobrança separada da API.
+- [ ] Exibir esse texto na interface e exigir confirmação explícita nova para cada trabalho antes de iniciar a chamada.
+- [x] Nunca incluir o STL bruto, caminho, nome de arquivo, histórico local ou chave OpenAI no corpo do payload ou em logs; usar a chave apenas no cabeçalho Authorization da OpenAI.
 
 ## Tarefa 5: perfis oficiais, fatiamento e projeto 3MF
 

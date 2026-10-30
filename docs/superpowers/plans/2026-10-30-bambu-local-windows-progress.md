@@ -3,7 +3,8 @@
 ## Estado atual — 2026-10-30
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
-- HEAD lido antes desta rodada: `3402943aa961ad258c03ca9006ade0a224f03954` (`docs: align BambuPrep ledger with verified checkpoints`)
+- HEAD anotado no ledger anterior: `3402943aa961ad258c03ca9006ade0a224f03954` (`docs: align BambuPrep ledger with verified checkpoints`).
+- HEAD remoto verificado ao iniciar esta rodada: `ea19bfbea3c60d7e3fad3afcc92a9764867a5135` (`docs: record STL analysis checkpoint and limits`).
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item ainda bloqueado: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. Diagnóstico, código e testes simulados já foram concluídos.
 - Histórico/ledger anterior: o arquivo ainda não existia na branch.
@@ -63,6 +64,41 @@ Ambiente da rodada: Linux, Python 3.12.14; não é Windows e não possui Bambu S
 - Sintaxe: `cd bambuprep-local && python -m compileall -q src tools tests` — exit 0.
 - Simplificação real local: Trimesh 4.12.2 reduziu uma esfera sintética de 5.120 para 500 faces; a malha original permaneceu byte/geometricamente inalterada.
 - Limitações: não foram calculadas espessuras de paredes nem interseções próprias de forma exaustiva. O STL Sentinel, Bambu Studio e Windows do usuário não estão disponíveis; nenhuma prova real de referência ou fatiamento foi feita.
+
+## Tarefa 4 — recomendações OpenAI limitadas e consentidas
+
+- Criado `Recommendation` e `RecommendationProfileOptions`. O schema JSON estrito limita orientações às candidatas medidas, opções de suporte/aderência aos identificadores do catálogo instalado e referências a métricas/vistas efetivamente fornecidas.
+- Criado transporte síncrono Responses API com timeout, limites de 4 MiB por PNG, 12 MiB total e 1 MiB por resposta, `store=false`, schema estruturado, sem retries e sem logs do corpo/segredo.
+- A chamada exige `consent is True` antes de acessar o armazenamento de chave. Sem consentimento, perfil instalado, quatro imagens PNG, chave ou resposta válida, não chama a API ou falha de forma fechada sem descartar o relatório geométrico local.
+- O corpo da requisição inclui somente campos de configuração selecionados, métricas derivadas allowlisted, opções instaladas, referências de evidência e vistas PNG base64. Não inclui hash diretamente, caminho, nome do arquivo, bytes do STL, histórico ou chave. A chave entra apenas no cabeçalho HTTP Authorization e não é registrada.
+- Texto de consentimento em português informa que as quatro vistas podem revelar o formato da peça e que o uso da API tem cobrança separada do ChatGPT Plus. A confirmação na interface por trabalho continua pendente para a Tarefa 6.
+- Validação local rejeita campos extras, orientação não medida, enum/perfil incompatível, suporte contraditório, confiança fora de 0–1, justificativas inválidas e referências de evidência ausentes.
+- Nenhuma chamada real à OpenAI foi executada; testes usam cliente fake e `urlopen` mockado. Nenhuma chave foi usada.
+
+### Decisões registradas
+
+- Ruling: a assinatura recebe `profile_options` como argumento keyword-only opcional e falha se ausente — o schema precisa enumerar escolhas originadas do catálogo local; custo se estiver errado: o chamador deve obter e encaminhar opções do Bambu Studio antes de pedir recomendação.
+- Ruling: a chave API fica somente no cabeçalho Authorization, nunca no corpo JSON, logs ou GitHub — uma chamada autenticada precisa usar a chave; custo se estiver errado: o segredo ainda é transmitido ao serviço para autenticação, portanto a chave deve ser individual e revogável.
+- Ruling: modelo padrão `gpt-6-luna`, configurável no cliente — a documentação oficial atual o descreve como modelo de baixo custo para tarefas focadas e lista Responses, entrada de imagem e Structured Outputs; custo se qualidade/capacidade ou disponibilidade mudar: atualizar o modelo configurado antes de habilitar chamadas.
+
+### Comandos e resultados verificados
+
+Ambiente: Linux, Python 3.12.14, pytest 9.2.0; sem Windows, Studio, chave ou endpoint de rede usado.
+
+- `python -m pip install 'pytest>=8,<10'` — exit 0.
+- Primeira execução prescrita, antes de instalar dependências do projeto: coleta não iniciou porque Trimesh não estava instalado (exit 2); resolvido instalando o projeto em modo editável.
+- `python -m pip install -e '.[test]'` — exit 0; dependências existentes do projeto e extras de teste instalados.
+- RED da Tarefa 4: comando prescrito falhou na coleta porque `bambuprep.recommendations` ainda não existia (exit 2).
+- `python -m pytest tests/unit/test_recommendation_schema.py tests/unit/test_openai_privacy.py tests/unit/test_recommendation_validation.py -v` — 26 passed.
+- `python -m pytest -v` — 75 passed.
+- `python -m compileall -q src tools tests` — exit 0.
+- Cobertura de transporte: teste mockado verificou URL Responses, cabeçalho de autenticação, JSON compacto e timeout; não houve conexão de rede.
+
+Commit de código: `5804f78b456af1f69ed99f4dd799039360de5697` (`feat: add consented OpenAI recommendations`).
+
+## Próxima execução
+
+Avançar para a parte independente de perfis locais da Tarefa 5, usando apenas arquivos sintéticos e código/perfis oficiais como referência; não implementar nem declarar fatiamento/3MF verificado sem a prova real da Tarefa 1. Ligar o texto de consentimento a uma confirmação por trabalho na Tarefa 6 antes de permitir chamada real.
 
 ## Commits
 
