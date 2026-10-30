@@ -172,7 +172,10 @@
 - build_slice_plan(selection: PrinterSelection, recommendation: Recommendation, catalog: ProfileCatalog, probe: StudioProbe) -> SlicePlan; slice_project(input_path: Path, plan: SlicePlan, output_path: Path, executable: Path) -> SliceResult.
 - Executar o processo com lista de argumentos e shell=False. A sintaxe vem da prova do Studio instalado; não converter valores desconhecidos em opções parecidas.
 
-- [ ] Escrever testes para mapeamento de perfis, bico obrigatório por trabalho, opção incompatível rejeitada, argumentos seguros, timeout, código de saída diferente de zero, código zero sem arquivo e 3MF inválido.
+- [x] Escrever testes com fixtures JSON sintéticas para mapear as duas variantes do A1 mini, Generic PLA, processo padrão, placa e opções allowlisted; cobrir perfil obrigatório ausente/incompatível, caminho fora da pasta e ciclo de herança.
+- [x] Implementar `ProfileCatalog.load` como leitor local somente leitura; a verificação automatizada usa apenas fixtures sintéticas e não afirma compatibilidade com uma instalação Windows real.
+- [x] Rodar `python -m pytest tests/unit/test_profile_catalog.py -v` — 9 passed.
+- [ ] Escrever testes para seleção obrigatória do bico por trabalho, opção incompatível no SlicePlan, argumentos seguros, timeout, saída inválida e falha do CLI.
 - [ ] Escrever teste para validar a estrutura ZIP/3MF e metadados detectáveis antes de apresentar o arquivo como projeto configurado.
 - [ ] Escrever teste garantindo que nenhuma saída vira slicer_verified sem conclusão válida e confirmação explícita do usuário após abrir/revisar o 3MF no Bambu Studio.
 - [ ] Rodar python -m pytest tests/unit/test_profile_catalog.py tests/unit/test_slicer_cli.py tests/unit/test_project_3mf.py -v.

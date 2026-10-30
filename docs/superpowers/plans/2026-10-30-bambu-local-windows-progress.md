@@ -3,11 +3,11 @@
 ## Estado atual — 2026-10-30
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
-- HEAD anotado no ledger anterior: `3402943aa961ad258c03ca9006ade0a224f03954` (`docs: align BambuPrep ledger with verified checkpoints`).
-- HEAD remoto verificado ao iniciar esta rodada: `ea19bfbea3c60d7e3fad3afcc92a9764867a5135` (`docs: record STL analysis checkpoint and limits`).
+- HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
+- HEAD remoto verificado no início desta rodada: `beffdb87a9b17ebbb339f1c778af928f3fac67c3`; commit de código desta rodada até aqui: `b5d4e50e0905961ac4b4f9f36006f7a69a10a6dd`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
-- Primeiro item ainda bloqueado: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. Diagnóstico, código e testes simulados já foram concluídos.
-- Histórico/ledger anterior: o arquivo ainda não existia na branch.
+- Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
+- O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
 
 ## Concluído nesta rodada
 
@@ -96,15 +96,43 @@ Ambiente: Linux, Python 3.12.14, pytest 9.2.0; sem Windows, Studio, chave ou end
 
 Commit de código: `5804f78b456af1f69ed99f4dd799039360de5697` (`feat: add consented OpenAI recommendations`).
 
+## Tarefa 5 — catálogo local de perfis (parte independente)
+
+- Implementado `ProfileCatalog.load(studio_root)` em `src/bambuprep/bambu/profiles.py`. O leitor abre apenas `resources/profiles/BBL.json` e os arquivos JSON locais declarados nele; não executa o Studio nem acessa rede.
+- Mapeia o modelo A1 mini, exige variantes 0,2 mm e 0,4 mm, Generic PLA compatível por variante, perfil de processo padrão compatível com o mesmo bico e `default_bed_type`. Exporta somente IDs/opções do catálogo local por `RecommendationProfileOptions`.
+- Resolve `inherits` dos processos para derivar `support_type` e opções normalizadas de adesão. Rejeita arquivo ausente, inconsistência de tipo/nome, limites excessivos, caminhos relativos que escapem da pasta (incluindo symlinks), versão inválida e ciclos/pais ausentes na herança.
+- Testes usam fixtures JSON sintéticas pequenas; cobrem o mapeamento de ambos os bicos, Generic PLA, placa, perfil padrão, opções exportadas, defaults incompatíveis, dados necessários ausentes, traversal, symlink e ciclo de herança. Não foi lida uma instalação Bambu Studio do usuário.
+- Fontes públicas oficiais usadas apenas para orientar o formato: [manifesto BBL](https://github.com/bambulab/BambuStudio/blob/master/resources/profiles/BBL.json), [modelo A1 mini](https://github.com/bambulab/BambuStudio/blob/master/resources/profiles/BBL/machine/Bambu%20Lab%20A1%20mini.json), [perfil de processo comum](https://github.com/bambulab/BambuStudio/blob/master/resources/profiles/BBL/process/fdm_process_common.json). Isso não substitui a prova local Windows exigida pela Tarefa 1.
+- Nenhum STL/3MF privado, chave ou histórico foi incluído. Nenhuma chamada OpenAI foi feita.
+
+### Comandos e resultados desta parte
+
+Ambiente Linux, Python 3.12.14, pytest 9.2.0; sem Bambu Studio/Windows do usuário.
+
+- RED: `python -m pytest tests/unit/test_profile_catalog.py -v` — coleta falhou como esperado porque `bambuprep.bambu.profiles` ainda não existia (exit 2).
+- GREEN: `python -m pytest tests/unit/test_profile_catalog.py -v` — 9 passed.
+- Suíte: `python -m pytest -v` — 84 passed.
+- Sintaxe: `python -m compileall -q src tools tests` — exit 0.
+
+### Tentativa de habilitar testes Qt
+
+- `python -c "import PySide6; print(PySide6.__version__)"` — exit 1; PySide6 não está instalado neste ambiente.
+- `python -m pip install 'PySide6>=6.8,<7'` — tentativa interrompida após timeouts de conexão com `pypi.org`/`files.pythonhosted.org`; o pacote não foi instalado. Nenhuma interface/teste Qt foi mantido ou declarado verificado.
+- A confirmação visual por trabalho permanece pendente para a Tarefa 6; a barreira de serviço `consent is True` e os testes sem consentimento da Tarefa 4 seguem ativos.
+
+Commit de código: `b5d4e50e0905961ac4b4f9f36006f7a69a10a6dd` (`feat: read installed A1 mini profile catalog`).
+
 ## Próxima execução
 
-Avançar para a parte independente de perfis locais da Tarefa 5, usando apenas arquivos sintéticos e código/perfis oficiais como referência; não implementar nem declarar fatiamento/3MF verificado sem a prova real da Tarefa 1. Ligar o texto de consentimento a uma confirmação por trabalho na Tarefa 6 antes de permitir chamada real.
+Avançar para `WorkflowService` e as partes de interface que possam ser verificadas sem o runtime Qt. Manter a confirmação OpenAI por trabalho bloqueada até a interface ser integrada; nenhuma chamada real será feita sem chave e consentimento. Manter o gate de fatiamento/3MF fechado até a prova da Tarefa 1 em Windows real.
 
 ## Commits
 
 - Tarefa 1: `e0009136d3695beed890e9148e68d0db72a33ab7` (`feat: add Bambu Studio CLI discovery foundation`).
 - Tarefa 2: `262a130f821b6712492ed4980812ea7c6c89068f` (`feat: add local job storage and secure settings`).
 - Tarefa 3: `4b3abcb630aaad079b057c93b6461828eee9cb3a` (`feat: add local STL analysis and repair`).
+- Tarefa 4 código: `5804f78b456af1f69ed99f4dd799039360de5697` (`feat: add consented OpenAI recommendations`).
+- Tarefa 5 catálogo sintético: `b5d4e50e0905961ac4b4f9f36006f7a69a10a6dd` (`feat: read installed A1 mini profile catalog`).
 - Atualizações de plano/ledger seguem os commits de implementação.
 
 ## Bloqueios humanos indispensáveis
@@ -114,6 +142,4 @@ Avançar para a parte independente de perfis locais da Tarefa 5, usando apenas a
 3. Reabrir o 3MF no Bambu Studio e conferir Preview e perfis. Até essa confirmação, não declarar CLI compatível, fatiamento/3MF verificado nem `slicer_verified`.
 4. Fornecer chave OpenAI somente quando o fluxo de IA estiver implementado; até lá, usar mocks e não fazer chamadas de rede.
 
-## Próxima execução
 
-Avançar para Tarefa 4 (cliente de recomendação estruturada com consentimento estrito e testes por mocks). Não fazer chamadas OpenAI sem chave e consentimento explícito. Manter a prova Windows da Tarefa 1 e a validação do STL Sentinel pendentes.
