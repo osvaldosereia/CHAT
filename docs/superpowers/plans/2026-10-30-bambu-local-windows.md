@@ -155,7 +155,7 @@
 - [x] Rodar python -m pytest tests/unit/test_recommendation_schema.py tests/unit/test_openai_privacy.py tests/unit/test_recommendation_validation.py -v.
 - [x] Implementar cliente Responses API com saída estruturada estrita, timeout limitado, erros sanitizados como indisponibilidade da recomendação e preservação do relatório local.
 - [x] Bloquear cada chamada sem consentimento explícito por trabalho e fornecer texto de consentimento que explica o envio de vistas renderizadas e a cobrança separada da API.
-- [ ] Exibir esse texto na interface e exigir confirmação explícita nova para cada trabalho antes de iniciar a chamada.
+- [x] Exibir esse texto na interface e exigir confirmação explícita nova para cada trabalho antes de iniciar a chamada.
 - [x] Nunca incluir o STL bruto, caminho, nome de arquivo, histórico local ou chave OpenAI no corpo do payload ou em logs; usar a chave apenas no cabeçalho Authorization da OpenAI.
 
 ## Tarefa 5: perfis oficiais, fatiamento e projeto 3MF
@@ -211,10 +211,13 @@
 - [x] Expor `WorkflowService.delete_history` e testar que a limpeza de registros preserva os STL de origem.
 - [x] Implementar executor limitado `WorkflowTaskRunner`; as operações são submetidas a workers e devolvem `Future` para a interface observar sem bloquear.
 - [x] Rodar `python -m pytest tests/unit/test_workflow_runner.py -v` — 3 passed.
-- [ ] Integrar o executor à janela Qt, com atualização de widgets exclusivamente na thread principal.
+- [x] Integrar o executor à janela Qt, com atualização de widgets exclusivamente na thread principal.
 - [ ] Implementar janela de arrastar/selecionar STL, seleção explícita do bico, andamento, relatório e botões para abrir 3MF no Bambu Studio, confirmar revisão, apagar histórico e remover arquivos do aplicativo.
+- [x] Cobertura parcial verificada: aceitar um STL local existente por arrastar-e-soltar e rejeitar formatos remotos, múltiplos arquivos e outras extensões; revisão/abertura de 3MF e remoção de arquivos de saída seguem pendentes.
 - [ ] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
-- [ ] Implementar tela de configurações para Studio, chave OpenAI, consentimento, retenção e diretório de saída.
+- [x] A confirmação física do bico é exigida novamente após cada trabalho ou mudança de perfil; teste Qt verificado no CI Windows. Material/placa ainda não são seleções editáveis.
+- [x] Implementar tela de configurações para Studio, chave OpenAI, consentimento, retenção e diretório de saída.
+- [x] A pasta de saída é uma preferência local não secreta; a janela avisa que não será usada para gerar arquivos enquanto a integração do Studio não for validada.
 - [ ] Confirmar manualmente no Windows que operações longas mantêm a janela responsiva e que um usuário consegue concluir o fluxo sem consultar os logs.
 
 ## Tarefa 7: build Windows, documentação e release
@@ -229,9 +232,10 @@
 - O instalador/build não inclui STL, 3MF de usuário, chave OpenAI, histórico, logs de execução ou dados do Windows local.
 
 - [ ] Configurar GitHub Actions para instalar dependências bloqueadas, construir pacote standalone e publicar artefatos somente a partir de branch/tag de release autorizada.
+- [x] Dependências de teste/build usam `uv.lock` e `uv sync --locked`; a configuração foi verificada nos testes e o runner Windows completou a sincronização. Build e publicação seguem pendentes.
 - [ ] Rodar build em runner Windows limpo; confirmar ausência de chaves e arquivos de usuário no artefato.
 - [ ] Instalar/abrir o pacote em Windows 10 22H2 x64 e Windows 11 x64; verificar primeira configuração, análise local, erro sem API e abertura do 3MF no Studio.
-- [ ] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
+- [x] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
 - [ ] Revisar licenças/avisos de PySide6 e demais dependências antes de publicar; registrar a conclusão em docs/operations/release-checklist.md.
 
 ## Critérios de aceite
