@@ -118,3 +118,33 @@ def test_invalid_timeout_is_rejected_before_subprocess(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="timeout_seconds"):
         probe_studio(executable, timeout_seconds=0)
+
+
+def test_detects_profile_options_when_installed_help_uses_underscores(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+
+    def fake_run(command, **kwargs):
+        if command[-1] == "--version":
+            return CompletedProcess(command, 0, "Bambu Studio 2.8.2.61", "")
+        return CompletedProcess(
+            command,
+            0,
+            "Settings loaded with --load_settings and --load_filaments; "
+            "--orient --arrange --slice --export-3mf filename.3mf",
+            "",
+        )
+
+    monkeypatch.setattr("bambuprep.bambu.discovery.subprocess.run", fake_run)
+
+    result = probe_studio(executable)
+
+    assert result.cli_available is True
+    assert {
+        "machine_profiles",
+        "filament_profiles",
+        "orientation",
+        "arrangement",
+        "slicing",
+        "export_3mf",
+    } <= result.capabilities

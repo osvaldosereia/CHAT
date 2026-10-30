@@ -28,8 +28,8 @@ _REQUIRED_CAPABILITIES = frozenset(
     }
 )
 _CAPABILITY_PATTERNS = {
-    "machine_profiles": (r"--load-settings\b", r"--load-machine\b"),
-    "filament_profiles": (r"--load-filaments?\b",),
+    "machine_profiles": (r"--load[-_]settings\b", r"--load[-_]machine\b"),
+    "filament_profiles": (r"--load[-_]filaments?\b",),
     "orientation": (r"--orient\b",),
     "arrangement": (r"--arrange\b",),
     "slicing": (r"--slice\b",),
