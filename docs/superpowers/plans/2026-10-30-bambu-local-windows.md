@@ -6,7 +6,7 @@
 
 **Arquitetura:** aplicativo Python/PySide6. O núcleo mede e registra a malha localmente; OpenAI recebe somente métricas e imagens renderizadas após consentimento; o Bambu Studio instalado é a autoridade para perfis, fatiamento e exportação do 3MF. O usuário abre/revisa o projeto e continua responsável por iniciar a impressão.
 
-**Tecnologias:** Python, PySide6, Trimesh, NumPy, Matplotlib Agg para vistas estáticas, SQLite, Windows Credential Manager via keyring, OpenAI Responses API e CLI oficial do Bambu Studio.
+**Tecnologias:** Python, PySide6, Trimesh, NumPy, Matplotlib Agg e fast-simplification para vistas estáticas, SQLite, Windows Credential Locker pelo backend keyring, OpenAI Responses API e CLI oficial do Bambu Studio.
 
 **Especificação:** docs/superpowers/specs/2026-10-30-bambu-local-windows-design.md
 
@@ -18,7 +18,7 @@
 - O bico deve ser confirmado para cada trabalho; não presumir que o aplicativo detecta uma troca física.
 - O STL original é somente leitura. A OpenAI recebe, com consentimento, métricas selecionadas e imagens renderizadas, nunca o STL bruto.
 - O Bambu Studio instalado localmente é o fatiador; não usar APIs privadas/reversas da Bambu nem iniciar impressão automaticamente.
-- Só marcar slicer_verified depois de um fatiamento local válido, inspeção automatizada do 3MF e revisão/confirmacão explícita do usuário no Bambu Studio.
+- Só marcar slicer_verified depois de um fatiamento local válido, inspeção automatizada do 3MF e revisão/confirmação explícita do usuário no Bambu Studio.
 - Guardar configuração, SQLite, logs e temporários em %LOCALAPPDATA%/BambuPrep; resultados ficam no destino escolhido pelo usuário.
 - Não armazenar chave OpenAI em arquivo, SQLite, repositório ou build. Usar Windows Credential Manager e explicar que a API é cobrada separadamente da assinatura ChatGPT.
 - GitHub guarda código, documentação e builds; GitHub Actions não recebe STL/3MF privados nem chaves de API para processar trabalhos.
@@ -123,7 +123,7 @@
 - MeshReport(sha256: str, dimensions_mm: tuple[float, float, float], triangle_count: int, component_count: int, volume_mm3: float | None, watertight: bool, degenerate_faces: int, duplicate_faces: int, scale_warning: str | None, overhang_area_ratio: float, contact_area_estimate: float, orientation_candidates: list[OrientationCandidate], warnings: list[str]).
 - load_stl(path: Path) -> MeshDocument; analyze_mesh(document: MeshDocument, nozzle_mm: float) -> MeshReport; render_views(document: MeshDocument, report: MeshReport) -> dict[str, bytes]; repair_copy(document: MeshDocument, destination: Path, operation: str) -> RepairAudit.
 - STL não possui unidade confiável: interpretar as coordenadas como mm apenas para exibir medições e sinalizar dimensões implausíveis; nunca reescalar sem confirmação.
-- As vistas são renderizadas localmente usando Matplotlib Agg e podem ser reduzidas para exibição; os números do relatório vêm da malha original, não da malha visual reduzida.
+- As vistas são renderizadas localmente usando Matplotlib Agg. Acima de 50.000 faces, reduzir somente uma cópia visual com Trimesh simplify_quadric_decimation(face_count=50_000), usando fast-simplification; abaixo disso, usar a malha original. Os números do relatório vêm sempre da malha original, e as vistas devem indicar quando foram simplificadas.
 - Candidatos de orientação devem incluir a rotação escolhida e os indicadores usados para ordená-la; não alegar que uma heurística garante sucesso físico.
 
 - [ ] Escrever testes para STL ASCII e binário equivalentes, STL vazio/truncado, hash e bytes de origem preservados, cubo fechado, cubo aberto, múltiplas conchas, facetas degeneradas e escala suspeita.
@@ -239,3 +239,12 @@
 - Gate de integração: a prova real do CLI ocorre antes da implementação do fatiamento e condiciona sua ativação.
 - Dados sensíveis: o teste de privacidade e o workflow de build impedem envio de STL, 3MF privado e chave.
 - Testes descritos no plano são instruções para a fase de implementação; nenhum teste ou código de produto foi criado nesta etapa.
+
+
+## Referências técnicas usadas no plano
+
+- [keyring — documentação e backend Windows Credential Locker](https://keyring.readthedocs.io/en/stable/)
+- [Matplotlib — seleção de backend não interativo](https://matplotlib.org/stable/api/matplotlib_configuration_api.html)
+- [Trimesh — simplificação quadric decimation](https://trimesh.org/trimesh.html)
+- [Trimesh — instalação e dependência fast-simplification](https://trimesh.org/install.html)
+- [OpenAI — Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs)
