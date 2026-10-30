@@ -170,6 +170,12 @@ def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmati
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
     catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
     workflow = FakeWorkflow()
@@ -235,6 +241,12 @@ def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
     catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
     runner = WorkflowTaskRunner(max_workers=1)
@@ -272,6 +284,12 @@ def test_window_shows_indeterminate_progress_only_while_work_is_running(qapp):
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(
@@ -303,6 +321,12 @@ def test_report_shows_manual_studio_values_and_keeps_slicing_unverified(qapp):
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(
@@ -367,6 +391,12 @@ def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_chang
             compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
             support_options=("tree(auto)",),
             adhesion_options=("brim", "none"),
+
+            default_support_enabled=false,
+
+            default_support_option="tree(auto)",
+
+            default_adhesion_option="brim",
         ),
         PrinterProfile(
             printer_id="Bambu Lab A1 mini 0.2 nozzle",
@@ -377,6 +407,12 @@ def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_chang
             compatible_process_profile_ids=("0.12mm Fine @BBL A1M 0.2 nozzle",),
             support_options=("tree(auto)",),
             adhesion_options=("brim", "none"),
+
+            default_support_enabled=false,
+
+            default_support_option="tree(auto)",
+
+            default_adhesion_option="brim",
         ),
     )
     catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", profiles)
@@ -439,6 +475,12 @@ def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_pa
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
     catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
     workflow = FakeWorkflow()
@@ -500,6 +542,12 @@ def test_error_dialog_reports_persisted_state_and_recovery_action(qapp, tmp_path
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
     runner = WorkflowTaskRunner(max_workers=1)
     workflow = FakeWorkflow()
@@ -552,6 +600,12 @@ def _manual_studio_test_profile():
         compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
+
+        default_support_enabled=false,
+
+        default_support_option="tree(auto)",
+
+        default_adhesion_option="brim",
     )
 
 
