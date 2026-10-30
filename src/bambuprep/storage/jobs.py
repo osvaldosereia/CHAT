@@ -70,6 +70,42 @@ class JobRepository:
             updated = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return self._record_from_row(updated)
 
+    def finish_with_report(
+        self,
+        job_id: str,
+        expected: JobState,
+        target: JobState,
+        report_json: str,
+        detail: str | None = None,
+    ) -> JobRecord:
+        """Atomically persist a local report and its corresponding state transition."""
+        if not isinstance(report_json, str) or not report_json.strip():
+            raise ValueError("report_json must be a non-empty string")
+        if len(report_json.encode("utf-8")) > 512 * 1024:
+            raise ValueError("report_json exceeds the supported size limit")
+        with connect(self.database_path) as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            if row is None:
+                raise KeyError(f"Unknown job: {job_id}")
+            current = JobState(row["state"])
+            if current is not expected:
+                raise StateConflictError(
+                    f"Job {job_id} is {current.value}; expected {expected.value}"
+                )
+            validate_transition(current, target)
+            changed_at = datetime.now(timezone.utc)
+            connection.execute(
+                "UPDATE jobs SET state = ?, report_json = ? WHERE id = ?",
+                (target.value, report_json, job_id),
+            )
+            connection.execute(
+                "INSERT INTO job_events(job_id, created_at, target_state, detail) VALUES (?, ?, ?, ?)",
+                (job_id, changed_at.isoformat(), target.value, detail),
+            )
+            updated = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        return self._record_from_row(updated)
+
     def get_job(self, job_id: str) -> JobRecord:
         with connect(self.database_path) as connection:
             row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
