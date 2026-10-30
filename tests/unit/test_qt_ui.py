@@ -155,6 +155,10 @@ class FakeWorkflow:
         self.calls.append((job_id, consent))
         return None
 
+    def delete_history(self):
+        self.calls.append(("delete_history",))
+        return 2
+
 
 def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmation(qapp, monkeypatch):
     profile = PrinterProfile(
@@ -533,5 +537,85 @@ def test_error_dialog_reports_persisted_state_and_recovery_action(qapp, tmp_path
     assert dialogs and "bloqueado (blocked)" in dialogs[0]
     assert "selecione novamente um STL válido" in dialogs[0]
     assert "synthetic local failure" in dialogs[0]
+    window.close()
+    runner.close(wait=True)
+
+
+
+def _manual_studio_test_profile():
+    return PrinterProfile(
+        printer_id="Bambu Lab A1 mini 0.4 nozzle",
+        nozzle_mm=0.4,
+        generic_pla_profile_id="Generic PLA @BBL A1M",
+        default_process_profile_id="0.20mm Standard @BBL A1M",
+        plate_id="Textured PEI Plate",
+        compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
+        support_options=("tree(auto)",),
+        adhesion_options=("brim", "none"),
+    )
+
+
+def test_manual_studio_button_opens_original_stl_without_marking_slice_verified(
+    qapp, tmp_path, monkeypatch
+):
+    from bambuprep.domain.models import JobRecord
+    from datetime import datetime, timezone
+
+    executable = tmp_path / "Bambu Studio" / "bambu-studio.exe"
+    executable.parent.mkdir()
+    executable.write_bytes(b"synthetic executable placeholder")
+    source = tmp_path / "private source.stl"
+    source.write_bytes(b"solid local\\nendsolid local\\n")
+    workflow = FakeWorkflow()
+    runner = WorkflowTaskRunner(max_workers=1)
+    window = BambuPrepMainWindow(
+        workflow,
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (_manual_studio_test_profile(),)),
+        runner,
+        MemoryKeyStore(),
+        MemoryPreferences(executable),
+    )
+    window._job = JobRecord(
+        id="job-manual",
+        created_at=datetime.now(timezone.utc),
+        source_path=source,
+        source_sha256="a" * 64,
+        state=JobState.UPLOADED,
+    )
+    opened = []
+    monkeypatch.setattr(
+        "bambuprep.ui.main_window.open_stl_in_studio",
+        lambda studio, stl: opened.append((studio, stl)),
+    )
+    window._refresh_controls()
+
+    assert window.open_studio_button.isEnabled()
+    window.open_studio_button.click()
+
+    assert opened == [(executable, source)]
+    assert window._job.state is JobState.UPLOADED
+    assert "não executou fatiamento" in window.status_label.text().lower()
+    assert "3mf" in window.status_label.text().lower()
+    window.close()
+    runner.close(wait=True)
+
+
+def test_delete_history_is_available_before_selecting_a_new_stl(qapp, monkeypatch):
+    workflow = FakeWorkflow()
+    runner = WorkflowTaskRunner(max_workers=1)
+    window = BambuPrepMainWindow(
+        workflow,
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (_manual_studio_test_profile(),)),
+        runner,
+        MemoryKeyStore(),
+    )
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+
+    assert window.delete_history_button.isEnabled()
+    window.delete_history_button.click()
+
+    assert workflow.calls == [("delete_history",)]
+    assert "2 trabalhos" in window.status_label.text()
+    assert window._job is None
     window.close()
     runner.close(wait=True)
