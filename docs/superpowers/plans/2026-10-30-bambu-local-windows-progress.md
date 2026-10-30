@@ -811,3 +811,11 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 - Como há programação independente ainda possível nas Tarefas 5–7, a automação anteriormente pausada foi reabilitada após o usuário compartilhar o resultado novo do probe. Isso retoma o pedido anterior de execução horária; a próxima resposta do usuário ainda é necessária para obter o código de falha específico do catálogo local.
 - Estado confirmado por `automations_peek`: `is_enabled: true`, fuso `America/Campo_Grande`, agenda `DTSTART;TZID=America/Campo_Grande:20261030T175500` com `RRULE:FREQ=HOURLY;INTERVAL=1`. O relógio local do ambiente foi `2026-10-30 16:54:39 -04`; a agenda foi reancorada para uma hora depois.
 - O serviço retornou `next_run_time: null` mesmo com agenda horária e tarefa habilitada; por isso, o ledger não declara um horário de execução efetivamente agendado. Confirmar em uma execução posterior. Ao restarem só ações humanas, desabilitar novamente a recorrência conforme instrução.
+
+
+## Revisão após retomada horária — 2026-10-30
+
+- Revisão do branch antes desta nota: compare `8e1fffab82a30b7e63f3f63cbd3ad112b4cc1b98..codex/bambu-a1-mini-foundation-20261029` informa 6 commits adiante e 0 atrás; os cinco arquivos tocados são o ledger, a prova operacional, `profiles.py`, seu teste unitário e `bambu_cli_probe.py`. Nenhum arquivo privado foi incluído.
+- O plano continua idêntico (blob `a9529ac6cc780a0e8a763dd6ff70773aec1a0793`); nenhum checkbox foi alterado. Permanecem 14 itens não concluídos, incluindo gates que dependem do PC Windows/Studio e código T5–T7.
+- A consulta de status combinado ao commit `001b7e49c55eea7f93e1c54508b8603a15b7546f` retornou `statuses: []`; isso não é evidência de CI verde. Os testes documentados foram executados localmente na cópia temporária e os limites estão descritos acima.
+- A automação segue habilitada com RRULE horária no fuso `America/Campo_Grande`; a API ainda retorna `next_run_time: null`, então não há horário de próxima execução confirmado.
