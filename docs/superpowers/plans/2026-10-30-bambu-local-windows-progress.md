@@ -851,3 +851,11 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 - Esse teste é sintético em Linux e não confirma perfis instalados, disponibilidade do CLI, fatiamento ou 3MF Bambu. A prova Tarefa 1 continua incompleta; nenhum checkbox do plano foi alterado. Esperar nova execução local do probe atualizado. A revisão ainda não confirmou CLI capturado, STL Sentinel, slice, 3MF aberto/revisado ou impressão.
 - O build standalone anterior, run `41129328638` no commit `4f644ffa`, ainda constava `in_progress` na consulta às 21:13 UTC; nenhum resultado foi inventado. O status CI do novo commit ainda não foi observado nesta atualização.
 - Nenhuma chamada OpenAI real ocorreu. Nenhum arquivo privado foi copiado ou enviado.
+
+
+## Verificação Windows após correção do catálogo — 2026-10-30
+
+- Workflow Windows Tests do commit `e3db03371a01c0b17734254c2894a377db394a68`, run `41132208717`, concluiu success. O job executou `uv sync --locked --extra test` e `uv run --locked --extra test python -m pytest -v`: **191 passed, 1 warning em 20.36s**. O aviso esperado é o fixture sintético com nome ZIP duplicado; runner Windows Server 2025, não a instalação Windows cliente do usuário.
+- O workflow standalone do mesmo commit, run `41132208745`, estava `in_progress` na última consulta. Nenhum resultado de build foi presumido; aguardar ou registrar conclusão/falha em rodada posterior.
+- A correção foi verificada na suíte Windows; a captura do usuário ainda corresponde ao commit anterior `ac8396f8`. O novo catálogo precisa ser executado no PC para confirmar se reconhece os perfis instalados. `cli_available` continua não verificado, pois a ajuda aparece no console sem texto capturado. A prova da Tarefa 1 permanece pendente; slice, exportação/revisão de 3MF e confirmação física também.
+- O branch não alterou `main`, plano ou checkboxes. Nenhum arquivo privado, STL/3MF, imagem anexada, chave ou histórico local foi adicionado; nenhuma chamada real à OpenAI ocorreu.
