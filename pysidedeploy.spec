@@ -6,4 +6,4 @@ exec_directory = dist
 
 [nuitka]
 mode = standalone
-extra_args = --assume-yes-for-downloads
+extra_args = --assume-yes-for-downloads --output-filename=BambuPrep.exe
