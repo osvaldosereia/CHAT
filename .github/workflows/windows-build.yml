@@ -83,12 +83,5 @@ jobs:
             throw "Standalone executable is empty."
           }
 
-          $privateExtensions = @(".stl", ".3mf", ".sqlite", ".sqlite3", ".db", ".log")
-          $privateFiles = Get-ChildItem -LiteralPath $bundle -File -Recurse | Where-Object {
-            $privateExtensions -contains $_.Extension.ToLowerInvariant()
-          }
-          if ($privateFiles) {
-            $privateFiles | Select-Object FullName
-            throw "Standalone output contains model or local-history files."
-          }
-          Write-Output "Standalone bundle exists and contains no STL, 3MF, database, or log files."
+          uv run --locked --extra build python tools/audit_standalone_bundle.py --bundle $bundle
+          if ($LASTEXITCODE -ne 0) { throw "Standalone bundle audit failed." }

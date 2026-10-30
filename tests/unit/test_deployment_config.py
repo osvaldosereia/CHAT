@@ -30,6 +30,7 @@ def test_windows_build_check_does_not_publish_or_use_secrets():
     assert "dumpbin.exe" in workflow
     assert "ilammy/msvc-dev-cmd@" not in workflow
     assert "permissions:\n  contents: read" in workflow
+    assert "tools/audit_standalone_bundle.py --bundle $bundle" in workflow
     assert "upload-artifact" not in workflow.lower()
     assert "${{ secrets." not in workflow
 
