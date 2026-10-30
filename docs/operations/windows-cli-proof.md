@@ -38,6 +38,8 @@ O diagnóstico chama somente `--version` e `--help`, sem `shell=True` e sem inic
 
 
 ## Estado do probe no branch atual (2026-10-30)
+A captura adicional do PowerShell ainda exibe JSON sem `profile_catalog`, portanto foi gerada por uma cópia anterior do probe; não substitui a execução da revisão atual. O código atual consegue ler strings ProductVersion/FileVersion, mas somente testes Win32 simulados foram verificados. Após atualizar a pasta `tools`, confira `profile_catalog` no JSON. Se `version` continuar nula, consulte localmente `(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` e compartilhe apenas esses campos.
+
 
 O código atual tenta obter ProductVersion/FileVersion do recurso PE do executável no Windows quando `--version` não retorna texto. Isso só identifica a versão declarada no próprio arquivo; não prova que o comando CLI foi capturado nem habilita fatiamento. O fallback está coberto por um teste de API Win32 simulada, e a primeira execução Windows encontrou dois imports ausentes nos testes; a correção está no commit `9012c556`, aguardando nova suíte. O último JSON fornecido pelo usuário é anterior a essa implementação, então a versão real do probe ainda não foi compartilhada.
 
