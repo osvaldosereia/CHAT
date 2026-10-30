@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from bambuprep.domain.models import JobRecord, JobState
-from bambuprep.domain.transitions import validate_transition
+from bambuprep.bambu.project_3mf import Project3MFError, inspect_3mf
+from bambuprep.domain.models import JobRecord, JobState, StudioReviewConfirmation
+from bambuprep.domain.transitions import InvalidTransitionError, validate_transition
 from bambuprep.storage.database import connect, initialize_database
 
 
@@ -46,6 +49,8 @@ class JobRepository:
         expected: JobState,
         target: JobState,
         detail: str | None = None,
+        *,
+        studio_review: StudioReviewConfirmation | None = None,
     ) -> JobRecord:
         with connect(self.database_path) as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -57,7 +62,9 @@ class JobRepository:
                 raise StateConflictError(
                     f"Job {job_id} is {current.value}; expected {expected.value}"
                 )
-            validate_transition(current, target)
+            validate_transition(current, target, studio_review=studio_review)
+            if target is JobState.SLICER_VERIFIED:
+                _validate_studio_review(row, studio_review)
             changed_at = datetime.now(timezone.utc)
             connection.execute(
                 "UPDATE jobs SET state = ? WHERE id = ?",
@@ -144,3 +151,46 @@ class JobRepository:
             report_json=row["report_json"],
             output_path=Path(row["output_path"]) if row["output_path"] else None,
         )
+
+
+def _validate_studio_review(row: sqlite3.Row, review: StudioReviewConfirmation | None) -> None:
+    """Require an intact local 3MF and a review matching the analyzed setup."""
+    if not isinstance(review, StudioReviewConfirmation) or not review.is_complete:
+        raise InvalidTransitionError("A complete, per-project Bambu Studio review confirmation is required.")
+
+    output_value = row["output_path"]
+    if not output_value:
+        raise InvalidTransitionError("A configured local 3MF is required before Studio review can be recorded.")
+    output_path = Path(output_value)
+    if output_path.suffix.lower() != ".3mf" or output_path.is_symlink() or not output_path.is_file():
+        raise InvalidTransitionError("The configured output is not a safe local 3MF file.")
+    try:
+        inspection = inspect_3mf(output_path)
+    except Project3MFError:
+        raise InvalidTransitionError("The configured output is not a valid 3MF package.") from None
+    if not inspection.structure_valid:
+        raise InvalidTransitionError("The configured output is not a valid 3MF package.")
+
+    try:
+        with output_path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    except OSError:
+        raise InvalidTransitionError("The configured 3MF could not be verified locally.") from None
+    if digest != review.project_sha256:
+        raise InvalidTransitionError("The reviewed 3MF hash does not match the configured project.")
+
+    try:
+        snapshot = json.loads(row["report_json"] or "")
+        selection = snapshot["selection"]
+    except (TypeError, json.JSONDecodeError, KeyError):
+        raise InvalidTransitionError("The analyzed printer setup is unavailable for Studio review.") from None
+    if not isinstance(selection, dict) or any(
+        selection.get(key) != expected
+        for key, expected in (
+            ("printer_id", review.printer_id),
+            ("nozzle_mm", review.nozzle_mm),
+            ("filament_id", review.filament_id),
+            ("plate_id", review.plate_id),
+        )
+    ):
+        raise InvalidTransitionError("The Studio review does not match the analyzed selected setup.")

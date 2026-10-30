@@ -1,6 +1,6 @@
 """Explicit state transition rules for local print-preparation jobs."""
 
-from bambuprep.domain.models import JobState
+from bambuprep.domain.models import JobState, StudioReviewConfirmation
 
 
 class InvalidTransitionError(ValueError):
@@ -27,6 +27,17 @@ _ALLOWED: dict[JobState, frozenset[JobState]] = {
 }
 
 
-def validate_transition(current: JobState, target: JobState) -> None:
+def validate_transition(
+    current: JobState,
+    target: JobState,
+    *,
+    studio_review: StudioReviewConfirmation | None = None,
+) -> None:
     if target not in _ALLOWED[current]:
         raise InvalidTransitionError(f"Transition from {current.value} to {target.value} is not allowed")
+    if target is JobState.SLICER_VERIFIED and (
+        not isinstance(studio_review, StudioReviewConfirmation) or not studio_review.is_complete
+    ):
+        raise InvalidTransitionError(
+            "A complete, per-project Bambu Studio review confirmation is required."
+        )
