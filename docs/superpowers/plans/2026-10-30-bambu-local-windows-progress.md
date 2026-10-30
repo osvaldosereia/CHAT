@@ -782,3 +782,25 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
   3. Para slice/3MF: usar localmente o STL de referência, executar a prova sem imprimir, abrir o 3MF no Studio e confirmar A1 mini, bico, Generic PLA, Textured PEI, suportes e Preview. Não enviar arquivo privado ao GitHub. Não alegar impressão validada.
   4. O uso real de OpenAI é opcional; requer chave armazenada localmente e consentimento explícito por trabalho. As chamadas continuam mockadas.
 - A automação `6ae425e42b808191bdaf4f892611b197` foi atualizada para `is_enabled=false`; resposta da ferramenta: sucesso, `next_run_time=null`, atualizado às 20:37:43 UTC. **A recorrência foi encerrada.** Ela não será reativada automaticamente enquanto aguarda essas ações humanas.
+
+
+## Retomada com resultado do probe 2.8.2.61 — 2026-10-30
+
+- Branch de trabalho: `codex/bambu-a1-mini-foundation-20261029`. HEAD antes desta retomada: `8e1fffab82a30b7e63f3f63cbd3ad112b4cc1b98`.
+- Evidência Windows recebida às 17:42: o probe atual informa `version: 2.8.2.61` (lida dos metadados do executável), `cli_available: false`, `capabilities: []`, `profile_catalog.available: false` e `printers: []`. A mensagem diz que a ajuda saiu com código 0 sem texto capturado; o usuário já mostrou a ajuda direta com `--slice`, `--export-3mf`, `--load-settings` e `--load-filaments`. Esse resultado confirma versão e presença de opções na ajuda, mas não confirma leitura dos perfis, execução do CLI, fatiamento, exportação ou revisão de 3MF. O JSON não exibe o código final do probe nem a edição/versão do Windows.
+- A captura agora contém `profile_catalog`, então substitui as notas anteriores de que a cópia executada ainda não continha esse campo. O catálogo falhou com mensagem genérica, sem incluir dados que permitam distinguir instalação/layout de um perfil incompatível.
+- Ruling: adicionar códigos de diagnóstico estáveis e allowlisted ao erro do catálogo, expondo somente esse código no JSON e mantendo a mensagem genérica. Isso permite diagnosticar uma nova execução sem divulgar caminho nem nomes arbitrários de perfis; se o código for amplo demais, será necessária outra coleta local.
+- Commits de código/documentação desta retomada:
+  - `3252c5568be10ec993541cba1d9c517d4aafcb59`: testes RED para código seguro e resumo do probe sem caminho local.
+  - `bad7f0de9cd4d6ccc10242c480da904758866b80`: `ProfileCatalogError.code` allowlisted, incluindo distinção de layout ausente e erros de leitura/catálogo.
+  - `0f195f905a1ed0bee117572cab804bccfc3b5a44`: inclui apenas `error_code` sanitizado em `profile_catalog_summary`.
+  - `69521175639949755899e2473d9766d09e76b0a1`: atualiza `windows-cli-proof.md` com a nova saída do usuário e corrige seu resumo atual.
+- Evidência TDD em cópia temporária composta de arquivos públicos buscados desta branch, sem checkout local do repositório nem arquivo do usuário:
+  - Baseline `PYTHONPATH=/tmp/bambu-test-deps:/tmp/bambu-catalog-work/src:/tmp/bambu-catalog-work python3 -m pytest -q /tmp/bambu-catalog-work/tests/unit/test_profile_catalog.py`: **10 passed** antes dos dois testes novos.
+  - Após o commit de testes, o mesmo comando ficou RED como esperado: **2 falharam** (atributo `code` ausente e JSON sem `error_code`), **10 passed**.
+  - Após a implementação: `PYTHONPATH=/tmp/bambu-test-deps:/tmp/bambu-catalog-work/src:/tmp/bambu-catalog-work python3 -m pytest /tmp/bambu-catalog-work/tests/unit/test_profile_catalog.py -v`: **12 passed em 0.70s**.
+  - `python3 -m compileall -q /tmp/bambu-catalog-work/src /tmp/bambu-catalog-work/tools /tmp/bambu-catalog-work/tests`: exit 0.
+  - Pytest e dependências de teste ficaram em `/tmp/bambu-test-deps`; a cópia parcial de código ficou em `/tmp/bambu-catalog-work`. É teste unitário Linux local, não prova Windows nem execução do Studio. A suíte completa do repositório e build desta revisão não foram executados; a busca de PRs não encontrou PR ativo para o branch, e não foi iniciada publicação/build.
+- O plano de implementação não teve checkboxes alterados. A prova real da Tarefa 1, slice/3MF da Tarefa 5, reabertura/revisão no Studio e impressão física continuam pendentes. Nenhum STL/3MF, captura de tela, chave, histórico local ou imagem privada foi gravado no GitHub; nenhuma chamada OpenAI foi feita.
+- Próxima ação humana para diagnóstico: baixar a branch atualizada depois destes commits e executar novamente o probe em `tools`; compartilhar apenas o JSON contendo `profile_catalog.error_code`. A versão do Windows e a prova local com o STL Sentinel/3MF ainda serão necessárias antes de declarar integração verificada. Não é necessário reenviar a ajuda completa.
+
