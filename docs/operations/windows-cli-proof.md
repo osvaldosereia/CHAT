@@ -50,3 +50,9 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 - Ao invocar `$studio --help 2>&1 | Select-String -SimpleMatch '--slice','--load-settings','--load-filaments','--export-3mf'`, o usuário recebeu o cabeçalho `BambuStudio-02.08.02.61`, toda a ajuda e `Exit code: 0`. A saída incluiu `--load-settings setting1.json;setting2.json`, `--load-filaments filament1.json;filament2.json`, `--slice option` e `--export-3mf filename.3mf`; a seção de prioridade também menciona formas com sublinhado. O filtro não reduziu a saída, o que sugere escrita direta no console (inferência), compatível com os pipes vazios do probe.
 - A captura mais recente do PowerShell mostra a ajuda completa e `Exit code: 0`, com retorno ao prompt. Isso confirma a saída da invocação direta de `--help`, não a saída capturada pelo probe atualizado nem o funcionamento das opções.
 - Não foram carregados perfis, executado slice, usado o STL Sentinel, criado/reaberto 3MF ou revisados Preview/configurações. A prova da Tarefa 1 permanece incompleta e seus checkboxes permanecem desmarcados. A imagem recebida não foi adicionada ao repositório.
+
+
+## Saída de metadados Windows fornecida pelo usuário
+
+`(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` mostrou `ProductVersion` vazio e `FileVersion = 02.08.02.61`. O probe atualizado tenta ler ambos os recursos PE e tem teste Windows/mocks para FileVersion, aguardando CI no commit `d90416e`. A saída JSON compartilhada, sem `profile_catalog`, ainda não veio do script atualizado. A versão do Windows, os perfis carregados pelo probe e qualquer prova de slice/3MF permanecem pendentes.
+
