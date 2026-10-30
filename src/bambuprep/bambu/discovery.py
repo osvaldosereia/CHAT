@@ -80,6 +80,7 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
             text=True,
             check=False,
             shell=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             timeout=timeout_seconds,
         )
         version_text = _combined_output(version_result)
@@ -91,6 +92,7 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
             text=True,
             check=False,
             shell=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             timeout=timeout_seconds,
         )
     except subprocess.TimeoutExpired:

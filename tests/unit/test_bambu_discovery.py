@@ -150,3 +150,33 @@ def test_detects_profile_options_when_installed_help_uses_underscores(tmp_path, 
         "slicing",
         "export_3mf",
     } <= result.capabilities
+
+
+def test_windows_probe_passes_create_no_window_to_version_and_help(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+    no_console = 0x08000000
+    monkeypatch.setattr(
+        "bambuprep.bambu.discovery.subprocess.CREATE_NO_WINDOW",
+        no_console,
+        raising=False,
+    )
+    calls = []
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        if command[-1] == "--version":
+            return CompletedProcess(command, 0, "Bambu Studio 2.8.2.61", "")
+        return CompletedProcess(
+            command,
+            0,
+            "--load_settings --load_filaments --orient --arrange --slice --export-3mf",
+            "",
+        )
+
+    monkeypatch.setattr("bambuprep.bambu.discovery.subprocess.run", fake_run)
+
+    result = probe_studio(executable)
+
+    assert result.cli_available is True
+    assert [call[1]["creationflags"] for call in calls] == [no_console, no_console]
