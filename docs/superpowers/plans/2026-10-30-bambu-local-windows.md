@@ -82,7 +82,7 @@
 - [x] Implementar descoberta sem shell intermediário, com caminho explícito selecionado pelo usuário e captura de versão, ajuda, código de saída e timeout.
 - [ ] Executar tools/bambu_cli_probe.py em Windows suportado com o Bambu Studio realmente instalado; registrar versão/build, executável, argumentos confirmados e perfis encontrados em docs/operations/windows-cli-proof.md.
 - [ ] Criar um projeto pequeno de prova com A1 mini, bico selecionado, Generic PLA e Textured PEI; executar o CLI sem imprimir e reabrir o resultado no Studio. Registrar se o CLI exportou um 3MF íntegro e se Preview/perfis correspondem ao pedido.
-- [ ] Tratar a prova real do Windows como gate para Tarefa 5. Se falhar, documentar o comportamento e manter o fatiamento em fallback manual; não marcar slicer_verified.
+- [x] Tratar a prova real do Windows como gate para Tarefa 5. Se falhar, documentar o comportamento e manter o fatiamento em fallback manual; não marcar slicer_verified.
 
 ## Tarefa 2: tipos de domínio, configuração e armazenamento local
 
@@ -102,10 +102,10 @@
 - JobRepository.create_job(source_path: Path, source_sha256: str) -> JobRecord; JobRepository.transition(job_id: str, expected: JobState, target: JobState, detail: str | None = None) -> JobRecord.
 - ApiKeyStore.save(key: str) -> None; ApiKeyStore.get() -> str | None; ApiKeyStore.delete() -> None. Implementação Windows falha de forma segura se Credential Locker não estiver disponível; nunca usa arquivo como fallback.
 
-- [ ] Escrever testes para transições permitidas/proibidas, persistência após reiniciar a conexão SQLite, limpeza do histórico e isolamento do segredo.
-- [ ] Rodar python -m pytest tests/unit/test_job_transitions.py tests/unit/test_local_storage.py tests/unit/test_api_key_store.py -v.
-- [ ] Implementar caminhos padrão sob %LOCALAPPDATA%/BambuPrep, migração versionada de SQLite e repositório de histórico.
-- [ ] Implementar armazenamento de chave usando Windows Credential Locker por meio de keyring; injetar a interface nos serviços para que testes não precisem de credenciais reais.
+- [x] Escrever testes para transições permitidas/proibidas, persistência após reiniciar a conexão SQLite, limpeza do histórico e isolamento do segredo.
+- [x] Rodar python -m pytest tests/unit/test_job_transitions.py tests/unit/test_local_storage.py tests/unit/test_api_key_store.py -v.
+- [x] Implementar caminhos padrão sob %LOCALAPPDATA%/BambuPrep, migração versionada de SQLite e repositório de histórico.
+- [x] Implementar armazenamento de chave usando Windows Credential Locker por meio de keyring; injetar a interface nos serviços para que testes não precisem de credenciais reais.
 - [ ] Confirmar que o banco/logs não recebem chave OpenAI nem o conteúdo do STL.
 
 ## Tarefa 3: ingestão, análise geométrica e vistas

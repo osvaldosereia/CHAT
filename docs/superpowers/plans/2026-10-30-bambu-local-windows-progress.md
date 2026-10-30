@@ -28,9 +28,22 @@ Ambiente da rodada: Linux, Python 3.12.14; não é Windows e não possui Bambu S
 - Sintaxe: `cd bambuprep-local && python -m compileall -q src tools tests` — exit 0.
 - CLI sem executável: `python tools/bambu_cli_probe.py --executable /definitely/not/installed/BambuStudio.exe` — JSON correto, `cli_available=false`, exit 2.
 
+## Tarefa 2 — trabalho independente realizado nesta rodada
+
+- Implementados os estados do domínio e regras de transição; `slicer_verified` é terminal e somente pode ser alcançado a partir de `project_configured`.
+- Implementadas configuração sob `%LOCALAPPDATA%/BambuPrep`, migração inicial SQLite versão 1, repositório com eventos de estado e exclusão do histórico sem apagar STL de origem.
+- Implementado adaptador injetável de segredo; a fábrica exige Windows e backend real `WinVaultKeyring`. Não existe fallback em arquivo. O teste usa backend em memória; nenhuma chave real foi usada.
+- Adicionada dependência de runtime `keyring>=25.5,<27`. Com `keyring 25.7.0` instalada no ambiente Linux, o import `keyring.backends.Windows.WinVaultKeyring` foi confirmado; o Credential Locker real não foi exercitado.
+- O teste garante que o banco não contém bytes do STL. Ainda não há logger implementado, portanto a parte da checklist sobre logs permanece desmarcada e precisa ser confirmada quando o logging local existir.
+- RED de configuração: `cd bambuprep-local && python -m pytest tests/unit/test_config.py -v` falhou na coleta porque `bambuprep.config` ainda não existia; após implementar, os três testes passaram.
+- Teste prescrito da Tarefa 2: `cd bambuprep-local && python -m pytest tests/unit/test_job_transitions.py tests/unit/test_local_storage.py tests/unit/test_api_key_store.py -v` — 12 passed.
+- Suíte completa: `cd bambuprep-local && python -m pytest -v` — 25 passed.
+- Sintaxe: `cd bambuprep-local && python -m compileall -q src tools tests` — exit 0.
+
 ## Commits
 
 - Commit de código e documentação: `e0009136d3695beed890e9148e68d0db72a33ab7` (`feat: add Bambu Studio CLI discovery foundation`).
+- Commit desta etapa será acrescentado depois que o branch for atualizado e conferido.
 
 ## Bloqueios humanos indispensáveis
 
