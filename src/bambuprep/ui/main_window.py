@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 )
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
-from bambuprep.domain.models import JobRecord, PrinterSelection
+from bambuprep.domain.models import JobRecord, JobState, PrinterSelection
 from bambuprep.mesh.analyzer import MeshReport
 from bambuprep.mesh.loader import load_stl
 from bambuprep.mesh.render import render_views
@@ -36,6 +36,42 @@ from bambuprep.ui.consent import run_consented_action
 from bambuprep.ui.settings_dialog import SettingsDialog
 from bambuprep.workflow.runner import WorkflowTaskRunner
 from bambuprep.workflow.service import WorkflowService
+
+
+_JOB_STATE_DETAILS: dict[JobState, tuple[str, str]] = {
+    JobState.UPLOADED: (
+        "STL carregado (uploaded)",
+        "Confira as confirmações do bico, filamento e placa; depois tente analisar novamente.",
+    ),
+    JobState.ANALYZING: (
+        "análise em andamento (analyzing)",
+        "Aguarde a análise. Se o estado não avançar, selecione o STL novamente para criar outro trabalho.",
+    ),
+    JobState.NEEDS_REVIEW: (
+        "aguarda revisão (needs_review)",
+        "Revise as medições e avisos. Uma nova tentativa de recomendação pedirá consentimento novamente.",
+    ),
+    JobState.RECOMMENDATION_READY: (
+        "recomendação pronta (recommendation_ready)",
+        "Revise a recomendação junto com as medições; ela não configura nem inicia uma impressão.",
+    ),
+    JobState.PROJECT_CONFIGURED: (
+        "projeto configurado (project_configured)",
+        "Abra o projeto local no Bambu Studio e confira os perfis e o Preview antes de qualquer impressão.",
+    ),
+    JobState.SLICER_VERIFIED: (
+        "revisão do Studio registrada (slicer_verified)",
+        "A confirmação física da impressão continua sendo manual.",
+    ),
+    JobState.BLOCKED: (
+        "bloqueado (blocked)",
+        "Corrija o aviso ou selecione novamente um STL válido para criar outro trabalho; o original é preservado.",
+    ),
+    JobState.FAILED: (
+        "falhou (failed)",
+        "Selecione novamente o STL para criar outro trabalho; o arquivo original não foi alterado.",
+    ),
+}
 
 
 class BambuPrepMainWindow(QMainWindow):
@@ -409,6 +445,7 @@ class BambuPrepMainWindow(QMainWindow):
 
     def _refresh_controls(self, *_args: object) -> None:
         has_job = self._job is not None
+        job_state = self._job.state if self._job is not None else None
         profile = self._selected_profile()
         has_profile_selection = (
             profile is not None
@@ -425,6 +462,8 @@ class BambuPrepMainWindow(QMainWindow):
         self.material_plate_confirm.setEnabled(has_job and has_profile_selection and not self._busy)
         self.analyze_button.setEnabled(
             has_job
+            and job_state in {JobState.UPLOADED, JobState.NEEDS_REVIEW}
+            and self._report is None
             and has_profile_selection
             and self.nozzle_confirm.isChecked()
             and self.material_plate_confirm.isChecked()
@@ -445,7 +484,38 @@ class BambuPrepMainWindow(QMainWindow):
             label.clear()
 
     def _show_error(self, error: Exception) -> None:
-        QMessageBox.warning(self, "BambuPrep", str(error))
+        job = self._job
+        state_note = "Estado atual: sem trabalho selecionado."
+        recovery = "Selecione um arquivo STL local existente e tente novamente."
+        if job is not None:
+            state_read_failed = False
+            getter = getattr(self._workflow, "get_job", None)
+            if callable(getter):
+                try:
+                    latest = getter(job.id)
+                except Exception:
+                    state_read_failed = True
+                else:
+                    if isinstance(latest, JobRecord) and latest.id == job.id:
+                        job = latest
+                        self._job = latest
+                    else:
+                        state_read_failed = True
+            label, recovery = _JOB_STATE_DETAILS.get(
+                job.state,
+                (f"estado desconhecido ({job.state})", "Selecione novamente o STL se a falha persistir."),
+            )
+            state_note = f"Estado atual do trabalho: {label}."
+            if state_read_failed:
+                state_note += " O estado salvo não pôde ser relido; este é o último estado conhecido."
+
+        self.status_label.setText(f"Falha local. {state_note} {recovery}")
+        self._refresh_controls()
+        QMessageBox.warning(
+            self,
+            "BambuPrep",
+            f"{error}\n\n{state_note}\nPróximo passo: {recovery}",
+        )
 
 
 def _format_report(report: MeshReport) -> str:

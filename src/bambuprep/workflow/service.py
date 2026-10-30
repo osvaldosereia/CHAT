@@ -76,6 +76,10 @@ class WorkflowService:
         )
         return self._repository.create_job(document.path, document.sha256)
 
+    def get_job(self, job_id: str) -> JobRecord:
+        """Return the latest persisted state for a local job."""
+        return self._repository.get_job(job_id)
+
     def delete_history(self) -> int:
         """Delete local job records without deleting source STLs or result files."""
         return self._repository.delete_history()

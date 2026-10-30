@@ -389,3 +389,54 @@ def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_pa
 
     window.close()
     runner.close(wait=True)
+
+
+def test_error_dialog_reports_persisted_state_and_recovery_action(qapp, tmp_path, monkeypatch):
+    profile = PrinterProfile(
+        printer_id="Bambu Lab A1 mini 0.4 nozzle",
+        nozzle_mm=0.4,
+        generic_pla_profile_id="Generic PLA @BBL A1M",
+        default_process_profile_id="0.20mm Standard @BBL A1M",
+        plate_id="Textured PEI Plate",
+        compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
+        support_options=("tree(auto)",),
+        adhesion_options=("brim", "none"),
+    )
+    runner = WorkflowTaskRunner(max_workers=1)
+    workflow = FakeWorkflow()
+    persisted_job = JobRecord(
+        id="job-1",
+        created_at=datetime.now(timezone.utc),
+        source_path=tmp_path / "part.stl",
+        source_sha256="a" * 64,
+        state=JobState.BLOCKED,
+    )
+    workflow.get_job = lambda job_id: persisted_job
+    window = BambuPrepMainWindow(
+        workflow,
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,)),
+        runner,
+        MemoryKeyStore(),
+    )
+    window._job = JobRecord(
+        id="job-1",
+        created_at=persisted_job.created_at,
+        source_path=persisted_job.source_path,
+        source_sha256=persisted_job.source_sha256,
+        state=JobState.UPLOADED,
+    )
+    window.nozzle_confirm.setChecked(True)
+    window.material_plate_confirm.setChecked(True)
+    assert window.analyze_button.isEnabled()
+    dialogs = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: dialogs.append(args[2]))
+
+    window._show_error(RuntimeError("synthetic local failure"))
+
+    assert window._job.state is JobState.BLOCKED
+    assert not window.analyze_button.isEnabled()
+    assert dialogs and "bloqueado (blocked)" in dialogs[0]
+    assert "selecione novamente um STL válido" in dialogs[0]
+    assert "synthetic local failure" in dialogs[0]
+    window.close()
+    runner.close(wait=True)

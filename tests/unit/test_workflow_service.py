@@ -98,6 +98,7 @@ def test_local_analysis_and_consent_recommendation_reach_recommendation_ready(tm
 
     assert report.triangle_count == 12
     assert repository.get_job(job.id).state is JobState.NEEDS_REVIEW
+    assert service.get_job(job.id) == repository.get_job(job.id)
     assert "private" not in (repository.get_job(job.id).report_json or "")
 
     result = service.recommend(job.id, consent=True)
