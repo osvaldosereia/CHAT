@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
@@ -268,6 +269,7 @@ def _windows_pseudoconsole_run(
         get_exit_code = kernel32.GetExitCodeProcess
         terminate_process = kernel32.TerminateProcess
         read_file = kernel32.ReadFile
+        peek_named_pipe = kernel32.PeekNamedPipe
         close_handle = kernel32.CloseHandle
     except AttributeError as exc:
         raise OSError("Windows pseudoconsole APIs are unavailable.") from exc
@@ -335,6 +337,15 @@ def _windows_pseudoconsole_run(
         ctypes.c_void_p,
     ]
     read_file.restype = wintypes.BOOL
+    peek_named_pipe.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        ctypes.POINTER(wintypes.DWORD),
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    peek_named_pipe.restype = wintypes.BOOL
     close_handle.argtypes = [wintypes.HANDLE]
     close_handle.restype = wintypes.BOOL
 
@@ -357,6 +368,7 @@ def _windows_pseudoconsole_run(
     process_finished = False
     reader = None
     captured: list[bytes] = []
+    console_closed = threading.Event()
 
     try:
         if not create_pipe(ctypes.byref(input_read), ctypes.byref(input_write), None, 0):
@@ -399,19 +411,36 @@ def _windows_pseudoconsole_run(
         # Drain output before launching the child so immediate console writes
         # cannot race process startup or fill the pseudoconsole output channel.
         def read_console_output() -> None:
+            last_output_at = time.monotonic()
             while True:
-                buffer = ctypes.create_string_buffer(4096)
-                bytes_read = wintypes.DWORD()
-                succeeded = read_file(
+                available = wintypes.DWORD()
+                if not peek_named_pipe(
                     output_read,
-                    buffer,
-                    len(buffer),
-                    ctypes.byref(bytes_read),
                     None,
-                )
-                if not succeeded or not bytes_read.value:
+                    0,
+                    None,
+                    ctypes.byref(available),
+                    None,
+                ):
                     return
-                captured.append(buffer.raw[: bytes_read.value])
+                if available.value:
+                    buffer = ctypes.create_string_buffer(min(available.value, 4096))
+                    bytes_read = wintypes.DWORD()
+                    if not read_file(
+                        output_read,
+                        buffer,
+                        len(buffer),
+                        ctypes.byref(bytes_read),
+                        None,
+                    ):
+                        return
+                    if bytes_read.value:
+                        captured.append(buffer.raw[: bytes_read.value])
+                        last_output_at = time.monotonic()
+                    continue
+                if console_closed.is_set() and time.monotonic() - last_output_at >= 0.1:
+                    return
+                console_closed.wait(0.01)
 
         reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
         reader.start()
@@ -458,7 +487,8 @@ def _windows_pseudoconsole_run(
             input_write = wintypes.HANDLE()
             close_pseudoconsole(console)
             console = wintypes.HANDLE()
-            reader.join()
+            console_closed.set()
+            reader.join(timeout=2)
             output = b"".join(captured).decode("utf-8", errors="replace")
             raise subprocess.TimeoutExpired(command, timeout_seconds, output=output)
         if wait_result != 0:
@@ -472,7 +502,10 @@ def _windows_pseudoconsole_run(
         input_write = wintypes.HANDLE()
         close_pseudoconsole(console)
         console = wintypes.HANDLE()
-        reader.join()
+        console_closed.set()
+        reader.join(timeout=2)
+        if reader.is_alive():
+            raise OSError("Windows pseudoconsole output reader did not stop within 2 seconds.")
         output = b"".join(captured).decode("utf-8", errors="replace")
         return subprocess.CompletedProcess(command, exit_code.value, output, "")
     finally:
@@ -486,8 +519,9 @@ def _windows_pseudoconsole_run(
         if console.value:
             close_pseudoconsole(console)
             console = wintypes.HANDLE()
+        console_closed.set()
         if reader is not None and reader.is_alive():
-            reader.join()
+            reader.join(timeout=2)
         close_if_open(input_read)
         close_if_open(output_write)
         close_if_open(output_read)
