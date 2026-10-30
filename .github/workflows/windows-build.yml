@@ -70,8 +70,20 @@ jobs:
             throw "dumpbin.exe is unavailable after initializing Visual Studio."
           }
 
+          $reportDirectory = Join-Path $env:GITHUB_WORKSPACE "build-reports"
+          New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
           uv run --locked --extra build pyside6-deploy -c pysidedeploy.spec --force --mode standalone
           if ($LASTEXITCODE -ne 0) { throw "The standalone application build failed." }
+
+          $compilationReport = Join-Path $reportDirectory "bambuprep-compilation-report.xml"
+          $licenseReport = Join-Path $reportDirectory "bambuprep-license-report.rst"
+          foreach ($report in @($compilationReport, $licenseReport)) {
+            if (-not (Test-Path -LiteralPath $report -PathType Leaf)) {
+              throw "A required Nuitka compilation or license report was not created."
+            }
+          }
+          uv run --locked --extra build python tools/summarize_nuitka_report.py --license-report $licenseReport --compilation-report $compilationReport --lock-file uv.lock
+          if ($LASTEXITCODE -ne 0) { throw "Nuitka license inventory failed or did not match uv.lock." }
 
           $bundle = Join-Path $env:GITHUB_WORKSPACE "dist\BambuPrep.dist"
           $executable = Join-Path $bundle "BambuPrep.exe"

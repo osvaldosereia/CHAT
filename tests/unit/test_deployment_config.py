@@ -17,7 +17,11 @@ def test_deployment_spec_selects_standalone_entrypoint_and_noninteractive_downlo
     assert "project_file" not in app
     assert app["exec_directory"] == "dist"
     assert nuitka["mode"] == "standalone"
-    assert nuitka["extra_args"] == "--assume-yes-for-downloads --output-filename=BambuPrep.exe"
+    assert nuitka["extra_args"] == (
+        "--assume-yes-for-downloads --output-filename=BambuPrep.exe "
+        "--report=build-reports/bambuprep-compilation-report.xml "
+        "--report-template=LicenseReport:build-reports/bambuprep-license-report.rst"
+    )
 
 
 def test_windows_build_check_does_not_publish_or_use_secrets():
@@ -31,8 +35,12 @@ def test_windows_build_check_does_not_publish_or_use_secrets():
     assert "ilammy/msvc-dev-cmd@" not in workflow
     assert "permissions:\n  contents: read" in workflow
     assert "tools/audit_standalone_bundle.py --bundle $bundle" in workflow
+    assert "tools/summarize_nuitka_report.py" in workflow
+    assert "bambuprep-compilation-report.xml" in workflow
+    assert "bambuprep-license-report.rst" in workflow
     assert "upload-artifact" not in workflow.lower()
     assert "${{ secrets." not in workflow
+    assert "/build-reports/" in (ROOT / ".gitignore").read_text(encoding="utf-8")
 
 
 def test_windows_build_installs_the_pinned_deployment_compiler():
