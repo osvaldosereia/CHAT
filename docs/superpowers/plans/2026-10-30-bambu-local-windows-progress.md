@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
-- HEAD remoto verificado no início desta rodada: `beffdb87a9b17ebbb339f1c778af928f3fac67c3`; commit de código desta rodada até aqui: `b5d4e50e0905961ac4b4f9f36006f7a69a10a6dd`.
+- HEAD remoto ao início desta rodada: `beffdb87a9b17ebbb339f1c778af928f3fac67c3`; commit atual após implementação de workflow: `2018baad38202eb90de80367d1701940a2137a35`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -122,9 +122,28 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0; sem Bambu Studio/Windows do usuár
 
 Commit de código: `b5d4e50e0905961ac4b4f9f36006f7a69a10a6dd` (`feat: read installed A1 mini profile catalog`).
 
+## Tarefa 6 — serviço de fluxo local (parte verificada)
+
+- Implementado `WorkflowService.create_job/analyze/recommend`. O serviço é síncrono para ser executado por worker da UI; valida o STL na criação, verifica que o arquivo mantém o hash registrado, confirma que bico/material/placa correspondem aos perfis locais e mede a malha sem rede.
+- A análise grava em SQLite somente JSON de métricas, seleção e recomendação validada; grava relatório e transição de estado atomicamente. Bytes do STL e imagens não são persistidos no banco. Mudança da fonte bloqueia o trabalho; falha técnica local marca `failed`; falha de recomendação mantém o relatório e `needs_review`.
+- `recommend(job_id, consent)` retorna sem ler a chave quando consentimento não for exatamente `True`. Com consentimento, regenera imagens localmente e chama o adaptador injetável; recomendação validada move o estado para `recommendation_ready`.
+- Testes de recomendação usam somente chave/client fake. Nenhuma chamada OpenAI real ocorreu. A interface modal PySide6 por trabalho não está pronta, portanto a barreira booleana ainda não está conectada a uma confirmação visual; não habilitar chamada real pela UI.
+- Não foram implementados `slice`, `project_configured`, revisão do 3MF, `confirm_studio_review` ou integração CLI; o gate da Tarefa 1 continua fechado.
+
+### Comandos e resultados desta parte
+
+Ambiente Linux, Python 3.12.14, pytest 9.2.0; nenhuma chamada de rede de produto.
+
+- RED: `python -m pytest tests/unit/test_workflow_service.py -v` — coleta falhou como esperado porque `bambuprep.workflow` ainda não existia (exit 2).
+- GREEN: `python -m pytest tests/unit/test_workflow_service.py -v` — 7 passed.
+- Suíte: `python -m pytest -v` — 91 passed.
+- Sintaxe: `python -m compileall -q src tools tests` — exit 0.
+
+Commit de código: `2018baad38202eb90de80367d1701940a2137a35` (`feat: orchestrate local analysis and consented recommendations`).
+
 ## Próxima execução
 
-Avançar para `WorkflowService` e as partes de interface que possam ser verificadas sem o runtime Qt. Manter a confirmação OpenAI por trabalho bloqueada até a interface ser integrada; nenhuma chamada real será feita sem chave e consentimento. Manter o gate de fatiamento/3MF fechado até a prova da Tarefa 1 em Windows real.
+Continuar a Tarefa 6: interface PySide6, confirmação modal nova por trabalho, execução em worker e documentação de uso. A tentativa de instalar PySide6 ficou bloqueada por timeout no índice de pacotes; testar outras fontes/runtime permitidos antes de declarar UI verificada. Manter chamadas OpenAI sob cliente falso até confirmação visual e chave do usuário. Manter o gate de fatiamento/3MF fechado até a prova Windows real da Tarefa 1.
 
 ## Commits
 
@@ -133,6 +152,8 @@ Avançar para `WorkflowService` e as partes de interface que possam ser verifica
 - Tarefa 3: `4b3abcb630aaad079b057c93b6461828eee9cb3a` (`feat: add local STL analysis and repair`).
 - Tarefa 4 código: `5804f78b456af1f69ed99f4dd799039360de5697` (`feat: add consented OpenAI recommendations`).
 - Tarefa 5 catálogo sintético: `b5d4e50e0905961ac4b4f9f36006f7a69a10a6dd` (`feat: read installed A1 mini profile catalog`).
+- Registro Tarefa 5: `e615dab40774cf9cada5ee3952725fa93441c565` (`docs: record local profile catalog verification`).
+- Tarefa 6 serviço local: `2018baad38202eb90de80367d1701940a2137a35` (`feat: orchestrate local analysis and consented recommendations`).
 - Atualizações de plano/ledger seguem os commits de implementação.
 
 ## Bloqueios humanos indispensáveis

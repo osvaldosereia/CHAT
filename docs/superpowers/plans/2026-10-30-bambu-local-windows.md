@@ -200,8 +200,10 @@
 - Interface assíncrona para análise/fatiamento: operações longas não podem bloquear a janela; mensagens de erro incluem ação de recuperação e o estado real do trabalho.
 - Tela deve mostrar perfil da A1 mini, bico confirmado, Generic PLA, Textured PEI, dimensões, riscos, vistas, recomendações justificadas e status do trabalho.
 
-- [ ] Escrever testes do fluxo feliz e dos caminhos blocked, needs_review, recommendation_ready, project_configured, failed e confirmação ausente.
-- [ ] Rodar python -m pytest tests/unit/test_workflow_service.py -v.
+- [x] Escrever testes de criação/análise/recomendação simulada e dos caminhos blocked, needs_review, recommendation_ready, failed, consentimento ausente, fonte alterada e OpenAI indisponível.
+- [ ] Escrever testes de fatiamento, project_configured e confirmação ausente após revisão; dependem das interfaces 3MF gated da Tarefa 5.
+- [x] Rodar `python -m pytest tests/unit/test_workflow_service.py -v` — 7 passed.
+- [x] Implementar `WorkflowService.create_job/analyze/recommend` para validar e analisar o STL localmente, persistir métricas/seleção sem bytes do arquivo, verificar o hash e chamar o serviço OpenAI somente quando consentimento explícito for passado.
 - [ ] Implementar janela de arrastar/selecionar STL, seleção explícita do bico, andamento, relatório e botões para abrir 3MF no Bambu Studio, confirmar revisão, apagar histórico e remover arquivos do aplicativo.
 - [ ] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
 - [ ] Implementar tela de configurações para Studio, chave OpenAI, consentimento, retenção e diretório de saída.
