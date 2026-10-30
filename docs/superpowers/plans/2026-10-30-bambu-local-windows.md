@@ -238,6 +238,7 @@
 - [ ] Instalar/abrir o pacote em Windows 10 22H2 x64 e Windows 11 x64; verificar primeira configuração, análise local, erro sem API e abertura do 3MF no Studio.
 - [x] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
 - [ ] Revisar licenças/avisos de PySide6 e demais dependências antes de publicar; registrar a conclusão em docs/operations/release-checklist.md.
+- [x] Registrar inventário preliminar de metadados de licença do ambiente travado e gates pendentes em docs/operations/release-checklist.md; revisão final permanece aberta até inspeção do bundle.
 
 ## Critérios de aceite
 
