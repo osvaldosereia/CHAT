@@ -31,3 +31,9 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.pyside6.deploy]
+title = "BambuPrep"
+input_file = "src/bambuprep/__main__.py"
+exec_directory = "dist"
+mode = "standalone"

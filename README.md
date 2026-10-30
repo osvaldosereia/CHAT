@@ -1,6 +1,8 @@
 # BambuPrep
 
-Aplicativo local para analisar arquivos STL e preparar projetos para revisão no Bambu Studio.
+Protótipo local para analisar arquivos STL e mostrar uma recomendação opcional antes da revisão manual no Bambu Studio. A geração de projeto 3MF e o fatiamento ainda não estão implementados.
+
+Leia o [guia do protótipo local](docs/user-guide.md) para configurar e usar a análise local, entender o consentimento OpenAI e apagar ou proteger o histórico.
 
 O diagnóstico de CLI pode ser executado sem interface ou impressão:
 
