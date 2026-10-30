@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
-- HEAD remoto confirmado ao início da implementação parcial da UI: `6932a2bac3aba81b67f84615dcd63b8960ae32f3`; código UI no branch: `727811553b7c89b79c736a14d25d9a3a5614f513` (`feat: add consent-gated local analysis window`).
+- HEAD remoto confirmado antes desta atualização do ledger: `85e8488f521b4691e5ecaf8494afe034db206371` (`feat: display local mesh views in analysis window`); o registro de docs anterior está em `0d93a835e4c4cd63752d3b10d8dc4106332dad7b`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -186,9 +186,23 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0. PySide6 não instalado; execução
 - Instalação PySide6 havia sido tentada antes e ficou parada por timeouts de PyPI; não houve retry nesta parte. Nenhuma fonte alternativa de runtime foi encontrada nesta execução.
 - Commit parcial de código: `727811553b7c89b79c736a14d25d9a3a5614f513`. O helper de consentimento foi testado sem rede; o teste não comprova o comportamento de QMessageBox em Windows.
 
+### Complemento — prévia das quatro vistas locais
+
+- A janela agora tem abas para relatório, frente, lado, topo e riscos. Após a análise, um worker relê o STL local, compara o SHA-256 com o trabalho e renderiza as quatro vistas; a camada Qt só cria pixmaps/aplica widgets na thread principal.
+- As imagens ficam em memória para apresentação e não são gravadas em histórico ou arquivos. A chamada OpenAI, se autorizada, ainda regenera suas vistas no serviço e usa a allowlist já testada.
+- Fonte Qt oficial consultada para `QPixmap.loadFromData`, `QScrollArea.setWidget` e `QTimer`: https://doc.qt.io/qtforpython-6/PySide6/QtGui/QPixmap.html, https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/QScrollArea.html, https://doc.qt.io/qtforpython-6/PySide6/QtCore/QTimer.html.
+- Commit de código: `85e8488f521b4691e5ecaf8494afe034db206371` (`feat: display local mesh views in analysis window`). Ainda não foi possível importar/abrir a janela Qt porque PySide6 não está instalado; a implementação e a sequência worker/UI não têm QA visual real.
+
+### Revalidação após os últimos ajustes
+
+- `python -m pytest -v` — 105 passed; 1 aviso esperado da fixture de nome ZIP duplicado.
+- `python -m compileall -q src tools tests` — exit 0.
+- `git diff --check` — não executável neste espelho de workspace: não há diretório `.git` (exit 129); os commits/ref da branch foram verificados via GitHub API.
+- Não houve execução real da UI, chamada de rede OpenAI ou prova Bambu Studio.
+
 ## Próxima execução
 
-Continuar a Tarefa 6: completar configurações seguras da chave, prévia de vistas, histórico/remoção e provar a responsividade/consentimento com Qt no Windows quando o runtime estiver disponível. A interface foi escrita mas permanece não verificada visualmente porque PySide6 não está instalado no ambiente desta rodada. A inspeção estrutural genérica de 3MF tem somente provas sintéticas; CLI, metadados Bambu e fatiamento continuam bloqueados pela prova Windows real da Tarefa 1.
+Continuar a Tarefa 6: completar tela de configurações segura da chave, histórico/remoção e QA visual/interação Qt no Windows quando o runtime estiver disponível. A janela e as abas de vistas foram escritas, mas permanecem não verificadas visualmente porque PySide6 não está instalado. A inspeção genérica de 3MF só tem fixtures sintéticas; CLI, metadados Bambu e fatiamento permanecem bloqueados pela prova Windows real da Tarefa 1.
 
 ## Commits
 
@@ -200,7 +214,9 @@ Continuar a Tarefa 6: completar configurações seguras da chave, prévia de vis
 - Registro Tarefa 5: `e615dab40774cf9cada5ee3952725fa93441c565` (`docs: record local profile catalog verification`).
 - Tarefa 6 serviço local: `2018baad38202eb90de80367d1701940a2137a35` (`feat: orchestrate local analysis and consented recommendations`).
 - Tarefa 6 worker: `c4f32a210492ba8241fb5d0bdaa4f4ec1ec49688` (`feat: run workflow actions in bounded workers`).
-- Atualizações de plano/ledger seguem os commits de implementação.
+- Inspetor 3MF genérico: `670324be82bd3820b921261ae1fe71511355b5df` (`feat: inspect local 3MF package structure`); registro: `6932a2bac3aba81b67f84615dcd63b8960ae32f3` (`docs: record generic 3MF inspection evidence`).
+- UI parcial e consentimento: `727811553b7c89b79c736a14d25d9a3a5614f513` (`feat: add consent-gated local analysis window`); vistas locais: `85e8488f521b4691e5ecaf8494afe034db206371` (`feat: display local mesh views in analysis window`); registro parcial anterior: `0d93a835e4c4cd63752d3b10d8dc4106332dad7b` (`docs: record consent-gated UI progress and test evidence`).
+- Atualizações posteriores do plano/ledger seguem os commits de implementação.
 
 ## Bloqueios humanos indispensáveis
 
