@@ -188,11 +188,12 @@
 
 **Arquivos:**
 - Criar: src/bambuprep/workflow/service.py
+- Criar: src/bambuprep/workflow/runner.py
 - Criar: src/bambuprep/ui/main_window.py
 - Criar: src/bambuprep/ui/settings_dialog.py
 - Criar: src/bambuprep/ui/review_dialog.py
 - Modificar: src/bambuprep/app.py
-- Criar: tests/unit/test_workflow_service.py
+- Criar: tests/unit/test_workflow_service.py, tests/unit/test_workflow_runner.py
 - Criar: docs/user-guide.md
 
 **Interfaces:**
@@ -204,6 +205,9 @@
 - [ ] Escrever testes de fatiamento, project_configured e confirmação ausente após revisão; dependem das interfaces 3MF gated da Tarefa 5.
 - [x] Rodar `python -m pytest tests/unit/test_workflow_service.py -v` — 7 passed.
 - [x] Implementar `WorkflowService.create_job/analyze/recommend` para validar e analisar o STL localmente, persistir métricas/seleção sem bytes do arquivo, verificar o hash e chamar o serviço OpenAI somente quando consentimento explícito for passado.
+- [x] Implementar executor limitado `WorkflowTaskRunner`; as operações são submetidas a workers e devolvem `Future` para a interface observar sem bloquear.
+- [x] Rodar `python -m pytest tests/unit/test_workflow_runner.py -v` — 3 passed.
+- [ ] Integrar o executor à janela Qt, com atualização de widgets exclusivamente na thread principal.
 - [ ] Implementar janela de arrastar/selecionar STL, seleção explícita do bico, andamento, relatório e botões para abrir 3MF no Bambu Studio, confirmar revisão, apagar histórico e remover arquivos do aplicativo.
 - [ ] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
 - [ ] Implementar tela de configurações para Studio, chave OpenAI, consentimento, retenção e diretório de saída.
@@ -245,7 +249,7 @@
 - Interfaces: Selection, Recommendation, StudioProbe, SlicePlan, SliceResult e JobState são apresentados antes de seus consumidores.
 - Gate de integração: a prova real do CLI ocorre antes da implementação do fatiamento e condiciona sua ativação.
 - Dados sensíveis: o teste de privacidade e o workflow de build impedem envio de STL, 3MF privado e chave.
-- Testes descritos no plano são instruções para a fase de implementação; nenhum teste ou código de produto foi criado nesta etapa.
+- O ledger de progresso registra commits e saídas de comandos; caixas marcadas correspondem apenas a itens testados/implementados, e gates de instalação Windows permanecem desmarcados.
 
 
 ## Referências técnicas usadas no plano
