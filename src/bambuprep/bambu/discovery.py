@@ -454,10 +454,10 @@ def _windows_pseudoconsole_run(
             terminate_process(process_info.hProcess, 1)
             wait_for_single_object(process_info.hProcess, 0xFFFFFFFF)
             process_finished = True
-            close_pseudoconsole(console)
-            console = wintypes.HANDLE()
             close_if_open(input_write)
             input_write = wintypes.HANDLE()
+            close_pseudoconsole(console)
+            console = wintypes.HANDLE()
             reader.join()
             output = b"".join(captured).decode("utf-8", errors="replace")
             raise subprocess.TimeoutExpired(command, timeout_seconds, output=output)
@@ -468,10 +468,10 @@ def _windows_pseudoconsole_run(
         if not get_exit_code(process_info.hProcess, ctypes.byref(exit_code)):
             raise ctypes.WinError(ctypes.get_last_error())
         process_finished = True
-        close_pseudoconsole(console)
-        console = wintypes.HANDLE()
         close_if_open(input_write)
         input_write = wintypes.HANDLE()
+        close_pseudoconsole(console)
+        console = wintypes.HANDLE()
         reader.join()
         output = b"".join(captured).decode("utf-8", errors="replace")
         return subprocess.CompletedProcess(command, exit_code.value, output, "")
@@ -481,13 +481,14 @@ def _windows_pseudoconsole_run(
             wait_for_single_object(process_info.hProcess, 0xFFFFFFFF)
         if attributes_initialized and attribute_buffer is not None:
             delete_attributes(ctypes.cast(attribute_buffer, ctypes.c_void_p))
+        close_if_open(input_write)
+        input_write = wintypes.HANDLE()
         if console.value:
             close_pseudoconsole(console)
             console = wintypes.HANDLE()
         if reader is not None and reader.is_alive():
             reader.join()
         close_if_open(input_read)
-        close_if_open(input_write)
         close_if_open(output_write)
         close_if_open(output_read)
         close_if_open(process_info.hThread)
