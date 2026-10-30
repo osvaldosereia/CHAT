@@ -570,3 +570,10 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Não havia checkout local nem pytest instalado neste ambiente; por isso, o teste focal de repositório e suíte completa aguardam o workflow Windows 41114493466, atualmente queued. O teste isolado RED/GREEN não substitui essa suíte.
 - Ruling: aceitar os dois separadores nos nomes observados — a ajuda real desta instalação usa sublinhados e versões anteriores podem usar hífens; custo se estiver errado: detecção de opção pode ficar incompleta, porém a lista de capacidades continua informativa e não desbloqueia slice/3MF.
 - Bloqueio permanece: o processo do Studio não devolveu saída capturável ao probe; sem versão capturada, resposta de status confiável e perfis lidos, a Tarefa 1 funcional e a Tarefa 5 continuam incompletas. Ainda não houve STL de referência, fatiamento, exportação/reabertura 3MF, revisão de Preview, chamada OpenAI ou impressão.
+
+
+### CI Windows do ajuste de opções (2026-10-30)
+
+- Workflow 41114493466 para `4ed85c92e74107af5fef60db6b863f37ed98bbb7` concluiu `success` em `windows-latest`; Python 3.12.10. Comando configurado no workflow: `uv run --locked --extra test python -m pytest -v` — **164 passed, 1 aviso esperado** da fixture ZIP com nome duplicado, em 14.28s.
+- A regressão `test_detects_profile_options_when_installed_help_uses_underscores` está incluída e passou. Este CI confirma o comportamento do parser, sem Bambu Studio instalado e sem validar o slice/3MF.
+- O HEAD no momento do registro é `de91661f435cd280ce6599d8cc6c7a324170281c`; o commit de código `4ed85c9` permanece filho de `7d31235`. Não houve alteração de checkbox no plano.
