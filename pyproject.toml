@@ -9,7 +9,14 @@ description = "Local Windows preparation and analysis for Bambu Lab A1 mini prin
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Proprietary - personal project" }
-dependencies = ["keyring>=25.5,<27"]
+dependencies = [
+  "keyring>=25.5,<27",
+  "trimesh>=4.6,<5",
+  "numpy>=1.26,<3",
+  "matplotlib>=3.8,<4",
+  "fast-simplification>=0.1.12,<1",
+  "networkx>=3,<4",
+]
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]
