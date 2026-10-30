@@ -77,9 +77,9 @@
 - Produzir probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe.
 - O diagnóstico deve poder ser executado sem abrir a interface e sem iniciar uma impressão. A sintaxe específica do CLI será obtida da ajuda/versão realmente instalada, não presumida por versão.
 
-- [ ] Escrever testes para executável ausente, versão identificável, CLI sem resposta, timeout e texto de ajuda sem as capacidades necessárias.
-- [ ] Rodar python -m pytest tests/unit/test_bambu_discovery.py -v; os casos inválidos devem falhar de forma controlada e os casos válidos devem descrever as capacidades detectadas.
-- [ ] Implementar descoberta sem shell intermediário, com caminho explícito selecionado pelo usuário e captura de versão, ajuda, código de saída e timeout.
+- [x] Escrever testes para executável ausente, versão identificável, CLI sem resposta, timeout e texto de ajuda sem as capacidades necessárias.
+- [x] Rodar python -m pytest tests/unit/test_bambu_discovery.py -v; os casos inválidos devem falhar de forma controlada e os casos válidos devem descrever as capacidades detectadas.
+- [x] Implementar descoberta sem shell intermediário, com caminho explícito selecionado pelo usuário e captura de versão, ajuda, código de saída e timeout.
 - [ ] Executar tools/bambu_cli_probe.py em Windows suportado com o Bambu Studio realmente instalado; registrar versão/build, executável, argumentos confirmados e perfis encontrados em docs/operations/windows-cli-proof.md.
 - [ ] Criar um projeto pequeno de prova com A1 mini, bico selecionado, Generic PLA e Textured PEI; executar o CLI sem imprimir e reabrir o resultado no Studio. Registrar se o CLI exportou um 3MF íntegro e se Preview/perfis correspondem ao pedido.
 - [ ] Tratar a prova real do Windows como gate para Tarefa 5. Se falhar, documentar o comportamento e manter o fatiamento em fallback manual; não marcar slicer_verified.
