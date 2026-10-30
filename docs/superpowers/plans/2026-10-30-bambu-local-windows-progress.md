@@ -422,3 +422,8 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Commit: badd007adf0a3b36608d0758fe4cc115eac3c001. Windows unit/Qt run 41063454867 e standalone build run 41063451363 estavam em andamento; verificar ambos antes de atualizar caixas do plano.
 - T5, item de fallback (linha 186), permanece aberto: a interface agora mostra a checklist após análise, mas ainda não existe execução do CLI para rotear uma falha real até esse caminho, nem implementação de fatiamento/liberação de projeto. O estado permanece aquele persistido pelo fluxo validado; não foi marcado project_configured/slicer_verified.
 - Não houve chamada OpenAI, chave real, STL/3MF privado, build artifact, publicação, release, merge ou impressão.
+
+### Windows verification of manual review guidance (2026-10-30)
+
+- Windows unit/Qt run 41063454867, commit badd007adf0a3b36608d0758fe4cc115eac3c001, concluded success on Windows Server 2025 / Python 3.12.10: 150 passed, 1 expected synthetic duplicate-ZIP warning, 13.78s. This includes the manual Studio checklist UI test; it does not exercise or prove CLI slicing, generated 3MF, or real profile compatibility.
+- At this update, standalone build runs 41062054060 (commit 1fb295f), 41062268771 (commit b4e6bf7, including THIRD_PARTY_NOTICES.rst), and 41063451363 (commit badd007) were still in the MSVC/Nuitka step. Their report parsing and bundle contents remain unverified until successful completion and log review.
