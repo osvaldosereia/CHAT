@@ -20,9 +20,10 @@ def profile_catalog_summary(studio_root: Path) -> dict[str, object]:
     """Return only allowlisted system profile identifiers from the install tree."""
     try:
         catalog = ProfileCatalog.load(studio_root)
-    except ProfileCatalogError:
+    except ProfileCatalogError as exc:
         return {
             "available": False,
+            "error_code": exc.code,
             "message": "The installed A1 mini system profile set could not be validated.",
             "printers": [],
         }
