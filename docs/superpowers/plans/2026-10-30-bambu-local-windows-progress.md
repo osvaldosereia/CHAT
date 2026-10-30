@@ -587,3 +587,11 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Commit: 323145212c108fe316b98b155fcb99132c921544 (fix: clarify uncaptured Bambu Studio help output), filho de 4d6dbe0f6752db8f6213f851b268a75a1474be5c. Regressão acrescentada a tests/unit/test_bambu_discovery.py.
 - Runs do novo commit: testes Windows 41114864648 e build standalone 41114864699 estavam in_progress na consulta; resultados pendentes para a próxima atualização deste ledger.
 - O ajuste melhora o diagnóstico, mas não faz o probe capturar a ajuda; a Tarefa 1 continua incompleta e nenhum checkbox foi atualizado.
+
+
+### CI Windows da mensagem de captura (2026-10-30)
+
+- Workflow 41114864648 para commit 323145212c108fe316b98b155fcb99132c921544 concluiu success em windows-latest/Python 3.12.10. Comando: uv run --locked --extra test python -m pytest -v — 164 passed, 1 aviso esperado da fixture ZIP duplicada, 25.08s.
+- O teste existente de resposta vazia agora exige uma mensagem que mencione stdout/stderr capturados e a possibilidade de saída direta ao console. A suíte passou; o probe continua false quando não há dados capturáveis.
+- O build standalone 41114864699 para o mesmo commit ainda estava in_progress na consulta. Ele não testa o Bambu Studio instalado nem a prova de fatiamento.
+- Não houve mudança no plano/checklists. A primeira etapa incompleta continua T1 (prova local); nenhum STL/3MF privado, chave, chamada OpenAI ou impressão foi usado.
