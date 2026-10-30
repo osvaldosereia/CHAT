@@ -179,7 +179,7 @@
 - [ ] Escrever testes para seleção obrigatória do bico por trabalho, opção incompatível no SlicePlan, argumentos seguros, timeout, saída inválida e falha do CLI.
 - [x] Escrever testes sintéticos para validar a estrutura genérica ZIP/3MF e detectar partes sob `Metadata/`; isso não valida metadados Bambu nem configura projeto.
 - [x] Rodar `python -m pytest tests/unit/test_project_3mf.py -v` — 8 passed com pacotes sintéticos.
-- [ ] Escrever teste garantindo que nenhuma saída vira slicer_verified sem conclusão válida e confirmação explícita do usuário após abrir/revisar o 3MF no Bambu Studio.
+- [x] Escrever teste garantindo que nenhuma saída vira slicer_verified sem conclusão válida e confirmação explícita do usuário após abrir/revisar o 3MF no Bambu Studio. A guarda de domínio/repositório exige 3MF estruturalmente válido, hash idêntico, setup selecionado correspondente e confirmações explícitas; os testes usam somente fixture sintética e mocks, sem comprovar Studio real.
 - [ ] Rodar python -m pytest tests/unit/test_profile_catalog.py tests/unit/test_slicer_cli.py tests/unit/test_project_3mf.py -v.
 - [ ] Implementar fatiamento usando apenas o CLI e perfis da versão comprovada na Tarefa 1; capturar logs locais sem STL ou chave.
 - [ ] Gerar 3MF somente se saída e configuração passarem pela inspeção. Usuário abre o arquivo no Studio e confirma máquina, bico, material, placa, suportes e Preview para concluir slicer_verified.
@@ -239,7 +239,7 @@
 - [x] Dry-run local do pyside6-deploy confirma que Nuitka recebe --output-filename=BambuPrep.exe; build Windows de runner foi verificado separadamente, mas inspeção do bundle efetivo segue pendente.
 - [x] Runner Windows Server 2025 construiu BambuPrep.exe no caminho esperado e verificou ausência de arquivos .stl/.3mf/.sqlite/.sqlite3/.db/.log no diretório standalone (run 41036004359, commit 690ab902). Nenhum artefato foi anexado; varredura de conteúdo/segredos e revisão de licenças seguem pendentes.
 - [x] Criar auditoria de bundle que lista paths relativos, tamanhos e SHA-256; rejeita arquivos de usuário/credenciais e tokens OpenAI-like sem ecoar o nome/conteúdo no erro. Dez testes com arquivos sintéticos passaram localmente.
-- [ ] Executar a nova auditoria no runner Windows e registrar seu inventário nos logs, sem anexar/publicar o pacote. O run do commit 106465fd está em andamento.
+- [x] Executar a auditoria no runner Windows e registrar inventário nos logs, sem anexar/publicar o pacote. Run 41046396800, commit 106465fd2fb91c10fd201c0e59c59b7e2bae750f: success; inventário de 922 arquivos/209.267.185 bytes com paths relativos e hashes; sem artifact anexado. A prova ainda não corresponde ao commit atual 4054ee9, cujo build permanece pendente.
 - [ ] Instalar/abrir o pacote em Windows 10 22H2 x64 e Windows 11 x64; verificar primeira configuração, análise local, erro sem API e abertura do 3MF no Studio.
 - [x] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
 - [ ] Revisar licenças/avisos de PySide6 e demais dependências antes de publicar; registrar a conclusão em docs/operations/release-checklist.md.
