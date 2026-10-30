@@ -3,8 +3,8 @@
 ## Estado atual — 2026-10-30
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
-- HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
-- HEAD remoto confirmado antes desta atualização do ledger: `0a16670e83223892d1ace74790c790385f81a37c` (`feat: remember the local Bambu Studio executable path`); atualizações intermediárias: `054036846342503f70df47df4b4ed62d37b6733a` (ligação do Credential Locker à UI) e `03ff237c8e016e1baf9a39a5c415342558be5990` (docs).
+- HEAD registrado no ledger nas rodadas anteriores: `0a16670e83223892d1ace74790c790385f81a37c`.
+- HEAD do branch antes desta atualização: `ec364093989aee5e739270b35352d755adf314ec`; código atualizado em `1934aa161cb0d4ca6ce04a2b992f6d1e9ebfc64c` e guia em `5bcfcd0920a8171e402d1f57271d234fc609ec28`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -235,8 +235,9 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0. PySide6 não instalado; execução
 
 ## Próxima execução
 
-Continuar a Tarefa 6: validar a UI real, cobrir configurações Qt, histórico e fluxo de consentimento em Windows e concluir itens de retenção/saída ainda seguros. O caminho do Studio agora é persistido localmente e a chave tem tela protegida, mas UI segue sem QA Qt porque PySide6 não está instalado. Depois preparar build/testes T7 sem release ou publicação. CLI, metadados Bambu e fatiamento permanecem bloqueados pela prova Windows real da Tarefa 1.
+A primeira etapa incompleta continua sendo a prova T1 em PC Windows com o Bambu Studio real e o STL Sentinel. Enquanto isso, continuar os itens técnicos independentes: rever as escolhas/confirmações editáveis de material e placa na Tarefa 6; concluir build standalone e inspeção de privacidade do bundle (T7); revisar licenças/avisos e executar QA manual no Windows. O caminho do Studio e a pasta de saída são preferências locais; a pasta ainda não é usada e nenhum teste atual comprova compatibilidade real do Studio.
 
+No último status consultado, os builds 41034211145, 41033836229, 41032896496, 41032383180 e 41032000203 permaneciam in_progress na etapa “Prepare MSVC and build standalone application”. Os logs ainda retornavam 404 por não haver log final; o run 41034211145 não tinha artefatos listados. Verificar os resultados antes de marcar build concluído.
 ## Commits
 
 - Tarefa 1: `e0009136d3695beed890e9148e68d0db72a33ab7` (`feat: add Bambu Studio CLI discovery foundation`).
@@ -261,3 +262,35 @@ Continuar a Tarefa 6: validar a UI real, cobrir configurações Qt, histórico e
 4. Depois que a tela de configurações estiver pronta, cadastrar localmente uma chave OpenAI no Credential Locker e consentir separadamente por trabalho; até haver chave e consentimento explícito, manter mocks e não fazer chamadas reais.
 
 
+
+
+## Continuação 2026-10-30 — preferência local de pasta de saída (Tarefa 6)
+
+- O primeiro item incompleto do plano continua sendo a prova real da Tarefa 1; não há instalação/path/build do Bambu Studio real nem STL Sentinel nesta execução. A mudança abaixo não usa nem declara compatibilidade do Studio.
+- LocalPreferences agora contém output_directory opcional. LocalPreferencesStore persiste apenas o caminho absoluto, preserva o caminho do executável do Studio, continua aceitando JSON anterior com apenas studio_executable e rejeita campos desconhecidos, caminhos relativos e campos de segredo.
+- A tela de configurações permite escolher pasta local existente e exibe o caminho salvo. O texto informa que o fatiamento/3MF continua desabilitado e que a pasta não é usada enquanto a integração real estiver pendente. Nenhum arquivo é criado nela.
+- O guia do usuário explica a preferência. Não foi chamada a OpenAI, não se usou STL/3MF privado e não houve escrita de chave, histórico ou imagem.
+- Ruling: guardar a pasta preferida sem habilitar gravação — permite configurar uma escolha local agora sem inferir sintaxe/saída do Studio; a interface informa que a preferência está inativa até a prova T1 — custo se errado: a preferência pode parecer útil antes de produzir arquivos, e precisa permanecer explicitamente rotulada como inativa.
+
+### TDD e comandos executados
+
+Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependências travadas.
+
+- RED das preferências: python -m pytest tests/unit/test_config.py -q — 2 failed, 5 passed, como esperado: save_output_directory ainda não existia.
+- GREEN das preferências: mesmo comando — 7 passed.
+- RED da UI: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_qt_ui.py::test_settings_dialog_saves_output_directory_without_claiming_slicing_is_enabled -q — 1 failed, como esperado: o botão ainda não existia.
+- GREEN focado da UI: mesmo comando — 1 passed.
+- Qt: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_qt_ui.py -q — 8 passed.
+- Suíte completa com PySide6: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q — 122 passed, 1 warning em 2.98s. O único aviso é o fixture sintético de nome duplicado ZIP em test_project_3mf.py; não há skips.
+- Sintaxe: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests — exit 0.
+- CI Windows anterior à extensão: run 41034211146 em 16efc3f, sucesso: 119 passed, 1 warning em 15.58s. Essa execução não inclui o seletor de pasta novo.
+- Builds observados continuam pendentes: 41034211145, 41033836229, 41032896496, 41032383180, 41032000203; passo MSVC/standalone em execução, logs finais ainda não disponíveis e sem artefatos registrados para 41034211145.
+
+### Commits desta extensão
+
+- 90c190e88371d4a68e620182836f90ee7b99d9fa — test: cover local output directory preference (RED antes da implementação).
+- c85ff097f7b8eb253cd8f1ed5175ba87557c4269 — feat: persist local output directory preference.
+- b6c5320f8afc93d21edffb0c53c7653fbb972561 — test: cover local output directory settings (teste de UI RED).
+- 1934aa161cb0d4ca6ce04a2b992f6d1e9ebfc64c — feat: select a local output directory.
+- 5bcfcd0920a8171e402d1f57271d234fc609ec28 — docs: explain local output directory preference.
+- ec364093989aee5e739270b35352d755adf314ec — docs: record verified BambuPrep UI and settings progress.
