@@ -7,9 +7,10 @@ import math
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from bambuprep.recommendations.schema import RecommendationProfileOptions
+if TYPE_CHECKING:
+    from bambuprep.recommendations.schema import RecommendationProfileOptions
 
 
 MODEL_ID = "Bambu Lab A1 mini"
@@ -151,6 +152,8 @@ class ProfileCatalog:
         raise ProfileCatalogError("Printer profile is not present in the installed catalog")
 
     def recommendation_options(self, printer_id: str) -> RecommendationProfileOptions:
+        from bambuprep.recommendations.schema import RecommendationProfileOptions
+
         printer = self.printer(printer_id)
         return RecommendationProfileOptions(
             printer_ids=(printer.printer_id,),

@@ -12,6 +12,37 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "src"))
 
 from bambuprep.bambu.discovery import probe_studio
+from bambuprep.bambu.profiles import ProfileCatalog, ProfileCatalogError
+
+
+
+def profile_catalog_summary(studio_root: Path) -> dict[str, object]:
+    """Return only allowlisted system profile identifiers from the install tree."""
+    try:
+        catalog = ProfileCatalog.load(studio_root)
+    except ProfileCatalogError:
+        return {
+            "available": False,
+            "message": "The installed A1 mini system profile set could not be validated.",
+            "printers": [],
+        }
+    return {
+        "available": True,
+        "model_id": catalog.model_id,
+        "profile_version": catalog.profile_version,
+        "printers": [
+            {
+                "printer_id": printer.printer_id,
+                "nozzle_mm": printer.nozzle_mm,
+                "generic_pla_profile_id": printer.generic_pla_profile_id,
+                "default_process_profile_id": printer.default_process_profile_id,
+                "plate_id": printer.plate_id,
+                "support_options": list(printer.support_options),
+                "adhesion_options": list(printer.adhesion_options),
+            }
+            for printer in catalog.printers
+        ],
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = asdict(result)
     payload["executable"] = str(result.executable)
     payload["capabilities"] = sorted(result.capabilities)
+    payload["profile_catalog"] = profile_catalog_summary(result.executable.parent)
     print(json.dumps(payload, indent=2, ensure_ascii=False))
     return 0 if result.cli_available else 2
 

@@ -1,4 +1,8 @@
 import json
+import os
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -246,3 +250,36 @@ def test_catalog_rejects_inheritance_cycles(tmp_path):
 
     with pytest.raises(ProfileCatalogError, match="inheritance cycle"):
         ProfileCatalog.load(install)
+
+
+def test_profile_catalog_module_imports_without_mesh_stack():
+    repository_root = Path(__file__).resolve().parents[2]
+    script = textwrap.dedent(
+        """\\
+        import importlib.abc
+        import sys
+
+        class BlockMeshImports(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname == "trimesh" or fullname.startswith("bambuprep.mesh"):
+                    raise ModuleNotFoundError("mesh imports blocked by this test")
+                return None
+
+        sys.meta_path.insert(0, BlockMeshImports())
+        from bambuprep.bambu.profiles import ProfileCatalog
+        assert callable(ProfileCatalog.load)
+        """
+    )
+    environment = os.environ.copy()
+    pythonpath = [str(repository_root / "src"), environment.get("PYTHONPATH", "")]
+    environment["PYTHONPATH"] = os.pathsep.join(part for part in pythonpath if part)
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=repository_root,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
