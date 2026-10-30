@@ -109,6 +109,10 @@ class BambuPrepMainWindow(QMainWindow):
         self.nozzle_confirm.toggled.connect(self._refresh_controls)
         layout.addWidget(self.nozzle_confirm)
 
+        self.material_plate_confirm = QCheckBox(central)
+        self.material_plate_confirm.toggled.connect(self._refresh_controls)
+        layout.addWidget(self.material_plate_confirm)
+
         buttons = QHBoxLayout()
         self.analyze_button = QPushButton("Analisar localmente", central)
         self.analyze_button.clicked.connect(self._analyze)
@@ -161,14 +165,18 @@ class BambuPrepMainWindow(QMainWindow):
         self._configuration_changed()
         profile = self._selected_profile()
         self.nozzle_confirm.setChecked(False)
+        self.material_plate_confirm.setChecked(False)
         self.filament_combo.clear()
         self.plate_combo.clear()
         if profile is not None:
             self.filament_combo.addItem(profile.generic_pla_profile_id, profile.generic_pla_profile_id)
             self.plate_combo.addItem(profile.plate_id, profile.plate_id)
+        self._update_material_plate_confirmation_text()
         self._refresh_controls()
 
     def _configuration_changed(self, *_args: object) -> None:
+        self.material_plate_confirm.setChecked(False)
+        self._update_material_plate_confirmation_text()
         if self._report is not None:
             self._report = None
             self._recommendation = None
@@ -250,6 +258,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._report = None
         self._recommendation = None
         self.nozzle_confirm.setChecked(False)
+        self.material_plate_confirm.setChecked(False)
         self.file_label.setText("Nenhum STL selecionado")
         self.report_view.clear()
         self._clear_views()
@@ -261,6 +270,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._report = None
         self._recommendation = None
         self.nozzle_confirm.setChecked(False)
+        self.material_plate_confirm.setChecked(False)
         self.file_label.setText(job.source_path.name)
         self.report_view.clear()
         self._clear_views()
@@ -270,7 +280,12 @@ class BambuPrepMainWindow(QMainWindow):
     def _analyze(self) -> None:
         job = self._job
         profile = self._selected_profile()
-        if job is None or profile is None or not self.nozzle_confirm.isChecked():
+        if (
+            job is None
+            or profile is None
+            or not self.nozzle_confirm.isChecked()
+            or not self.material_plate_confirm.isChecked()
+        ):
             return
         selection = PrinterSelection(
             printer_id=profile.printer_id,
@@ -385,8 +400,21 @@ class BambuPrepMainWindow(QMainWindow):
         profile = self.profile_combo.currentData()
         return profile if isinstance(profile, PrinterProfile) else None
 
+    def _update_material_plate_confirmation_text(self) -> None:
+        filament = self.filament_combo.currentText() or "filamento selecionado"
+        plate = self.plate_combo.currentText() or "placa selecionada"
+        self.material_plate_confirm.setText(
+            f"Confirmei o filamento {filament} e a placa {plate} para este trabalho"
+        )
+
     def _refresh_controls(self, *_args: object) -> None:
         has_job = self._job is not None
+        profile = self._selected_profile()
+        has_profile_selection = (
+            profile is not None
+            and self.filament_combo.currentData() is not None
+            and self.plate_combo.currentData() is not None
+        )
         self.open_button.setEnabled(not self._busy)
         self.settings_button.setEnabled(not self._busy)
         self.delete_history_button.setEnabled(has_job and not self._busy)
@@ -394,8 +422,13 @@ class BambuPrepMainWindow(QMainWindow):
         self.filament_combo.setEnabled(not self._busy)
         self.plate_combo.setEnabled(not self._busy)
         self.nozzle_confirm.setEnabled(has_job and not self._busy)
+        self.material_plate_confirm.setEnabled(has_job and has_profile_selection and not self._busy)
         self.analyze_button.setEnabled(
-            has_job and self.nozzle_confirm.isChecked() and not self._busy
+            has_job
+            and has_profile_selection
+            and self.nozzle_confirm.isChecked()
+            and self.material_plate_confirm.isChecked()
+            and not self._busy
         )
         self.recommend_button.setEnabled(
             has_job and self._report is not None and self._recommendation is None and not self._busy
