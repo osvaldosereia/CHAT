@@ -1,4 +1,5 @@
 import json
+import locale
 from pathlib import Path
 
 import pytest
@@ -105,6 +106,39 @@ def test_cli_fails_on_distribution_not_in_lock_without_printing_paths_or_license
     assert "PySide6" in captured.out
     assert str(tmp_path) not in captured.out + captured.err
     assert "synthetic full license text" not in captured.out + captured.err
+
+
+def test_cli_reads_license_report_using_the_platform_text_encoding(tmp_path, capsys, monkeypatch):
+    license_report = tmp_path / "runner-license-report.rst"
+    compilation_report = tmp_path / "runner-compilation-report.xml"
+    lock_file = tmp_path / "uv.lock"
+    platform_report = LICENSE_REPORT.replace(
+        "Proprietary - personal project", "Proprietary - café"
+    ).replace(
+        "synthetic full license text that must not be printed",
+        "Copyright © 2026 — third-party license text",
+    )
+    license_report.write_bytes(platform_report.encode("cp1252"))
+    compilation_report.write_text(COMPILATION_REPORT, encoding="utf-8")
+    lock_file.write_text(LOCK, encoding="utf-8")
+    monkeypatch.setattr(locale, "getpreferredencoding", lambda *_args: "cp1252")
+
+    exit_code = main(
+        [
+            "--license-report",
+            str(license_report),
+            "--compilation-report",
+            str(compilation_report),
+            "--lock-file",
+            str(lock_file),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "Proprietary - café" in captured.out
+    assert "third-party license text" not in captured.out
+    assert str(tmp_path) not in captured.out + captured.err
 
 
 @pytest.mark.parametrize(

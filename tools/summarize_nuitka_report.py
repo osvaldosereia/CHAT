@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import locale
 import re
 import sys
 import tomllib
@@ -103,15 +104,17 @@ def _normalize_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
-def _read_report(path: Path) -> str:
+def _read_report(path: Path, *, description: str, encoding: str = "utf-8") -> str:
     try:
         if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_REPORT_BYTES:
             raise LicenseInventoryError("A Nuitka report file is missing or exceeds the supported size limit.")
-        return path.read_text(encoding="utf-8")
+        return path.read_text(encoding=encoding)
     except LicenseInventoryError:
         raise
-    except (OSError, UnicodeError):
-        raise LicenseInventoryError("A Nuitka report file could not be read.") from None
+    except UnicodeError:
+        raise LicenseInventoryError(f"{description} does not match its expected text encoding.") from None
+    except OSError:
+        raise LicenseInventoryError(f"{description} could not be read.") from None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -122,9 +125,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         summary = summarize_nuitka_reports(
-            _read_report(args.license_report),
-            _read_report(args.compilation_report),
-            _read_report(args.lock_file),
+            _read_report(
+                args.license_report,
+                description="Nuitka license report",
+                encoding=locale.getpreferredencoding(False),
+            ),
+            _read_report(args.compilation_report, description="Nuitka compilation report"),
+            _read_report(args.lock_file, description="Dependency lock file"),
         )
     except LicenseInventoryError as exc:
         print(f"Nuitka report summary failed: {exc}", file=sys.stderr)
