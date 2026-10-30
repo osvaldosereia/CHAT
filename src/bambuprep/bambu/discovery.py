@@ -380,9 +380,6 @@ def _windows_pseudoconsole_run(
         input_read = wintypes.HANDLE()
         close_if_open(output_write)
         output_write = wintypes.HANDLE()
-        close_if_open(input_write)
-        input_write = wintypes.HANDLE()
-
         attribute_size = ctypes.c_size_t()
         initialize_attributes(None, 1, 0, ctypes.byref(attribute_size))
         if not attribute_size.value or attribute_size.value > 65536:
@@ -470,6 +467,8 @@ def _windows_pseudoconsole_run(
         process_finished = True
         close_pseudoconsole(console)
         console = wintypes.HANDLE()
+        close_if_open(input_write)
+        input_write = wintypes.HANDLE()
         reader.join()
         output = b"".join(captured).decode("utf-8", errors="replace")
         return subprocess.CompletedProcess(command, exit_code.value, output, "")
