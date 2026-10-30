@@ -28,6 +28,9 @@ A leitura dos perfis instalados serve para oferecer opções locais. Ela não te
 3. Confira o Generic PLA e a placa apresentados pelos perfis locais e confirme esses valores para o trabalho. A confirmação reinicia ao trocar o perfil ou selecionar outro STL.
 4. Clique em **Analisar localmente**. A janela mostra dimensões interpretadas como milímetros, contagens e avisos. STL não guarda unidade confiável; escala suspeita exige revisão.
 5. Revise o relatório e as vistas Frente, Lado, Topo e Riscos. As vistas são renderizadas localmente e mantidas em memória para a janela.
+6. Se desejar configurar o trabalho manualmente, use **Abrir STL original no Bambu Studio (manual)**. O BambuPrep inicia o Studio instalado com o caminho do STL local como argumento. No Studio, confira máquina, bico físico, processo, Generic PLA, Textured PEI, suportes, aderência e Preview.
+
+Esse atalho abre somente o STL original. Ele não chama o CLI de fatiamento, não cria um arquivo 3MF e não muda o trabalho para um estado de fatiamento verificado. O usuário continua responsável por revisar e iniciar qualquer impressão no Studio.
 
 As estimativas de orientação, balanço e contato não garantem resultado físico. O original não é alterado.
 
