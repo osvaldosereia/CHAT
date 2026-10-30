@@ -5,7 +5,7 @@
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD lido antes desta rodada: `d0a25f428aa8bf8bf4b5491e114e7cfbb8a227f6` (`docs: align Windows credential store naming`)
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
-- Primeiro item incompleto: Tarefa 1 — diagnósticos de CLI implementáveis; prova de integração Windows ainda depende do PC do usuário.
+- Primeiro item ainda bloqueado: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. Diagnóstico, código e testes simulados já foram concluídos.
 - Histórico/ledger anterior: o arquivo ainda não existia na branch.
 
 ## Concluído nesta rodada
@@ -14,7 +14,7 @@
 - Descoberta usa caminho explícito, executa `--version` e `--help` com lista de argumentos, `shell=False`, captura saídas/código de retorno e timeout. A ajuda é interpretada apenas para listar opções observadas; isso não declara compatibilidade funcional.
 - Criado script de diagnóstico que funciona diretamente do checkout e retorna JSON.
 - Criado `pyproject.toml`, ponto de entrada provisório, testes unitários e modelo de relatório para a prova manual.
-- O plano marca somente os três itens de código/teste realmente concluídos na Tarefa 1.
+- No plano, Tarefa 1 tem quatro itens concluídos: testes, comando prescrito, implementação do diagnóstico e regra do gate; os dois itens da prova real permanecem desmarcados.
 
 ## Evidência de comandos executados
 
@@ -43,7 +43,7 @@ Ambiente da rodada: Linux, Python 3.12.14; não é Windows e não possui Bambu S
 ## Commits
 
 - Commit de código e documentação: `e0009136d3695beed890e9148e68d0db72a33ab7` (`feat: add Bambu Studio CLI discovery foundation`).
-- Registro atualizado após o commit; os commits de documentação que atualizaram o plano e este ledger são descendentes da implementação.
+- Commit de código e documentação da Tarefa 2: `262a130f821b6712492ed4980812ea7c6c89068f` (`feat: add local job storage and secure settings`). Atualizações de plano/ledger são commits descendentes de documentação.
 
 ## Bloqueios humanos indispensáveis
 
@@ -54,4 +54,4 @@ Ambiente da rodada: Linux, Python 3.12.14; não é Windows e não possui Bambu S
 
 ## Próxima execução
 
-Continuar no primeiro trabalho independente seguro: Tarefa 2 (modelos de domínio, transições, configuração e armazenamento local), mantendo a prova real do Studio sem marcação até haver evidência no Windows.
+Avançar para Tarefa 3 (ingestão e análise geométrica com fixtures sintéticas locais), sem depender do STL privado. A prova real da Tarefa 1 continua sem marcação até haver evidência no Windows.
