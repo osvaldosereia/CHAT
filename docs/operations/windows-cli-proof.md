@@ -1,6 +1,6 @@
 # Prova do CLI do Bambu Studio no Windows
 
-**Estado:** prova funcional pendente. A instalação real observada no Windows é Bambu Studio 2.8.2.61, em `C:\Program Files\Bambu Studio\bambu-studio.exe`. A ajuda direta termina com código 0 e mostra as opções, mas o probe Python atualizado ainda retorna `version: null`, `cli_available: false` e `capabilities: []`, sem capturar stdout/stderr. Não declarar compatibilidade de CLI, fatiamento ou 3MF verificado.
+**Estado:** prova funcional e leitura dos perfis locais pelo probe pendentes. A instalação real observada no Windows é Bambu Studio 2.8.2.61, em `C:\Program Files\Bambu Studio\bambu-studio.exe`. A ajuda direta termina com código 0 e mostra as opções, mas o último JSON compartilhado ainda retorna `version: null`, `cli_available: false` e `capabilities: []`, sem capturar stdout/stderr. A versão atual da branch acrescenta `profile_catalog` ao JSON, mas o usuário ainda precisa executar esse probe atualizado. Não declarar compatibilidade de CLI, fatiamento ou 3MF verificado.
 
 ## Dados a registrar
 
@@ -9,7 +9,7 @@
 - Caminho do executável: `C:\Program Files\Bambu Studio\bambu-studio.exe` (observado no Explorador e no comando)
 - Probe Python atualizado: `version: null`, `cli_available: false`, `capabilities: []`; `--help` reporta código 0, mas a saída capturada é vazia.
 - Opções exibidas pela ajuda direta: `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load-settings`, `--load-filaments`, `--load_settings` e `--load_filaments`. A presença na ajuda não comprova execução funcional.
-- Perfis A1 mini, bico usado, Generic PLA e Textured PEI encontrados: pendente
+- Perfis A1 mini, bico usado, Generic PLA e Textured PEI encontrados pelo probe: pendente. O campo novo `profile_catalog` lista somente IDs allowlisted e valores de bico/opções oficiais; ainda não foi executado no PC.
 - Hash do STL de referência (não registrar caminho nem copiar o arquivo): pendente
 - Resultado exportado para 3MF e inspeção do arquivo: pendente
 - Projeto reaberto no Studio; Preview e perfis conferidos pelo usuário: pendente
@@ -17,13 +17,14 @@
 
 ## Executar diagnóstico
 
-No PC Windows com Bambu Studio instalado, a partir da pasta do aplicativo:
+No PowerShell aberto na pasta `tools` do branch atualizado:
 
 ```powershell
-python tools/bambu_cli_probe.py --executable "C:\caminho\para\BambuStudio.exe"
+$studio = Join-Path $env:ProgramFiles 'Bambu Studio\bambu-studio.exe'
+python .\bambu_cli_probe.py --executable $studio
 ```
 
-O diagnóstico chama somente `--version` e `--help`, sem `shell=True` e sem iniciar impressão. Salve localmente a saída JSON para revisão; não inclua caminhos de arquivos privados ou o STL no repositório. As capacidades são nomes de opções encontradas no texto de ajuda, não prova de funcionamento.
+O diagnóstico chama somente `--version` e `--help`, sem `shell=True` e sem iniciar impressão. O JSON também resume apenas IDs allowlisted dos perfis A1 mini encontrados ao lado do executável; não lê configurações pessoais. Salve localmente a saída para revisão e compartilhe apenas o JSON, sem STL ou chave. As capacidades são nomes de opções encontradas no texto de ajuda, não prova de funcionamento.
 
 ## Prova funcional manual obrigatória
 

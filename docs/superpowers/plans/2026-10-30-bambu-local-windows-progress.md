@@ -642,3 +642,44 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - A consulta posterior confirmou o encerramento do workflow 41118059732 como `success`. O log do job `tests` registra `uv run --locked --extra test python -m pytest -v`: **165 passed, 1 warning em 16.42s**. O aviso esperado é `Duplicate name: '[Content_Types].xml'` na fixture negativa de ZIP duplicado.
 - O workflow standalone 41118059752 permanecia em `Prepare MSVC and build standalone application`; nenhuma conclusão/artefato disponível. O build 41115260192 também ainda aparecia em execução sem atualização recente.
 - HEAD da branch nesta atualização inclui a correção de documentação `ce64d1b917fde9941544e1e76e9991a239dc3c11` e este registro de verificação. O teste passou no commit de código `0976450cb09e0700c62e742079fbb81110fcbfa2`; as mudanças posteriores desta rodada foram apenas documentos.
+
+
+## Retomada manual — probe de perfis e abertura manual do STL (2026-10-30)
+
+- Branch autorizada: `codex/bambu-a1-mini-foundation-20261029`. HEAD antes deste registro: `05cb8e8ba27de56f479127d9a664075e86b920e1`. A primeira etapa incompleta continua sendo Tarefa 1, item de executar o probe atualizado no Windows e registrar os perfis; os itens de slice/3MF/revisão também permanecem pendentes.
+- A prova enviada pelo usuário mostra Bambu Studio 2.8.2.61 em `C:\Program Files\Bambu Studio\bambu-studio.exe`. O comando direto `$studio --help 2>&1 | Select-String -SimpleMatch '--slice','--load-settings','--load-filaments','--export-3mf'` retornou o cabeçalho `BambuStudio-02.08.02.61`, a ajuda completa e código 0. Foram observadas as sintaxes `--load-settings setting1.json;setting2.json`, `--load-filaments filament1.json;filament2.json`, `--slice option` e `--export-3mf filename.3mf`; a ajuda também mostra variantes com sublinhado na lista de prioridade. A saída completa apesar do filtro sugere (inferência) que parte da escrita não passou pelo pipeline de PowerShell. Isto confirma somente a invocação direta da ajuda, não captura no probe nem operação de slice/export.
+- Documento atualizado: `docs/operations/windows-cli-proof.md` registra a nova evidência sem imagens. A versão exata do Windows ainda não foi informada. O último JSON compartilhado antes do código de catálogo permanecia `version: null`, `cli_available: false`, `capabilities: []` e mensagem com código de saída 0 para ajuda não capturada.
+
+### Probe read-only de perfis
+
+- Implementação em commit `81c20f31d6e445a1ce317a9134d36fcb25e2b927`: o diagnóstico inclui `profile_catalog` com apenas IDs allowlisted de impressora, bico, Generic PLA, processo padrão, placa e opções de suporte/aderência. Falha de leitura de catálogo fecha em modo indisponível, sem expor caminhos de perfil nem ler dados pessoais. O carregamento seguro de `ProfileCatalog` foi desacoplado do stack de malha para o script standalone.
+- Um teste Windows do commit `81c20f3` falhou por indentação na string do subprocesso do teste de importação. Correção em `43210eb09432573ee28171a1b612ad47300f533c`; workflow `41119702216` executou `uv run --locked --extra test python -m pytest -v` em runner Windows e terminou success: **169 passed, 1 warning em 28.61s**. O warning é a fixture intencional com nome ZIP duplicado. O teste do catálogo usa apenas dados sintéticos. A inclusão de perfil no JSON ainda aguarda ser executada pelo usuário no Studio real.
+
+### Abertura manual local como fallback
+
+- Testes escritos antes da implementação. Commit `0cd747b33f32e94a7e99d6a9c58eb82d902de62e`, workflow `41120249321`: RED, **2 falhas** esperadas (faltava adaptador de abertura e botão de histórico estava desabilitado sem trabalho selecionado; 169 passaram).
+- Testes do adaptador: commit `07f8e2d1c099e02affdb82d103d09fc5273098af`, workflow `41120252104`: RED esperado na coleta, `ModuleNotFoundError: bambuprep.bambu.launcher`.
+- Implementação em commit `09c330f17bf04fe36e0162c4e17ebc41954a001f`: novo adaptador local abre o caminho absoluto do STL como argumento separado, com `shell=False`, sem opções de slice/export; o botão manual exige trabalho selecionado e caminho de Studio configurado, e informa ao usuário que não criou 3MF nem verificou fatiamento. A limpeza do histórico pode ser iniciada mesmo sem trabalho atualmente selecionado. Não há modificação nem exclusão do STL.
+- Workflow Windows `41120368649` para `09c330f` executou `uv run --locked --extra test python -m pytest -v` e terminou success: **174 passed, 1 warning em 23.98s**. Incluiu os três testes do adaptador e os dois testes Qt de abrir manualmente e apagar histórico sem seleção.
+- Guia atualizado em commit `05cb8e8ba27de56f479127d9a664075e86b920e1` explica o fallback. Plano: marcado somente o item de fallback manual da Tarefa 5 e ampliada a cobertura parcial da Tarefa 6; a caixa de prova real da Tarefa 1 e a integração 3MF continuam desmarcadas.
+
+### Verificações nesta rodada
+
+- `python -m pytest -q tests/test_bambu_launcher.py` em `/tmp/bambu-manual-launcher`: não iniciado; o runtime local não contém pytest (`No module named pytest`). Isso não é falha do teste/produto; a verificação autoritativa de código foi o CI Windows acima.
+- `python -c 'import ast,pathlib; ast.parse(pathlib.Path("main_window.py").read_text(encoding="utf-8")); print("main_window.py syntax ok")'` na cópia do arquivo da branch em `/tmp/bambu-manual-launcher`: exit 0, `main_window.py syntax ok`.
+- Smoke test Python de biblioteca padrão em cópias dos arquivos da branch: exit 0, `manual launcher smoke: argv, shell=False, relative-path and extension checks passed`. Usou somente executável placeholder e STL sintético em diretório temporário, com `subprocess.Popen` mockado; verificou argumento único para o caminho com espaços/`;`, ausência de shell, rejeição de caminho relativo e de extensão 3MF.
+- O build Windows `41120368628` do commit `09c330f` permanece `in_progress` na etapa `Prepare MSVC and build standalone application`; o build `41119631577` também permanecia em execução na consulta. Nenhum resultado de build ou artifact novo pode ser declarado nesta atualização.
+- Nenhum STL/3MF privado, imagem, segredo, chave OpenAI, chamada real à OpenAI, impressão ou dado pessoal foi incluído ou usado. Nenhuma compatibilidade funcional de CLI/3MF é declarada.
+
+### Próximas ações humanas
+
+1. Baixar o ZIP atual do branch, abrir PowerShell dentro de `tools` e executar:
+   ```powershell
+   $studio = Join-Path $env:ProgramFiles 'Bambu Studio\bambu-studio.exe'
+   python .\bambu_cli_probe.py --executable $studio
+   ```
+   Compartilhar somente o JSON. Esse probe fornece o resumo de IDs dos perfis do catálogo instalado sem incluir STL nem chave.
+2. Para liberar o fatiador no código, executar a prova local com STL Sentinel ou modelo sintético pequeno, máquina A1 mini, bico fisicamente escolhido, Generic PLA e Bambu Textured PEI; demonstrar CLI slice/export sem imprimir, abrir o 3MF no Studio e conferir perfis e Preview. Registrar somente resultado e divergências, sem enviar STL/3MF privado.
+3. Confirmar a versão do Windows e testar no próprio PC a abertura manual/resp. Qt. A instalação/UX em Windows 10 e Windows 11 só pode ser declarada após teste em cada alvo.
+4. Chamada real OpenAI segue opcional e depende da chave individual configurada localmente e consentimento explícito por trabalho; até lá, os mocks continuam sendo a única verificação.
+5. Revisão legal/licenças e decisão de distribuição só se tornam necessárias antes de qualquer publicação futura; release e publicação continuam proibidos neste trabalho.

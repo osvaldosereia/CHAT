@@ -183,7 +183,7 @@
 - [ ] Rodar python -m pytest tests/unit/test_profile_catalog.py tests/unit/test_slicer_cli.py tests/unit/test_project_3mf.py -v.
 - [ ] Implementar fatiamento usando apenas o CLI e perfis da versão comprovada na Tarefa 1; capturar logs locais sem STL ou chave.
 - [ ] Gerar 3MF somente se saída e configuração passarem pela inspeção. Usuário abre o arquivo no Studio e confirma máquina, bico, material, placa, suportes e Preview para concluir slicer_verified.
-- [ ] Em CLI indisponível ou falho, não declarar slice pronto. Exibir análise e campos exatos que a pessoa deve conferir manualmente no Bambu Studio. Usar recommendation_ready ou project_configured conforme o que foi efetivamente validado.
+- [x] Em CLI indisponível ou falho, não declarar slice pronto. A interface mostra os campos para conferência manual, oferece abertura do STL original no Bambu Studio por argumento local sem shell e mantém explícito que não executou fatiamento nem verificou 3MF. O fluxo continua em needs_review/recommendation_ready conforme o que foi realmente validado; coberto pelos testes Qt do fallback manual.
 - [ ] Executar prova com a versão/build real instalada e o STL de referência, sem imprimir; registrar divergências conhecidas e não publicar a compatibilidade como garantida se a prova falhar.
 
 ## Tarefa 6: interface e orquestração do fluxo completo
@@ -215,7 +215,7 @@
 - [x] Ao falhar uma operação, reler o estado persistido, mostrar estado e próximo passo de recuperação e desabilitar análise em trabalhos blocked/failed.
 - [x] Exibir indicador de progresso indeterminado acessível enquanto uma operação está ativa e ocultá-lo ao terminar; cobertura Qt offscreen.
 - [ ] Implementar janela de arrastar/selecionar STL, seleção explícita do bico, andamento, relatório e botões para abrir 3MF no Bambu Studio, confirmar revisão, apagar histórico e remover arquivos do aplicativo.
-- [x] Cobertura parcial verificada: aceitar um STL local existente por arrastar-e-soltar e rejeitar formatos remotos, múltiplos arquivos e outras extensões; revisão/abertura de 3MF e remoção de arquivos de saída seguem pendentes.
+- [x] Cobertura parcial verificada: aceitar um STL local existente por arrastar-e-soltar e rejeitar formatos remotos, múltiplos arquivos e outras extensões; o botão manual abre o STL original sem alterar o estado; o histórico pode ser apagado mesmo sem STL selecionado. Revisão/abertura de 3MF e remoção de arquivos de saída seguem pendentes.
 - [x] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
 - [x] O usuário confirma o bico fisicamente e confirma os valores de filamento/placa apresentados pelo catálogo local em cada trabalho; as confirmações resetam após trocar STL ou perfil. O teste Qt verifica o bloqueio da análise sem ambas as confirmações.
 - [x] Implementar tela de configurações para Studio, chave OpenAI, consentimento, retenção e diretório de saída.

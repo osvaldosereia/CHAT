@@ -1,6 +1,6 @@
 # Design — aplicativo local de preparação para Bambu A1 mini
 
-**Status:** proposta técnica para revisão do usuário. Nenhum código de produto será iniciado até a aprovação deste desenho.
+**Status:** aprovada pelo usuário para implementação local; desenvolvimento em andamento. A prova real de compatibilidade do CLI, fatiamento e 3MF no Windows permanece pendente.
 **Data:** 30 de outubro de 2026.
 **Repositório e branch:** osvaldosereia/CHAT, codex/bambu-a1-mini-foundation-20261029.
 **Alvo inicial:** Windows 10 22H2 x64 e Windows 11 x64; arquitetura ARM ou versão anterior exige confirmação antes de publicar build.
