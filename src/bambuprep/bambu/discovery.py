@@ -112,7 +112,7 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
 
     help_text = _combined_output(help_result)
     if not help_text:
-        message = "Bambu Studio CLI returned no response to --help."
+        message = "Bambu Studio CLI returned no response in captured stdout/stderr to --help; it may have written help directly to the console."
     elif help_result.returncode != 0:
         message = "Bambu Studio CLI returned a non-zero exit code for --help."
     else:

@@ -69,6 +69,8 @@ def test_empty_cli_response_is_not_reported_as_available(tmp_path, monkeypatch):
 
     assert result.cli_available is False
     assert "no response" in result.message.lower()
+    assert "captured stdout/stderr" in result.message.lower()
+    assert "console" in result.message.lower()
 
 
 @pytest.mark.parametrize("timeout_command", ["--version", "--help"])
