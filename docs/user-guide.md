@@ -13,6 +13,8 @@ python -m pip install -e ".[test]"
 python -m bambuprep
 ```
 
+Na inicialização, o aplicativo detecta a versão/build do Windows e a arquitetura. Fora de Windows 10 22H2 x64 ou Windows 11 x64, ele informa que o ambiente não foi validado e pede confirmação antes de continuar; essa confirmação não declara suporte nem compatibilidade do Bambu Studio.
+
 Na primeira execução, selecione o `BambuStudio.exe` instalado. O caminho absoluto escolhido fica em `%LOCALAPPDATA%\BambuPrep\preferences.json`; se o seletor for cancelado, o app tenta reutilizar o caminho salvo quando o executável ainda existir. O catálogo procura os perfis ao lado desse executável.
 
 Em **Configurações locais**, também é possível guardar uma pasta de saída preferida. Ela fica nas preferências locais e não é usada para gerar arquivos enquanto o fatiamento/3MF não estiver habilitado.

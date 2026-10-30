@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from bambuprep.platform_support import detect_windows_target
+
 
 class _UnavailableKeyStore:
     """Disable recommendations safely when Windows Credential Locker is unavailable."""
@@ -29,6 +31,17 @@ def run_windows_app() -> int:
     from bambuprep.workflow.service import WorkflowService
 
     application = QApplication.instance() or QApplication(sys.argv)
+    target = detect_windows_target()
+    if not target.supported:
+        answer = QMessageBox.warning(
+            None,
+            "Windows fora do alvo validado",
+            f"{target.message}\n\nDeseja continuar mesmo assim?",
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Ok:
+            return 0
     try:
         paths = get_app_paths()
         paths.data_dir.mkdir(parents=True, exist_ok=True)
