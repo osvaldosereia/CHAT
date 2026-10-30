@@ -32,8 +32,15 @@ O projeto declara atualmente `Proprietary - personal project` nos metadados. Ess
 - [ ] Fazer revisão final das obrigações dos componentes selecionados e registrar responsável/data em um checklist aprovado.
 - [ ] Não publicar pacote/release até todos os gates acima estarem concluídos e a aprovação de release ser dada separadamente.
 
+## Evidência técnica de licenças — 2026-10-30
+
+- A documentação oficial do Qt for Python informa que a edição comunitária é distribuída sob LGPLv3/GPLv3, com opção comercial; a página de licenças lista código de terceiros e recomenda reconhecer os componentes usados. Metadados resumidos de pacote não substituem a revisão dos módulos/plugins efetivamente incluídos e dos avisos completos gerados.
+- A documentação oficial do Nuitka identifica AGPLv3 e uma exceção para os binários criados. O projeto continua sem decisão de licença de distribuição própria; essa nota não conclui compatibilidade jurídica dos demais componentes.
+- A auditoria do bundle está sendo ampliada para recusar diretórios/arquivos de ferramentas de build/teste (Nuitka, SCons, pyside6-deploy, pip, setuptools, wheel, pytest e uv) no runtime. Implementação em `de359224`; os workflows Windows dessa revisão ainda precisam concluir antes de registrar evidência.
+- Resultado desta revisão documental: gates de distribuição, decisão de licença própria, inspeção dos avisos completos e aprovação final permanecem abertos. Nenhuma publicação ou release foi iniciada.
+
 ## Fontes
 
 - Metadados de versão/licença do ambiente instalado e versões travadas em `uv.lock` (coleta local registrada no ledger).
-- Qt for Python — licenças e uso comercial: https://doc.qt.io/qtforpython-6/commercial/index.html e https://doc.qt.io/qtforpython-6/
-- Nuitka — documentação do compilador: https://nuitka.net/user-documentation/user-manual.html
+- Qt for Python — licenças e uso comercial: https://doc.qt.io/qtforpython-6/commercial/index.html, https://doc.qt.io/qtforpython-6/licenses.html e https://doc.qt.io/qtforpython-6/
+- Nuitka — licenças e documentação do compilador: https://nuitka.net/doc/download.html e https://nuitka.net/user-documentation/user-manual.html
