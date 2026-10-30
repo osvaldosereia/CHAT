@@ -361,7 +361,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._report = report
         self._recommendation = None
         self.status_label.setText("Análise local concluída. Revise as medições e os avisos abaixo.")
-        self.report_view.setPlainText(_format_report(report))
+        self._refresh_report_view()
         for view_id, image_bytes in views.items():
             image = QPixmap()
             if not image.loadFromData(image_bytes, "PNG"):
@@ -405,8 +405,30 @@ class BambuPrepMainWindow(QMainWindow):
             self.status_label.setText(
                 "Recomendação validada. Ela não configura, fatia nem inicia uma impressão."
             )
-            self.report_view.appendPlainText("\n" + _format_recommendation(recommendation))
+        self._refresh_report_view()
         self._refresh_controls()
+
+    def _refresh_report_view(self) -> None:
+        if self._report is None:
+            self.report_view.clear()
+            return
+        profile = self._selected_profile()
+        sections = [_format_report(self._report)]
+        if profile is not None:
+            filament_id = self.filament_combo.currentData()
+            plate_id = self.plate_combo.currentData()
+            if filament_id is not None and plate_id is not None:
+                sections.append(
+                    _format_manual_studio_setup(
+                        profile,
+                        str(filament_id),
+                        str(plate_id),
+                        self._recommendation,
+                    )
+                )
+        if self._recommendation is not None:
+            sections.append(_format_recommendation(self._recommendation))
+        self.report_view.setPlainText("\n\n".join(sections))
 
     def _submit(
         self,
@@ -562,4 +584,42 @@ def _format_recommendation(recommendation: Recommendation) -> str:
     lines.append(f"Aderência: {recommendation.adhesion_option}")
     lines.append(f"Confiança informada: {recommendation.confidence:.0%}")
     lines.extend(f"• {reason}" for reason in recommendation.rationale)
+    return "\n".join(lines)
+
+
+def _format_manual_studio_setup(
+    profile: PrinterProfile,
+    filament_id: str,
+    plate_id: str,
+    recommendation: Recommendation | None,
+) -> str:
+    lines = [
+        "Conferência manual no Bambu Studio — estado ainda não verificado",
+        f"Máquina: {profile.printer_id}",
+        f"Bico: {profile.nozzle_mm:g} mm",
+        f"Processo do catálogo local: {profile.default_process_profile_id}",
+        f"Filamento: {filament_id}",
+        f"Placa: {plate_id}",
+    ]
+    if recommendation is None:
+        lines.append("Suportes e aderência devem ser conferidos manualmente no Studio.")
+    else:
+        support = "desativados"
+        if recommendation.support_enabled:
+            support = recommendation.support_option or "ativados"
+        lines.extend(
+            (
+                f"Orientação sugerida: {recommendation.orientation_id}",
+                f"Suportes sugeridos: {support}",
+                f"Aderência sugerida: {recommendation.adhesion_option}",
+            )
+        )
+    lines.extend(
+        (
+            "Os valores vêm do catálogo local e não comprovam a compatibilidade do fatiador.",
+            "Nenhum arquivo 3MF foi gerado; o fatiamento continua não verificado.",
+            "Abra o STL original no Bambu Studio e confira máquina, bico, filamento, placa, suportes e Preview.",
+            "O BambuPrep não inicia impressão automaticamente.",
+        )
+    )
     return "\n".join(lines)

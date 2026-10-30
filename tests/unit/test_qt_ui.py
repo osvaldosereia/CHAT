@@ -16,6 +16,7 @@ from bambuprep.config import LocalPreferences
 from bambuprep.domain.models import JobRecord, JobState
 from bambuprep.mesh.analyzer import MeshReport
 from bambuprep.recommendations.openai_client import CONSENT_NOTICE
+from bambuprep.recommendations.schema import Recommendation
 from bambuprep.ui.main_window import BambuPrepMainWindow
 from bambuprep.ui.settings_dialog import SettingsDialog
 from bambuprep.workflow.runner import WorkflowTaskRunner
@@ -284,6 +285,69 @@ def test_window_shows_indeterminate_progress_only_while_work_is_running(qapp):
     window._set_busy(False, "")
     assert window.progress_bar.isHidden()
 
+    window.close()
+    runner.close(wait=True)
+
+
+def test_report_shows_manual_studio_values_and_keeps_slicing_unverified(qapp):
+    profile = PrinterProfile(
+        printer_id="Bambu Lab A1 mini 0.4 nozzle",
+        nozzle_mm=0.4,
+        generic_pla_profile_id="Generic PLA @BBL A1M",
+        default_process_profile_id="0.20mm Standard @BBL A1M",
+        plate_id="Textured PEI Plate",
+        compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
+        support_options=("tree(auto)",),
+        adhesion_options=("brim", "none"),
+    )
+    runner = WorkflowTaskRunner(max_workers=1)
+    window = BambuPrepMainWindow(
+        FakeWorkflow(),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,)),
+        runner,
+        MemoryKeyStore(),
+    )
+    window._report = MeshReport(
+        sha256="a" * 64,
+        dimensions_mm=(1.0, 1.0, 1.0),
+        triangle_count=4,
+        component_count=1,
+        volume_mm3=1.0,
+        watertight=True,
+        degenerate_faces=0,
+        duplicate_faces=0,
+        scale_warning=None,
+        overhang_area_ratio=0.0,
+        contact_area_estimate=1.0,
+        orientation_candidates=[],
+    )
+
+    window._refresh_report_view()
+    text = window.report_view.toPlainText()
+    assert "Máquina: Bambu Lab A1 mini 0.4 nozzle" in text
+    assert "Bico: 0.4 mm" in text
+    assert "Processo do catálogo local: 0.20mm Standard @BBL A1M" in text
+    assert "Filamento: Generic PLA @BBL A1M" in text
+    assert "Placa: Textured PEI Plate" in text
+    assert "Suportes e aderência devem ser conferidos manualmente" in text
+    assert "Nenhum arquivo 3MF foi gerado" in text
+    assert "slicer_verified" not in text
+
+    window._recommendation = Recommendation(
+        orientation_id="flat",
+        support_enabled=True,
+        support_option="tree(auto)",
+        adhesion_option="brim",
+        confidence=0.8,
+        rationale=["synthetic rationale"],
+        evidence_refs=["mesh:dimensions_mm"],
+    )
+    window._refresh_report_view()
+    text = window.report_view.toPlainText()
+    assert "Orientação sugerida: flat" in text
+    assert "Suportes sugeridos: tree(auto)" in text
+    assert "Aderência sugerida: brim" in text
+    assert "Nenhum arquivo 3MF foi gerado" in text
     window.close()
     runner.close(wait=True)
 
