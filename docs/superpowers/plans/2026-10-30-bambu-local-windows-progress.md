@@ -636,3 +636,9 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - O build standalone 41118059752 do mesmo commit permanecia `in_progress`, na etapa de compilação com MSVC. O build 41115260192 (commit `c9b7f084c553f7b91ee59edf8dc78998c354f5b7`) também continuava `in_progress`; build não equivale à integração com o Studio.
 - Revisão da documentação: os exemplos PowerShell agora usam barras invertidas simples, e a nota antiga de que a captura mais recente não mostrava código de saída foi removida. Commit de documentação `ce64d1b917fde9941544e1e76e9991a239dc3c11`.
 - O plano continua sem checkboxes adicionais. Primeiro gate pendente: executar no PC o probe do branch atualizado e compartilhar apenas o JSON. A execução manual direta de `--help` com código 0 não substitui esse passo.
+
+### Conclusão da suíte Windows do commit 0976450 (2026-10-30)
+
+- A consulta posterior confirmou o encerramento do workflow 41118059732 como `success`. O log do job `tests` registra `uv run --locked --extra test python -m pytest -v`: **165 passed, 1 warning em 16.42s**. O aviso esperado é `Duplicate name: '[Content_Types].xml'` na fixture negativa de ZIP duplicado.
+- O workflow standalone 41118059752 permanecia em `Prepare MSVC and build standalone application`; nenhuma conclusão/artefato disponível. O build 41115260192 também ainda aparecia em execução sem atualização recente.
+- HEAD da branch nesta atualização inclui a correção de documentação `ce64d1b917fde9941544e1e76e9991a239dc3c11` e este registro de verificação. O teste passou no commit de código `0976450cb09e0700c62e742079fbb81110fcbfa2`; as mudanças posteriores desta rodada foram apenas documentos.
