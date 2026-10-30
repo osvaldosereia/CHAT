@@ -467,3 +467,9 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Commit adicional: dce437f17d796424b29fb738a29c6c70fb83f5ad (`fix: deduplicate Nuitka distribution inventory entries`). HEAD verificado em dce437f.
 - Windows standalone build 41078547742 para o código 5df08bf permanecia `in_progress`; os workflows novos de 41079092993 (build) e 41079092872 (unit/Qt), para dce437f, estavam `queued` na consulta atual. Nenhum artifact foi anexado. Nenhuma caixa do plano ou checklist legal foi alterada; o build Windows real do resumidor continua pendente.
 - A prova T1 do Bambu Studio permanece bloqueada pela ausência da instalação Windows do usuário e do STL Sentinel. Sem alegação de compatibilidade CLI/fatiamento/3MF. Sem chamada OpenAI, arquivos privados, impressão, release ou publicação.
+
+
+### CI Windows — deduplicação do inventário (2026-10-30)
+
+- Windows unit/Qt run 41079092872 para dce437f17d796424b29fb738a29c6c70fb83f5ad concluiu success em Windows Server 2025 / Python 3.12.10: 150 passed, 1 aviso esperado da fixture ZIP duplicada sintética, 16.13s.
+- O build standalone 41079092993 desse commit permanece `in_progress`; o run 41078547742 para 5df08bf também continua em andamento. A validação real dos relatórios Nuitka e da auditoria do bundle ainda não foi observada. Sem alteração de checkboxes.
