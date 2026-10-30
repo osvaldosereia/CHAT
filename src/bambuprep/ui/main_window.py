@@ -62,6 +62,7 @@ class BambuPrepMainWindow(QMainWindow):
 
         self.setWindowTitle("BambuPrep — análise local")
         self.resize(820, 680)
+        self.setAcceptDrops(True)
         self._build_widgets()
         self._populate_profiles()
         self._refresh_controls()
@@ -183,9 +184,43 @@ class BambuPrepMainWindow(QMainWindow):
         )
         if not filename:
             return
-        path = Path(filename)
+        self._open_stl_path(Path(filename))
+
+    def _open_stl_path(self, path: Path) -> None:
+        if self._busy:
+            return
+        path = Path(path)
+        if path.suffix.lower() != ".stl" or not path.is_file():
+            QMessageBox.warning(self, "BambuPrep", "Selecione um arquivo STL local existente.")
+            return
         self._set_busy(True, "Validando STL local…")
         self._submit(self._workflow.create_job, (path,), self._job_created)
+
+    @staticmethod
+    def _dropped_stl_path(mime_data: Any) -> Path | None:
+        if not mime_data.hasUrls():
+            return None
+        urls = mime_data.urls()
+        if len(urls) != 1 or not urls[0].isLocalFile():
+            return None
+        path = Path(urls[0].toLocalFile())
+        if path.suffix.lower() != ".stl" or not path.is_file():
+            return None
+        return path
+
+    def dragEnterEvent(self, event) -> None:
+        if not self._busy and self._dropped_stl_path(event.mimeData()) is not None:
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event) -> None:
+        path = self._dropped_stl_path(event.mimeData())
+        if self._busy or path is None:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self._open_stl_path(path)
 
     def _open_settings(self) -> None:
         dialog = SettingsDialog(self._key_store, self)
