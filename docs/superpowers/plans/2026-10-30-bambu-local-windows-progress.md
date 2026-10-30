@@ -373,3 +373,9 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Commit de código: `106465fd2fb91c10fd201c0e59c59b7e2bae750f`.
 - CI para esse commit está pendente na captura: Windows standalone run 41046396800 e Windows tests run 41046396825, ambos `in_progress`. O build anterior do commit `c2ee0338` passou (run 41039634894), criou `BambuPrep.exe` no caminho esperado e o workflow relatou ausência de STL/3MF/database/log; nenhum artifact foi anexado (`artifacts: []`). A auditoria nova ainda não foi exercitada em Windows.
 - Não foram usados STL/3MF privados nem chave real, e nenhuma chamada OpenAI foi feita. A primeira pendência do plano permanece a prova real da Tarefa 1; não há instalação Windows do usuário, versão real do Studio, nem STL Sentinel local.
+
+
+### Atualização CI após commit 106465fd (2026-10-30)
+
+- Windows unit/Qt run 41046396825 no commit 106465fd2fb91c10fd201c0e59c59b7e2bae750f concluiu success; log final: 134 passed, 1 warning em 24.55s.
+- Windows standalone build run 41046396800 do mesmo commit ainda estava in_progress às 11:14 UTC; a nova auditoria de bundle ainda não tem resultado Windows observado.
