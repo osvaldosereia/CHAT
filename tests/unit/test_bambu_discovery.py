@@ -251,10 +251,19 @@ def test_windows_version_resource_reads_fixed_product_version(tmp_path, monkeypa
         VerQueryValueW=FakeFunction(query_value),
     )
     monkeypatch.setattr(discovery.sys, "platform", "win32")
-    monkeypatch.setattr(discovery.ctypes, "WinDLL", lambda *args, **kwargs: version_api, raising=False)
+    dll_requests = []
+
+    def fake_windll(name, **kwargs):
+        dll_requests.append((name, kwargs))
+        return version_api
+
+    monkeypatch.setattr(discovery.ctypes, "WinDLL", fake_windll, raising=False)
 
     assert discovery._windows_file_version(executable) == "2.8.2.61"
     assert subblocks == ["\\"]
+    assert dll_requests == [
+        ("version.dll", {"use_last_error": True, "winmode": 0x00000800})
+    ]
 
 
 def test_windows_metadata_reader_is_noop_off_windows(tmp_path, monkeypatch):

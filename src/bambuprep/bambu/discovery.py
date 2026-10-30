@@ -49,7 +49,7 @@ def _windows_file_version(executable: Path) -> str | None:
     if sys.platform != "win32":
         return None
     try:
-        version_dll = ctypes.WinDLL("version", use_last_error=True)
+        version_dll = ctypes.WinDLL("version.dll", use_last_error=True, winmode=0x00000800)
         get_size = version_dll.GetFileVersionInfoSizeW
         get_info = version_dll.GetFileVersionInfoW
         query_value = version_dll.VerQueryValueW
