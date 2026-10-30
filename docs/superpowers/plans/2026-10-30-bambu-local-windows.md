@@ -106,7 +106,7 @@
 - [x] Rodar python -m pytest tests/unit/test_job_transitions.py tests/unit/test_local_storage.py tests/unit/test_api_key_store.py -v.
 - [x] Implementar caminhos padrão sob %LOCALAPPDATA%/BambuPrep, migração versionada de SQLite e repositório de histórico.
 - [x] Implementar armazenamento de chave usando Windows Credential Locker por meio de keyring; injetar a interface nos serviços para que testes não precisem de credenciais reais.
-- [ ] Confirmar que o banco/logs não recebem chave OpenAI nem o conteúdo do STL.
+- [x] Confirmar que o banco/logs não recebem chave OpenAI nem o conteúdo do STL.
 
 ## Tarefa 3: ingestão, análise geométrica e vistas
 
