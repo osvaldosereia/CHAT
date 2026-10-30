@@ -523,3 +523,10 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Runs Windows criados para esse commit: 41098415689 (testes) e 41098415681 (build standalone), ambos in_progress na consulta de 17:23:38 UTC. O build standalone não está pronto; nenhum 3MF/Bambu Studio é testado nesse workflow.
 - Permanecem inalterados os checkboxes do plano. A primeira etapa ainda incompleta é a prova real T1 com instalação Windows e Bambu Studio do usuário; Windows Server não é um substituto para o Windows cliente-alvo nem para a instalação Studio.
 - Nenhuma chamada OpenAI, chave, arquivo privado, artifact, release, publicação, merge ou impressão foi usada nesta alteração.
+
+
+### CI Windows — detecção do product type do Windows (2026-10-30)
+
+- Workflow de testes 41098415689 para commit ffc6d63 concluiu success em Windows Server 2025 / Python 3.12.10: 163 passed, 1 aviso esperado da fixture ZIP duplicada, 17.68s. Isso valida a lógica e os testes no runner Windows, inclusive a simulação de product_type 3; não comprova o app em um Windows cliente/instalação do usuário.
+- Build standalone 41098415681 para ffc6d63 continuava in_progress no passo MSVC/Nuitka na consulta de 17:24:28 UTC. Os builds 41097747966 (18d4243), 41096415796 (1176f9b) e 41096762309 (01bc2c) também permaneciam em andamento nas últimas consultas. Nenhum artefato foi anexado.
+- O HEAD atual na branch antes desta atualização do ledger era 6d32418fe9cb0144b06b1183b75d451899f23bca. Nenhum checkbox do plano mudou.
