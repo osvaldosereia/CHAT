@@ -54,5 +54,5 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 
 ## Saída de metadados Windows fornecida pelo usuário
 
-`(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` mostrou `ProductVersion` vazio e `FileVersion = 02.08.02.61`. O probe atualizado tenta ler ambos os recursos PE e tem teste Windows/mocks para FileVersion, aguardando CI no commit `d90416e`. A saída JSON compartilhada, sem `profile_catalog`, ainda não veio do script atualizado. A versão do Windows, os perfis carregados pelo probe e qualquer prova de slice/3MF permanecem pendentes.
+`(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` mostrou `ProductVersion` vazio e `FileVersion = 02.08.02.61`. O probe atualizado tenta ler ambos os recursos PE e tem teste Windows/mocks para FileVersion. O workflow Windows `41124225149`, no commit `d90416e`, terminou success com 180 testes e 1 warning esperado. A saída JSON compartilhada, sem `profile_catalog`, ainda não veio do script atualizado. A versão do Windows, os perfis carregados pelo probe e qualquer prova de slice/3MF permanecem pendentes.
 
