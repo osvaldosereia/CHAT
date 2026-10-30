@@ -203,6 +203,11 @@ def test_windows_file_metadata_is_preferred_without_claiming_cli(tmp_path, monke
         lambda path: "2.8.2.61",
         raising=False,
     )
+    monkeypatch.setattr(
+        discovery,
+        "_windows_pseudoconsole_run",
+        lambda command, **kwargs: CompletedProcess(command, 0, "", ""),
+    )
 
     result = probe_studio(executable)
 
@@ -210,7 +215,7 @@ def test_windows_file_metadata_is_preferred_without_claiming_cli(tmp_path, monke
     assert result.cli_available is False
     assert result.capabilities == frozenset()
     assert "captured stdout/stderr" in result.message.lower()
-    assert calls == ["--help"]
+    assert calls == []
 
 
 

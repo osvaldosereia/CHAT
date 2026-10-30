@@ -7,6 +7,8 @@ import re
 import subprocess
 import sys
 import threading
+import time
+import threading
 from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
@@ -487,6 +489,268 @@ def _windows_pseudoconsole_run(
         close_if_open(process_info.hThread)
         close_if_open(process_info.hProcess)
 
+
+def _windows_pseudoconsole_run(
+    command: list[str],
+    *,
+    timeout_seconds: int,
+    cwd: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Capture a console application's screen output through Windows ConPTY."""
+    if sys.platform != "win32":
+        raise NotImplementedError("Windows pseudoconsole is available only on Windows")
+    if not command or timeout_seconds <= 0:
+        raise ValueError("command and a positive timeout are required")
+
+    class _COORD(ctypes.Structure):
+        _fields_ = [("X", wintypes.SHORT), ("Y", wintypes.SHORT)]
+
+    class _STARTUPINFOW(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD),
+            ("lpReserved", wintypes.LPWSTR),
+            ("lpDesktop", wintypes.LPWSTR),
+            ("lpTitle", wintypes.LPWSTR),
+            ("dwX", wintypes.DWORD),
+            ("dwY", wintypes.DWORD),
+            ("dwXSize", wintypes.DWORD),
+            ("dwYSize", wintypes.DWORD),
+            ("dwXCountChars", wintypes.DWORD),
+            ("dwYCountChars", wintypes.DWORD),
+            ("dwFillAttribute", wintypes.DWORD),
+            ("dwFlags", wintypes.DWORD),
+            ("wShowWindow", wintypes.WORD),
+            ("cbReserved2", wintypes.WORD),
+            ("lpReserved2", ctypes.POINTER(wintypes.BYTE)),
+            ("hStdInput", wintypes.HANDLE),
+            ("hStdOutput", wintypes.HANDLE),
+            ("hStdError", wintypes.HANDLE),
+        ]
+
+    class _STARTUPINFOEXW(ctypes.Structure):
+        _fields_ = [
+            ("StartupInfo", _STARTUPINFOW),
+            ("lpAttributeList", ctypes.c_void_p),
+        ]
+
+    class _PROCESS_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("hProcess", wintypes.HANDLE),
+            ("hThread", wintypes.HANDLE),
+            ("dwProcessId", wintypes.DWORD),
+            ("dwThreadId", wintypes.DWORD),
+        ]
+
+    try:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True, winmode=0x00000800)
+        create_pseudo_console = kernel32.CreatePseudoConsole
+        close_pseudo_console = kernel32.ClosePseudoConsole
+    except (AttributeError, OSError) as exc:
+        raise NotImplementedError("Windows pseudoconsole API is unavailable") from exc
+
+    HANDLE = wintypes.HANDLE
+    DWORD = wintypes.DWORD
+    BOOL = wintypes.BOOL
+    SIZE_T = ctypes.c_size_t
+    kernel32.CreatePipe.argtypes = [ctypes.POINTER(HANDLE), ctypes.POINTER(HANDLE), ctypes.c_void_p, DWORD]
+    kernel32.CreatePipe.restype = BOOL
+    create_pseudo_console.argtypes = [_COORD, HANDLE, HANDLE, DWORD, ctypes.POINTER(HANDLE)]
+    create_pseudo_console.restype = ctypes.c_long
+    close_pseudo_console.argtypes = [HANDLE]
+    close_pseudo_console.restype = None
+    kernel32.InitializeProcThreadAttributeList.argtypes = [
+        ctypes.c_void_p, DWORD, DWORD, ctypes.POINTER(SIZE_T)
+    ]
+    kernel32.InitializeProcThreadAttributeList.restype = BOOL
+    kernel32.UpdateProcThreadAttribute.argtypes = [
+        ctypes.c_void_p, DWORD, SIZE_T, ctypes.c_void_p, SIZE_T, ctypes.c_void_p,
+        ctypes.POINTER(SIZE_T)
+    ]
+    kernel32.UpdateProcThreadAttribute.restype = BOOL
+    kernel32.DeleteProcThreadAttributeList.argtypes = [ctypes.c_void_p]
+    kernel32.DeleteProcThreadAttributeList.restype = None
+    kernel32.CreateProcessW.argtypes = [
+        wintypes.LPCWSTR, wintypes.LPWSTR, ctypes.c_void_p, ctypes.c_void_p, BOOL,
+        DWORD, ctypes.c_void_p, wintypes.LPCWSTR, ctypes.POINTER(_STARTUPINFOEXW),
+        ctypes.POINTER(_PROCESS_INFORMATION)
+    ]
+    kernel32.CreateProcessW.restype = BOOL
+    kernel32.ReadFile.argtypes = [HANDLE, ctypes.c_void_p, DWORD, ctypes.POINTER(DWORD), ctypes.c_void_p]
+    kernel32.ReadFile.restype = BOOL
+    kernel32.WaitForSingleObject.argtypes = [HANDLE, DWORD]
+    kernel32.WaitForSingleObject.restype = DWORD
+    kernel32.GetExitCodeProcess.argtypes = [HANDLE, ctypes.POINTER(DWORD)]
+    kernel32.GetExitCodeProcess.restype = BOOL
+    kernel32.TerminateProcess.argtypes = [HANDLE, wintypes.UINT]
+    kernel32.TerminateProcess.restype = BOOL
+    kernel32.CloseHandle.argtypes = [HANDLE]
+    kernel32.CloseHandle.restype = BOOL
+
+    def _raise_last_error(operation: str) -> OSError:
+        return OSError(ctypes.get_last_error(), f"Windows {operation} failed")
+
+    def _close(handle: HANDLE) -> None:
+        if handle and handle.value:
+            kernel32.CloseHandle(handle)
+            handle.value = None
+
+    input_read = HANDLE()
+    input_write = HANDLE()
+    output_read = HANDLE()
+    output_write = HANDLE()
+    pseudo_console = HANDLE()
+    process_info = _PROCESS_INFORMATION()
+    attribute_list = None
+    attribute_list_ptr = None
+    attributes_initialized = False
+    reader = None
+    output = bytearray()
+    output_overflow = threading.Event()
+    reader_errors: list[int] = []
+    process_finished = False
+    timed_out = False
+    MAX_OUTPUT_BYTES = 2 * 1024 * 1024
+    WAIT_OBJECT_0 = 0
+    WAIT_TIMEOUT = 0x00000102
+    WAIT_FAILED = 0xFFFFFFFF
+    ERROR_BUFFER_OVERFLOW = 111
+
+    try:
+        if not kernel32.CreatePipe(ctypes.byref(input_read), ctypes.byref(input_write), None, 0):
+            raise _raise_last_error("input pipe creation")
+        if not kernel32.CreatePipe(ctypes.byref(output_read), ctypes.byref(output_write), None, 0):
+            raise _raise_last_error("output pipe creation")
+        result = create_pseudo_console(
+            _COORD(160, 1000), input_read, output_write, 0, ctypes.byref(pseudo_console)
+        )
+        if result < 0:
+            raise OSError(result & 0xFFFFFFFF, "Windows pseudoconsole creation failed")
+        _close(input_read)
+        _close(output_write)
+
+        attribute_size = SIZE_T()
+        kernel32.InitializeProcThreadAttributeList(None, 1, 0, ctypes.byref(attribute_size))
+        if not attribute_size.value or attribute_size.value > 1024 * 1024:
+            raise _raise_last_error("process attribute sizing")
+        attribute_list = ctypes.create_string_buffer(attribute_size.value)
+        attribute_list_ptr = ctypes.cast(attribute_list, ctypes.c_void_p)
+        if not kernel32.InitializeProcThreadAttributeList(
+            attribute_list_ptr, 1, 0, ctypes.byref(attribute_size)
+        ):
+            raise _raise_last_error("process attribute initialization")
+        attributes_initialized = True
+        if not kernel32.UpdateProcThreadAttribute(
+            attribute_list_ptr,
+            0,
+            0x00020016,
+            ctypes.byref(pseudo_console),
+            ctypes.sizeof(pseudo_console),
+            None,
+            None,
+        ):
+            raise _raise_last_error("pseudoconsole process attribute setup")
+
+        arguments = [str(part) for part in command]
+        if any("\x00" in part for part in arguments):
+            raise ValueError("command arguments cannot contain NUL")
+        command_line = ctypes.create_unicode_buffer(subprocess.list2cmdline(arguments))
+        startup = _STARTUPINFOEXW()
+        startup.StartupInfo.cb = ctypes.sizeof(startup)
+        startup.lpAttributeList = attribute_list_ptr
+        if not kernel32.CreateProcessW(
+            arguments[0], command_line, None, None, False, 0x00080000, None,
+            str(cwd) if cwd is not None else None, ctypes.byref(startup),
+            ctypes.byref(process_info)
+        ):
+            raise _raise_last_error("console process creation")
+        _close(input_write)
+
+        def _read_console_output() -> None:
+            try:
+                while True:
+                    buffer = ctypes.create_string_buffer(8192)
+                    bytes_read = DWORD()
+                    if not kernel32.ReadFile(
+                        output_read, buffer, len(buffer), ctypes.byref(bytes_read), None
+                    ):
+                        error_code = ctypes.get_last_error()
+                        if error_code not in {6, 38, 109, 232, 995}:
+                            reader_errors.append(error_code)
+                        return
+                    if not bytes_read.value:
+                        return
+                    remaining = MAX_OUTPUT_BYTES - len(output)
+                    if bytes_read.value > remaining:
+                        if remaining > 0:
+                            output.extend(buffer.raw[:remaining])
+                        output_overflow.set()
+                        return
+                    output.extend(buffer.raw[: bytes_read.value])
+            except (OSError, ValueError) as exc:
+                reader_errors.append(getattr(exc, "winerror", None) or 1)
+
+        reader = threading.Thread(target=_read_console_output, name="bambuprep-conpty-reader", daemon=True)
+        reader.start()
+        deadline = time.monotonic() + timeout_seconds
+        while True:
+            if output_overflow.is_set():
+                kernel32.TerminateProcess(process_info.hProcess, ERROR_BUFFER_OVERFLOW)
+                kernel32.WaitForSingleObject(process_info.hProcess, 5000)
+                process_finished = True
+                break
+            wait_result = kernel32.WaitForSingleObject(process_info.hProcess, 50)
+            if wait_result == WAIT_OBJECT_0:
+                process_finished = True
+                break
+            if wait_result == WAIT_FAILED:
+                raise _raise_last_error("process wait")
+            if wait_result != WAIT_TIMEOUT:
+                raise OSError(int(wait_result), "Windows process wait returned an unexpected status")
+            if time.monotonic() >= deadline:
+                timed_out = True
+                kernel32.TerminateProcess(process_info.hProcess, 124)
+                kernel32.WaitForSingleObject(process_info.hProcess, 5000)
+                process_finished = True
+                break
+
+        close_pseudo_console(pseudo_console)
+        pseudo_console.value = None
+        reader.join(timeout=5)
+        if reader.is_alive():
+            _close(output_read)
+            reader.join(timeout=1)
+        if reader_errors:
+            raise OSError(reader_errors[0], "Windows pseudoconsole output read failed")
+        decoded_output = bytes(output).decode("utf-8", errors="replace")
+        if timed_out:
+            raise subprocess.TimeoutExpired(arguments, timeout_seconds, output=decoded_output, stderr="")
+        exit_code = DWORD()
+        if not kernel32.GetExitCodeProcess(process_info.hProcess, ctypes.byref(exit_code)):
+            raise _raise_last_error("process exit-code query")
+        return subprocess.CompletedProcess(
+            arguments,
+            ERROR_BUFFER_OVERFLOW if output_overflow.is_set() else exit_code.value,
+            decoded_output,
+            "",
+        )
+    finally:
+        if process_info.hProcess and process_info.hProcess.value and not process_finished:
+            kernel32.TerminateProcess(process_info.hProcess, 1)
+            kernel32.WaitForSingleObject(process_info.hProcess, 1000)
+        if pseudo_console and pseudo_console.value:
+            close_pseudo_console(pseudo_console)
+            pseudo_console.value = None
+        if reader is not None and reader.is_alive():
+            reader.join(timeout=1)
+        if attributes_initialized and attribute_list_ptr is not None:
+            kernel32.DeleteProcThreadAttributeList(attribute_list_ptr)
+        _close(input_read)
+        _close(input_write)
+        _close(output_write)
+        _close(output_read)
+        _close(process_info.hThread)
+        _close(process_info.hProcess)
+
 def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
     """Probe version and CLI help without shell expansion or modifying local files.
 
@@ -525,15 +789,34 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
             version_text = _combined_output(version_result)
             version = _first_line(version_text) if version_result.returncode == 0 else None
 
-        help_result = subprocess.run(
-            [str(executable), "--help"],
-            capture_output=True,
-            text=True,
-            check=False,
-            shell=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            timeout=timeout_seconds,
-        )
+        help_command = [str(executable), "--help"]
+        if sys.platform == "win32":
+            try:
+                help_result = _windows_pseudoconsole_run(
+                    help_command,
+                    timeout_seconds=timeout_seconds,
+                    cwd=executable.parent,
+                )
+            except (NotImplementedError, OSError):
+                help_result = subprocess.run(
+                    help_command,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    shell=False,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                    timeout=timeout_seconds,
+                )
+        else:
+            help_result = subprocess.run(
+                help_command,
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                timeout=timeout_seconds,
+            )
         if not _combined_output(help_result) and sys.platform == "win32":
             help_result = _windows_pseudoconsole_run(
                 [str(executable), "--help"],
