@@ -212,6 +212,8 @@
 - [x] Implementar executor limitado `WorkflowTaskRunner`; as operações são submetidas a workers e devolvem `Future` para a interface observar sem bloquear.
 - [x] Rodar `python -m pytest tests/unit/test_workflow_runner.py -v` — 3 passed.
 - [x] Integrar o executor à janela Qt, com atualização de widgets exclusivamente na thread principal.
+- [x] Ao falhar uma operação, reler o estado persistido, mostrar estado e próximo passo de recuperação e desabilitar análise em trabalhos blocked/failed.
+- [x] Exibir indicador de progresso indeterminado acessível enquanto uma operação está ativa e ocultá-lo ao terminar; cobertura Qt offscreen.
 - [ ] Implementar janela de arrastar/selecionar STL, seleção explícita do bico, andamento, relatório e botões para abrir 3MF no Bambu Studio, confirmar revisão, apagar histórico e remover arquivos do aplicativo.
 - [x] Cobertura parcial verificada: aceitar um STL local existente por arrastar-e-soltar e rejeitar formatos remotos, múltiplos arquivos e outras extensões; revisão/abertura de 3MF e remoção de arquivos de saída seguem pendentes.
 - [x] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
@@ -234,7 +236,8 @@
 - [ ] Configurar GitHub Actions para instalar dependências bloqueadas, construir pacote standalone e publicar artefatos somente a partir de branch/tag de release autorizada.
 - [x] Dependências de teste/build usam `uv.lock` e `uv sync --locked`; a configuração foi verificada nos testes e o runner Windows completou a sincronização. Build e publicação seguem pendentes.
 - [ ] Rodar build em runner Windows limpo; confirmar ausência de chaves e arquivos de usuário no artefato.
-- [x] Dry-run local do pyside6-deploy confirma que Nuitka recebe --output-filename=BambuPrep.exe; compilação Windows e inspeção do bundle continuam pendentes.
+- [x] Dry-run local do pyside6-deploy confirma que Nuitka recebe --output-filename=BambuPrep.exe; build Windows de runner foi verificado separadamente, mas inspeção do bundle efetivo segue pendente.
+- [x] Runner Windows Server 2025 construiu BambuPrep.exe no caminho esperado e verificou ausência de arquivos .stl/.3mf/.sqlite/.sqlite3/.db/.log no diretório standalone (run 41036004359, commit 690ab902). Nenhum artefato foi anexado; varredura de conteúdo/segredos e revisão de licenças seguem pendentes.
 - [ ] Instalar/abrir o pacote em Windows 10 22H2 x64 e Windows 11 x64; verificar primeira configuração, análise local, erro sem API e abertura do 3MF no Studio.
 - [x] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
 - [ ] Revisar licenças/avisos de PySide6 e demais dependências antes de publicar; registrar a conclusão em docs/operations/release-checklist.md.

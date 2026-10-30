@@ -332,10 +332,31 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Limite: metadados de wheels não mostram quais módulos/DLLs/plugins/fontes entram no bundle final nem substituem revisão das licenças e avisos efetivamente distribuídos. Nenhuma conclusão de conformidade foi feita, nenhuma publicação foi executada.
 - Commits: 842ea830756974af09aa37ed6b384a7017a90bff (checklist), a0029435505302cfe5dbb0099bab90b65b076476 (subtarefa do plano).
 
-### Rechecagem dos builds Windows
 
-- 41032000203 — completed/failure; log mostra compilação Nuitka concluída e falha só na checagem do nome desktop_entry.exe versus BambuPrep.exe.
-- 41032383180 — completed/failure; mesma causa confirmada por log completo.
-- 41032896496 — completed/failure; status final após o polling. Não foi obtido log nesta rechecagem.
-- 41033836229 e 41034211145 — ainda in_progress em “Prepare MSVC and build standalone application” no último polling; run 41034211145 sem artefatos listados.
-- Nenhum status/build Windows pós-correção em output-filename foi confirmado. Os runs acima usam a configuração anterior ao commit 690ab902ff4d476c91858e9eed2d4fc571d1cf12.
+### Rechecagem dos builds Windows — após a correção de nome
+
+- O run 41036004359, commit 690ab902ff4d476c91858e9eed2d4fc571d1cf12, concluiu com sucesso em GitHub Actions sobre Windows Server 2025, Python 3.12 e Nuitka 4.3.1. O log registra `Nuitka: Successfully created .../desktop_entry.dist/BambuPrep.exe`, `[DEPLOY] Executed file created in .../dist/BambuPrep.dist` e a mensagem final `Standalone bundle exists and contains no STL, 3MF, database, or log files.` A etapa percorreu .stl, .3mf, .sqlite, .sqlite3, .db e .log no diretório de saída e não encontrou arquivos. Nenhum artefato foi anexado ao run; o conteúdo não foi examinado para chave OpenAI/API secrets nem licenças.
+- Isso comprova somente a compilação standalone do commit 690ab no runner Windows Server 2025. Não comprova instalação/abertura em Windows 10/11 de usuário, compatibilidade com Bambu Studio ou revisão de 3MF.
+- O run 41039402618 para o commit a73449870c9e7b36cd8eb2fab14ec35e43ab9594 (testes Windows/Qt) concluiu success. No momento deste registro, seu build 41039402633 continuava in_progress.
+- O run 41039634785 para o commit c2ee0338f2183b596ead7f86cc8f3f796a8946b6 concluiu success: log confirma 124 passed, 1 warning em 13.10s. O build 41039634894 desse commit continuava in_progress às 10:18 UTC.
+- Os builds anteriores 41032000203, 41032383180, 41032896496, 41033836229 e 41034211145 usaram configuração anterior à correção e não comprovam o nome corrigido.
+
+## Continuação 2026-10-30 — estado de erro e progresso visível da Tarefa 6
+
+- A primeira etapa incompleta do plano segue sendo a prova da Tarefa 1 em um PC Windows suportado com Bambu Studio instalado e o STL Sentinel local.
+- `WorkflowService.get_job` expõe o registro SQLite mais recente. Em falha de worker, a janela atualiza o estado persistido e mostra a exceção, o estado (por exemplo `blocked`) e uma ação de recuperação; se a leitura falhar, informa que mostra apenas o último estado conhecido. Trabalhos `blocked`/`failed` não oferecem botão de análise que o serviço recusaria.
+- A janela exibe barra indeterminada acessível enquanto a tarefa local roda e a oculta quando termina. Não estima uma porcentagem que o serviço não fornece.
+- TDD da mensagem de erro: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_qt_ui.py::test_error_dialog_reports_persisted_state_and_recovery_action -q` — RED: 1 failed porque a janela ainda mantinha `uploaded` enquanto o banco já registrava `blocked`; GREEN: 1 passed.
+- TDD da barra: mesmo padrão de ambiente, alvo `tests/unit/test_qt_ui.py::test_window_shows_indeterminate_progress_only_while_work_is_running -q` — RED: 1 failed por ausência do controle; GREEN: 1 passed.
+- Suíte local final após as duas alterações: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q` — 124 passed, 1 warning de fixture sintética com entrada ZIP duplicada em 7.15s. `... python -m compileall -q src tools tests` — exit 0. Verificação de whitespace — `trailing whitespace: []`.
+- CI Windows/Qt para o commit c2ee0338f2183b596ead7f86cc8f3f796a8946b6 — run 41039634785 success, 124 passed, 1 warning em 13.10s.
+- Commits de código: a73449870c9e7b36cd8eb2fab14ec35e43ab9594 (estado de erro), c2ee0338f2183b596ead7f86cc8f3f796a8946b6 (indicador de progresso).
+
+### Pendências humanas consolidadas
+
+1. Em Windows 10 22H2 x64 ou Windows 11 x64 com Bambu Studio realmente instalado, executar `tools/bambu_cli_probe.py` e registrar versão/build, caminho e comandos/argumentos confirmados.
+2. Disponibilizar somente no PC Windows o STL Sentinel Busts de referência; criar projeto pequeno com A1 mini, bico fisicamente confirmado, Generic PLA e Textured PEI; fatiar sem imprimir, reabrir no Studio e conferir Preview/perfis. Isso mantém T1/T3/T5 bloqueadas até evidência e revisão.
+3. Fazer QA manual da janela e, quando houver bundle disponível, instalar/abrir a aplicação em Windows 10 e Windows 11. O build de Actions não foi anexado como artifact; o usuário não precisa compartilhar STL/3MF no GitHub.
+4. Se quiser validar a API real, configurar a chave individual no Credential Locker, definir limite/orçamento e dar consentimento explícito por trabalho. Até isso ocorrer, os testes permanecem em mocks e não há chamadas reais.
+
+- Sem confirmação no Studio não afirmar compatibilidade CLI, fatiamento/3MF verificado, revisão do projeto ou impressão física validada. Sem inspecionar o bundle efetivo, a lista de licenças/avisos e a licença final do BambuPrep continuam pendentes.

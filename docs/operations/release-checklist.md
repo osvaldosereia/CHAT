@@ -4,7 +4,7 @@
 
 ## Inventário preliminar do ambiente de build
 
-A coleta foi feita em 30/10/2026 no ambiente Linux x86_64 criado com `uv run --locked --extra build`. As expressões abaixo vêm dos metadados das distribuições instaladas. A saída final do pacote standalone ainda não foi construída e inspecionada após a correção de nome; a lista de wheels não prova quais módulos, plugins, fontes ou bibliotecas entram no bundle.
+A coleta foi feita em 30/10/2026 no ambiente Linux x86_64 criado com `uv run --locked --extra build`. As expressões abaixo vêm dos metadados das distribuições instaladas. A primeira compilação standalone após a correção do nome foi concluída em runner GitHub Actions Windows Server 2025 (run 41036004359, commit 690ab902). O log confirma BambuPrep.exe no diretório standalone esperado e que a varredura por extensões .stl/.3mf/.sqlite/.sqlite3/.db/.log não encontrou arquivos. O workflow não anexou um artefato transferível, não examinou conteúdo para chaves/API secrets e não gerou inventário dos módulos, plugins, fontes ou bibliotecas realmente incluídos. A revisão efetiva do bundle continua aberta.
 
 | Distribuição travada | Versão observada | Metadado de licença observado | Próxima verificação |
 |---|---:|---|---|
