@@ -176,7 +176,8 @@
 - [x] Implementar `ProfileCatalog.load` como leitor local somente leitura; a verificação automatizada usa apenas fixtures sintéticas e não afirma compatibilidade com uma instalação Windows real.
 - [x] Rodar `python -m pytest tests/unit/test_profile_catalog.py -v` — 9 passed.
 - [ ] Escrever testes para seleção obrigatória do bico por trabalho, opção incompatível no SlicePlan, argumentos seguros, timeout, saída inválida e falha do CLI.
-- [ ] Escrever teste para validar a estrutura ZIP/3MF e metadados detectáveis antes de apresentar o arquivo como projeto configurado.
+- [x] Escrever testes sintéticos para validar a estrutura genérica ZIP/3MF e detectar partes sob `Metadata/`; isso não valida metadados Bambu nem configura projeto.
+- [x] Rodar `python -m pytest tests/unit/test_project_3mf.py -v` — 8 passed com pacotes sintéticos.
 - [ ] Escrever teste garantindo que nenhuma saída vira slicer_verified sem conclusão válida e confirmação explícita do usuário após abrir/revisar o 3MF no Bambu Studio.
 - [ ] Rodar python -m pytest tests/unit/test_profile_catalog.py tests/unit/test_slicer_cli.py tests/unit/test_project_3mf.py -v.
 - [ ] Implementar fatiamento usando apenas o CLI e perfis da versão comprovada na Tarefa 1; capturar logs locais sem STL ou chave.

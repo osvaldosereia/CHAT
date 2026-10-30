@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
-- HEAD remoto ao início desta rodada: `beffdb87a9b17ebbb339f1c778af928f3fac67c3`; último commit de código: `c4f32a210492ba8241fb5d0bdaa4f4ec1ec49688` (`feat: run workflow actions in bounded workers`).
+- HEAD remoto confirmado ao início desta rodada: `a7a4fb5e72a18aa856982b638c05d67750139786`; commit de código desta entrega: `670324be82bd3820b921261ae1fe71511355b5df` (`feat: inspect local 3MF package structure`).
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -145,9 +145,28 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0; nenhuma chamada de rede de produto
 
 Commits de código: `2018baad38202eb90de80367d1701940a2137a35` (`feat: orchestrate local analysis and consented recommendations`) e `c4f32a210492ba8241fb5d0bdaa4f4ec1ec49688` (`feat: run workflow actions in bounded workers`).
 
+## Rodada 2026-10-30 — estrutura genérica 3MF
+
+- O primeiro item incompleto continua sendo a prova real da Tarefa 1 no Windows. Não há nesta execução instalação/caminho/versão do Bambu Studio no PC do usuário nem STL Sentinel disponível; o gate de CLI e fatiamento permanece fechado.
+- Adicionado `src/bambuprep/bambu/project_3mf.py`: inspetor local, somente leitura e com limites para pacote ZIP/OPC, partes duplicadas/inseguras, tamanhos, CRC, tipos de conteúdo, relação-raiz interna para o modelo, XML core, unidades, objetos/build, vértices/triângulos, referências de componentes e ciclos.
+- Retorna nomes de partes sob `Metadata/`; não interpreta valores de metadados proprietários Bambu e não declara projeto configurado, compatibilidade do Studio, fatiamento ou `slicer_verified`. Não extrai nem altera o arquivo.
+- Testes usam pacotes ZIP construídos em memória/temporários: estrutura e metadado detectável, Content Type padrão, malha de um triângulo, relação ausente/externa, índice fora da faixa, path traversal, nome duplicado e DTD/entity. Nenhum 3MF do usuário ou arquivo produzido pelo Studio foi usado.
+- Decisão: aceitar uma malha estruturalmente válida com um triângulo; número mínimo de faces não faz parte desta inspeção genérica de estrutura. Relação de modelo externa é rejeitada. A validação do projeto/fatiamento continua separada e exige a prova da Tarefa 1.
+- Fonte de formato consultada: repositório da especificação Core 3MF, https://github.com/3MFConsortium/spec_core. O formato ZIP/OPC/XML usado em fixtures não é prova de compatibilidade Bambu.
+
+### Evidência real de comandos
+
+Ambiente Linux, Python 3.12.14, pytest 9.2.0; nenhum Bambu Studio ou dado privado do usuário disponível.
+
+- RED após corrigir os fixtures: `python -m pytest tests/unit/test_project_3mf.py -v` — 2 failed, 6 passed: expôs rejeição indevida da malha de um triângulo e aceitação de relação externa.
+- GREEN: `python -m pytest tests/unit/test_project_3mf.py -v` — 8 passed; 1 aviso esperado do `zipfile` ao construir fixture com nome duplicado.
+- Suíte completa: `python -m pytest -v` — 102 passed; 1 aviso do mesmo fixture.
+- Sintaxe: `python -m compileall -q src tools tests` — exit 0.
+- Commit de código: `670324be82bd3820b921261ae1fe71511355b5df` (`feat: inspect local 3MF package structure`).
+
 ## Próxima execução
 
-Continuar a Tarefa 6: interface PySide6, confirmação modal nova por trabalho, execução em worker e documentação de uso. A tentativa de instalar PySide6 ficou bloqueada por timeout no índice de pacotes; testar outras fontes/runtime permitidos antes de declarar UI verificada. Manter chamadas OpenAI sob cliente falso até confirmação visual e chave do usuário. Manter o gate de fatiamento/3MF fechado até a prova Windows real da Tarefa 1.
+Continuar a Tarefa 6 com a interface Qt, confirmação modal nova por trabalho e integração de workers. A tentativa anterior de instalar PySide6 ficou bloqueada por timeout no índice de pacotes; buscar uma via local disponível ou avançar código sem declarar UI verificada. Usar mocks para OpenAI. A inspeção estrutural genérica de 3MF já tem testes sintéticos; integração CLI, metadados Bambu e fatiamento continuam bloqueados pela prova Windows real da Tarefa 1.
 
 ## Commits
 
