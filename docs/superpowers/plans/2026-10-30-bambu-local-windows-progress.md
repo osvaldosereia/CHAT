@@ -450,3 +450,10 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Verificação local: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q` — 149 passed, 1 aviso da fixture ZIP duplicada sintética, em 9.90s. `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests` — exit 0. A contagem da suíte mudou porque os testes do parser RST foram substituídos por casos da origem estável XML/metadata; a suíte permaneceu verde.
 - Commit de código/testes: 5df08bfe70f7de031ff7d309effb2efbe527787f (`fix: inventory Nuitka licenses from installed metadata`). Runs disparados para esse commit: Windows standalone build 41078547742 e Windows unit/Qt 41078547798, ambos `in_progress` na consulta atual. O build anterior falhou e nenhum artifact foi criado/anexado.
 - Sem chamada OpenAI, chave real, STL/3MF privado, upload de artifact, merge, release, publicação ou impressão.
+
+
+### CI Windows — código 5df08bf (2026-10-30)
+
+- Windows unit/Qt run 41078547798 concluiu success em Windows Server 2025 / Python 3.12.10: 149 passed, 1 aviso esperado de fixture ZIP duplicada, 15.31s.
+- Windows standalone build run 41078547742 segue `in_progress` no passo MSVC/Nuitka na consulta das 15:13 UTC. A validação do XML/report no Windows e a auditoria do bundle ainda aguardam o job. Nenhum artifact foi anexado.
+- O run de teste não valida Bambu Studio, CLI, slicing ou 3MF real. T1 permanece a primeira etapa incompleta; nenhuma caixa do plano foi alterada.
