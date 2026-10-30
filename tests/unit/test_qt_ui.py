@@ -7,7 +7,7 @@ import pytest
 pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtCore import QEventLoop, QThread, QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox, QLineEdit
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
@@ -135,3 +135,40 @@ def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmati
     poll.stop()
     window.close()
     runner.close(wait=True)
+
+
+def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
+    profile = PrinterProfile(
+        printer_id="Bambu Lab A1 mini 0.4 nozzle",
+        nozzle_mm=0.4,
+        generic_pla_profile_id="Generic PLA @BBL A1M",
+        default_process_profile_id="0.20mm Standard @BBL A1M",
+        plate_id="Textured PEI Plate",
+        compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
+        support_options=("tree(auto)",),
+        adhesion_options=("brim", "none"),
+    )
+    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
+    runner = WorkflowTaskRunner(max_workers=1)
+    window = BambuPrepMainWindow(FakeWorkflow(), catalog, runner, MemoryKeyStore())
+    callbacks = []
+
+    window._submit(
+        lambda: "completed",
+        (),
+        lambda result: callbacks.append((result, QThread.currentThread())),
+    )
+    event_loop = QEventLoop()
+    poll = QTimer()
+    poll.setInterval(10)
+    poll.timeout.connect(lambda: event_loop.quit() if callbacks else None)
+    poll.start()
+    QTimer.singleShot(2000, event_loop.quit)
+    event_loop.exec()
+    poll.stop()
+
+    try:
+        assert callbacks == [("completed", qapp.thread())]
+    finally:
+        window.close()
+        runner.close(wait=True)
