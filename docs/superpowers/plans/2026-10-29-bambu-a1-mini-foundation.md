@@ -21,7 +21,7 @@ O usuário envia um STL e recebe análise técnica, recomendação rastreável e
 
 1. Registrar versão/build do Bambu Studio quando o usuário estiver no Windows.
 2. Selecionar os perfis oficiais para A1 mini, bico físico, Generic PLA e Textured PEI.
-3. Confirmar a organização Supabase e obter uma estimativa de custo antes de criar projeto separado. Não reutilizar os projetos de outros sistemas.
+3. Escolher entre app Windows local (sem Supabase, sem histórico online compartilhado) e app online. Para a opção online, avaliar primeiro o uso de um projeto Pro existente, sem criar instância nova por padrão.
 4. Definir limites de upload, retenção, autenticação e custo OpenAI com base no STL de prova.
 5. Definir licença e bibliotecas permitidas para diagnóstico/reparo geométrico.
 
@@ -45,7 +45,7 @@ Usar o STL Sentinel Busts existente, sem enviar o trabalho à impressora:
 
 Após confirmação de custo/organização:
 
-1. Criar projeto Supabase isolado na região mais adequada.
+1. Antes de criar instância, avaliar se um projeto Supabase Pro existente pode receber um schema e bucket Bambu separados com políticas RLS próprias; usar novo projeto apenas se o custo adicional for aceito.
 2. Habilitar Auth com acesso do proprietário.
 3. Criar buckets privados para originais, resultados, imagens e 3MF; definir URLs assinadas e retenção.
 4. Criar esquema de profile, machine settings, jobs, assets, measurements, recommendations, sources, software versions e job events.
@@ -96,7 +96,8 @@ Após confirmação de custo/organização:
 ## Dependências e bloqueios atuais
 
 - A versão do Bambu Studio não impede a documentação; é necessária para a prova do CLI e do 3MF no Windows.
-- O Supabase deve ser isolado. A criação fica pendente até confirmar organização e custo.
+- A rota online exige backend e armazenamento privados; criar projeto Supabase adicional pode cobrar compute mensal. Avaliar um projeto existente ou escolher a rota local antes do provisionamento.
+- GitHub Pages é estático, não fornece backend, e não é presumido como hospedagem de produção do app.
 - O repositório é público, então código, prompts e documentação serão públicos.
 - A ligação direta com o Studio abre o arquivo; não é automação de cliques ou controle da impressora.
 - Não incluir arquivos STL/3MF nem segredos no GitHub.
