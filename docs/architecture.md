@@ -6,7 +6,7 @@ A interface própria reduz decisões repetitivas, analisa a geometria e prepara 
 
 | Parte | Responsabilidade |
 |---|---|
-| Site estático no GitHub Pages | Upload, perfil salvo, progresso, visualização de análise e downloads |
+| Interface da aplicação | App Windows local para eliminar backend mensal; app online exige backend e armazenamento privado. GitHub Pages só entrega arquivos estáticos. |
 | Supabase Auth | Sessão do usuário |
 | Supabase Storage privado | STL original, cópia reparada, vistas, relatório e 3MF temporários |
 | Supabase Postgres | Perfil A1 mini, tarefas, métricas, decisões, versões de regras e eventos |
@@ -59,7 +59,7 @@ Cada registro precisa guardar origem, data de captura, release aplicável, hash 
 - GitHub Actions é candidato para processamento em lote, não uma suposição já provada para operação de produção.
 - O disparo do workflow deve limitar permissões do token ao repositório e ao evento necessários; nunca executar código de pull request não confiável com segredos.
 - Runner deve ser descartável e não deixar modelo em artefato ou log.
-- GitHub Pages não recebe segredos; chamadas privadas passam por Supabase.
+- Chaves nunca vão ao navegador. No modelo online, chamadas privadas passam pelo backend Supabase; no modelo local, a chave OpenAI fica na configuração local protegida do Windows.
 
 ## Supabase e privacidade
 
@@ -68,6 +68,18 @@ Cada registro precisa guardar origem, data de captura, release aplicável, hash 
 - Edge Functions guardam chaves e coordenam; não fazem processamento pesado de STL por limites do runtime.
 - Tráfego do browser para Storage deve aplicar limites de arquivo e autenticação; upload grande usa transferência retomável.
 - Filas e jobs usam estados idempotentes: reenvio de webhook não cria cópias nem cobra OpenAI duas vezes.
+
+## Alternativa sem Supabase
+
+É possível eliminar o backend mensal transformando o produto em um aplicativo local para Windows. O aplicativo lê o STL do disco local, executa as ferramentas geométricas, usa o Bambu Studio/CLI instalado quando validado, chama a API OpenAI e guarda relatórios localmente. GitHub mantém o código e distribui versões; os arquivos do usuário não entram no repositório.
+
+Essa rota não oferece uma página online com upload/histórico compartilhado. Para usar outro computador, o usuário instala o app e o Bambu Studio nele e usa os arquivos locais desse computador. Um fluxo online acessível de qualquer lugar precisa de um backend que proteja autenticação/chaves e de armazenamento privado; GitHub Pages sozinho não resolve isso.
+
+## Custo do Supabase sem criar outro projeto
+
+Se a experiência online for prioritária, avaliar primeiro o uso de um projeto Pro existente. Um schema, bucket e políticas RLS próprios podem separar logicamente as tabelas Bambu, mas essa separação é menor que uma instância independente e compartilha quotas de armazenamento/tráfego da organização. Conferir permissões, uso atual e riscos dos sistemas existentes antes de escolher o projeto.
+
+Não criar projeto adicional por padrão: a cobrança atual do Supabase informa que cada projeto tem uma instância Postgres dedicada e projetos Pro adicionais começam em aproximadamente US$ 10/mês, sujeito a compute e uso.
 
 ## Impressão remota
 
