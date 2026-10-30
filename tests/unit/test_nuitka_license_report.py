@@ -4,7 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from tools.summarize_nuitka_report import LicenseInventoryError, main, summarize_nuitka_reports
+from tools.summarize_nuitka_report import (
+    LicenseInventoryError,
+    _validate_report_file,
+    main,
+    summarize_nuitka_reports,
+)
 
 
 COMPILATION_REPORT = '''<?xml version="1.0"?>
@@ -120,6 +125,26 @@ def test_summary_reports_missing_license_metadata_explicitly(tmp_path):
     assert next(item for item in summary["distributions"] if item["name"] == "BambuPrep")["license"] == ""
 
 
+def test_summary_treats_unknown_license_metadata_as_missing(tmp_path):
+    installed = _installed_distributions(
+        tmp_path,
+        {
+            "BambuPrep": ("0.1.0", "UNKNOWN"),
+            "PySide6": ("6.12.0", "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"),
+        },
+    )
+
+    summary = summarize_nuitka_reports(
+        COMPILATION_REPORT,
+        LOCK,
+        installed_distributions=installed,
+    )
+
+    assert summary["license_metadata_complete"] is False
+    assert summary["license_metadata_missing_count"] == 1
+    assert next(item for item in summary["distributions"] if item["name"] == "BambuPrep")["license"] == ""
+
+
 def test_summary_deduplicates_same_distribution_reported_twice(tmp_path):
     installed = _installed_distributions(
         tmp_path,
@@ -167,6 +192,14 @@ def test_cli_fails_on_distribution_not_in_lock_without_printing_paths_or_license
     assert '"all_distributions_locked":false' in captured.out
     assert "PySide6" in captured.out
     assert str(tmp_path) not in captured.out + captured.err
+
+
+def test_license_report_must_not_be_empty(tmp_path):
+    license_report = tmp_path / "empty-license-report.rst"
+    license_report.write_bytes(b"")
+
+    with pytest.raises(LicenseInventoryError, match="empty"):
+        _validate_report_file(license_report, description="Nuitka license report")
 
 
 @pytest.mark.parametrize(

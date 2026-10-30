@@ -111,15 +111,17 @@ def _index_installed_licenses(
         version = distribution.version
         if not name or not version:
             continue
-        license_value = distribution.metadata.get("License-Expression", "")
+        license_value = distribution.metadata.get("License-Expression", "").strip()
         if not license_value:
-            license_value = distribution.metadata.get("License", "")
-        if not license_value or license_value == "UNKNOWN":
+            license_value = distribution.metadata.get("License", "").strip()
+        if not license_value or license_value.upper() == "UNKNOWN":
             for classifier in distribution.metadata.get_all("Classifier", []):
                 parts = [part.strip() for part in classifier.split("::")]
                 if parts and parts[0] == "License":
                     license_value = parts[-1]
                     break
+        if license_value.upper() == "UNKNOWN":
+            license_value = ""
         key = (_normalize_name(name), version)
         existing = indexed.get(key)
         if existing is not None and existing != license_value:
@@ -134,8 +136,15 @@ def _normalize_name(name: str) -> str:
 
 def _read_report(path: Path, *, description: str) -> str:
     try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_REPORT_BYTES:
-            raise LicenseInventoryError("A Nuitka report file is missing or exceeds the supported size limit.")
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.stat().st_size <= 0
+            or path.stat().st_size > _MAX_REPORT_BYTES
+        ):
+            raise LicenseInventoryError(
+                "A Nuitka report file is missing, empty, or exceeds the supported size limit."
+            )
         return path.read_text(encoding="utf-8")
     except LicenseInventoryError:
         raise
@@ -166,8 +175,15 @@ def main(argv: list[str] | None = None) -> int:
 
 def _validate_report_file(path: Path, *, description: str) -> None:
     try:
-        if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_REPORT_BYTES:
-            raise LicenseInventoryError("A Nuitka report file is missing or exceeds the supported size limit.")
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.stat().st_size <= 0
+            or path.stat().st_size > _MAX_REPORT_BYTES
+        ):
+            raise LicenseInventoryError(
+                "A Nuitka report file is missing, empty, or exceeds the supported size limit."
+            )
     except LicenseInventoryError:
         raise
     except OSError:
