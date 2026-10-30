@@ -238,6 +238,8 @@
 - [ ] Rodar build em runner Windows limpo; confirmar ausência de chaves e arquivos de usuário no artefato.
 - [x] Dry-run local do pyside6-deploy confirma que Nuitka recebe --output-filename=BambuPrep.exe; build Windows de runner foi verificado separadamente, mas inspeção do bundle efetivo segue pendente.
 - [x] Runner Windows Server 2025 construiu BambuPrep.exe no caminho esperado e verificou ausência de arquivos .stl/.3mf/.sqlite/.sqlite3/.db/.log no diretório standalone (run 41036004359, commit 690ab902). Nenhum artefato foi anexado; varredura de conteúdo/segredos e revisão de licenças seguem pendentes.
+- [x] Criar auditoria de bundle que lista paths relativos, tamanhos e SHA-256; rejeita arquivos de usuário/credenciais e tokens OpenAI-like sem ecoar o nome/conteúdo no erro. Dez testes com arquivos sintéticos passaram localmente.
+- [ ] Executar a nova auditoria no runner Windows e registrar seu inventário nos logs, sem anexar/publicar o pacote. O run do commit 106465fd está em andamento.
 - [ ] Instalar/abrir o pacote em Windows 10 22H2 x64 e Windows 11 x64; verificar primeira configuração, análise local, erro sem API e abertura do 3MF no Studio.
 - [x] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
 - [ ] Revisar licenças/avisos de PySide6 e demais dependências antes de publicar; registrar a conclusão em docs/operations/release-checklist.md.

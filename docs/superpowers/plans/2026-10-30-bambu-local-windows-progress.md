@@ -360,3 +360,16 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 4. Se quiser validar a API real, configurar a chave individual no Credential Locker, definir limite/orçamento e dar consentimento explícito por trabalho. Até isso ocorrer, os testes permanecem em mocks e não há chamadas reais.
 
 - Sem confirmação no Studio não afirmar compatibilidade CLI, fatiamento/3MF verificado, revisão do projeto ou impressão física validada. Sem inspecionar o bundle efetivo, a lista de licenças/avisos e a licença final do BambuPrep continuam pendentes.
+
+
+## Continuação 2026-10-30 — auditoria do bundle standalone (Tarefa 7)
+
+- Criado `bambuprep.bundle_audit` e o comando `tools/audit_standalone_bundle.py`. O relatório contém só o nome da pasta do bundle, paths relativos, tamanhos e SHA-256; não imprime caminhos absolutos. A auditoria exige `BambuPrep.exe` não vazio, bloqueia extensões de STL/3MF/histórico/chaves locais e detecta token com formato OpenAI `sk-` no conteúdo, sem revelar filename nem token quando falha.
+- O workflow Windows agora invoca essa auditoria depois do build. O inventário será exibido somente nos logs do job; o workflow continua sem upload de artifact, sem secrets e sem publicação.
+- TDD RED: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_bundle_audit.py -q` — exit 2 na coleta: `bambuprep.bundle_audit` ainda não existia.
+- GREEN focal: mesmo comando após implementação — 10 passed em 0.12s. Os testes cobrem saída relativa/hashes, executável ausente/vazio, STL/3MF/SQLite-WAL/PEM/.env, token sintético em binário e fronteira de chunks, e CLI subprocesso sem caminho absoluto.
+- Suíte final: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q` — 134 passed, 1 warning de ZIP duplicado sintético em 2.86s.
+- `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests` — exit 0. Auditoria de whitespace local — `trailing whitespace: []`.
+- Commit de código: `106465fd2fb91c10fd201c0e59c59b7e2bae750f`.
+- CI para esse commit está pendente na captura: Windows standalone run 41046396800 e Windows tests run 41046396825, ambos `in_progress`. O build anterior do commit `c2ee0338` passou (run 41039634894), criou `BambuPrep.exe` no caminho esperado e o workflow relatou ausência de STL/3MF/database/log; nenhum artifact foi anexado (`artifacts: []`). A auditoria nova ainda não foi exercitada em Windows.
+- Não foram usados STL/3MF privados nem chave real, e nenhuma chamada OpenAI foi feita. A primeira pendência do plano permanece a prova real da Tarefa 1; não há instalação Windows do usuário, versão real do Studio, nem STL Sentinel local.
