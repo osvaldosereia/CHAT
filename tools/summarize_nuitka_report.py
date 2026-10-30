@@ -89,7 +89,7 @@ def _parse_compilation_report(report_text: str) -> list[tuple[str, str]]:
             raise LicenseInventoryError("Nuitka compilation report has an incomplete distribution entry.")
         key = (_normalize_name(name), version)
         if key in seen:
-            raise LicenseInventoryError("Nuitka compilation report has a duplicate distribution entry.")
+            continue
         seen.add(key)
         distributions.append((name, version))
     if not distributions:

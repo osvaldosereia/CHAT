@@ -79,6 +79,29 @@ def test_summary_truncates_multiline_license_metadata_without_exposing_body(tmp_
     assert long_license not in json.dumps(summary)
 
 
+def test_summary_deduplicates_same_distribution_reported_twice(tmp_path):
+    installed = _installed_distributions(
+        tmp_path,
+        {
+            "BambuPrep": ("0.1.0", "Proprietary - personal project"),
+            "PySide6": ("6.12.0", "LGPL-3.0-only"),
+        },
+    )
+    duplicate_report = COMPILATION_REPORT.replace(
+        "</distributions>",
+        '  <distribution name="pyside6" version="6.12.0" installer="uv"/>\n</distributions>',
+    )
+
+    summary = summarize_nuitka_reports(
+        duplicate_report,
+        LOCK,
+        installed_distributions=installed,
+    )
+
+    assert summary["distribution_count"] == 2
+    assert [item["name"] for item in summary["distributions"]] == ["BambuPrep", "PySide6"]
+
+
 def test_cli_fails_on_distribution_not_in_lock_without_printing_paths_or_license_body(tmp_path, capsys):
     license_report = tmp_path / "runner-license-report.rst"
     compilation_report = tmp_path / "runner-compilation-report.xml"
