@@ -23,7 +23,7 @@ A leitura dos perfis instalados serve para oferecer opções locais. Ela não te
 
 1. Escolha um arquivo `.stl` local pelo botão ou arraste um único STL existente para a janela. O histórico registra o caminho e o hash; o aplicativo não copia os bytes do STL para o banco.
 2. Escolha a variante do bico e confirme fisicamente que esse bico está instalado. O BambuPrep não detecta trocas físicas.
-3. Confira o Generic PLA e a placa apresentados pelo catálogo local.
+3. Confira o Generic PLA e a placa apresentados pelos perfis locais e confirme esses valores para o trabalho. A confirmação reinicia ao trocar o perfil ou selecionar outro STL.
 4. Clique em **Analisar localmente**. A janela mostra dimensões interpretadas como milímetros, contagens e avisos. STL não guarda unidade confiável; escala suspeita exige revisão.
 5. Revise o relatório e as vistas Frente, Lado, Topo e Riscos. As vistas são renderizadas localmente e mantidas em memória para a janela.
 
