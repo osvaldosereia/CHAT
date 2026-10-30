@@ -8,7 +8,6 @@ import subprocess
 import sys
 import threading
 import time
-import threading
 from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
@@ -194,303 +193,6 @@ def _detect_capabilities(help_text: str) -> frozenset[str]:
         if any(re.search(pattern, help_text, flags=re.IGNORECASE) for pattern in patterns)
     )
 
-
-
-class _COORD(ctypes.Structure):
-    _fields_ = [("X", wintypes.SHORT), ("Y", wintypes.SHORT)]
-
-
-class _STARTUPINFOW(ctypes.Structure):
-    _fields_ = [
-        ("cb", wintypes.DWORD),
-        ("lpReserved", wintypes.LPWSTR),
-        ("lpDesktop", wintypes.LPWSTR),
-        ("lpTitle", wintypes.LPWSTR),
-        ("dwX", wintypes.DWORD),
-        ("dwY", wintypes.DWORD),
-        ("dwXSize", wintypes.DWORD),
-        ("dwYSize", wintypes.DWORD),
-        ("dwXCountChars", wintypes.DWORD),
-        ("dwYCountChars", wintypes.DWORD),
-        ("dwFillAttribute", wintypes.DWORD),
-        ("dwFlags", wintypes.DWORD),
-        ("wShowWindow", wintypes.WORD),
-        ("cbReserved2", wintypes.WORD),
-        ("lpReserved2", ctypes.POINTER(wintypes.BYTE)),
-        ("hStdInput", wintypes.HANDLE),
-        ("hStdOutput", wintypes.HANDLE),
-        ("hStdError", wintypes.HANDLE),
-    ]
-
-
-class _STARTUPINFOEXW(ctypes.Structure):
-    _fields_ = [
-        ("StartupInfo", _STARTUPINFOW),
-        ("lpAttributeList", ctypes.c_void_p),
-    ]
-
-
-class _PROCESS_INFORMATION(ctypes.Structure):
-    _fields_ = [
-        ("hProcess", wintypes.HANDLE),
-        ("hThread", wintypes.HANDLE),
-        ("dwProcessId", wintypes.DWORD),
-        ("dwThreadId", wintypes.DWORD),
-    ]
-
-
-def _windows_pseudoconsole_run(
-    command: list[str],
-    *,
-    timeout_seconds: int,
-    cwd: Path | None = None,
-) -> subprocess.CompletedProcess[str]:
-    """Run a Windows command attached to a pseudoconsole and capture its output.
-
-    Some console applications write help through console APIs instead of the
-    standard handles redirected by subprocess.run. ConPTY captures that output.
-    """
-    if sys.platform != "win32":
-        raise OSError("Windows pseudoconsole capture is only available on Windows.")
-    if not command:
-        raise ValueError("command must not be empty")
-    if timeout_seconds <= 0:
-        raise ValueError("timeout_seconds must be greater than zero")
-
-    try:
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        create_pipe = kernel32.CreatePipe
-        create_pseudoconsole = kernel32.CreatePseudoConsole
-        close_pseudoconsole = kernel32.ClosePseudoConsole
-        initialize_attributes = kernel32.InitializeProcThreadAttributeList
-        update_attribute = kernel32.UpdateProcThreadAttribute
-        delete_attributes = kernel32.DeleteProcThreadAttributeList
-        create_process = kernel32.CreateProcessW
-        wait_for_single_object = kernel32.WaitForSingleObject
-        get_exit_code = kernel32.GetExitCodeProcess
-        terminate_process = kernel32.TerminateProcess
-        read_file = kernel32.ReadFile
-        close_handle = kernel32.CloseHandle
-    except AttributeError as exc:
-        raise OSError("Windows pseudoconsole APIs are unavailable.") from exc
-
-    create_pipe.argtypes = [
-        ctypes.POINTER(wintypes.HANDLE),
-        ctypes.POINTER(wintypes.HANDLE),
-        ctypes.c_void_p,
-        wintypes.DWORD,
-    ]
-    create_pipe.restype = wintypes.BOOL
-    create_pseudoconsole.argtypes = [
-        _COORD,
-        wintypes.HANDLE,
-        wintypes.HANDLE,
-        wintypes.DWORD,
-        ctypes.POINTER(wintypes.HANDLE),
-    ]
-    create_pseudoconsole.restype = ctypes.c_long
-    close_pseudoconsole.argtypes = [wintypes.HANDLE]
-    close_pseudoconsole.restype = None
-    initialize_attributes.argtypes = [
-        ctypes.c_void_p,
-        wintypes.DWORD,
-        wintypes.DWORD,
-        ctypes.POINTER(ctypes.c_size_t),
-    ]
-    initialize_attributes.restype = wintypes.BOOL
-    update_attribute.argtypes = [
-        ctypes.c_void_p,
-        wintypes.DWORD,
-        ctypes.c_size_t,
-        ctypes.c_void_p,
-        ctypes.c_size_t,
-        ctypes.c_void_p,
-        ctypes.POINTER(ctypes.c_size_t),
-    ]
-    update_attribute.restype = wintypes.BOOL
-    delete_attributes.argtypes = [ctypes.c_void_p]
-    delete_attributes.restype = None
-    create_process.argtypes = [
-        wintypes.LPCWSTR,
-        wintypes.LPWSTR,
-        ctypes.c_void_p,
-        ctypes.c_void_p,
-        wintypes.BOOL,
-        wintypes.DWORD,
-        ctypes.c_void_p,
-        wintypes.LPCWSTR,
-        ctypes.POINTER(_STARTUPINFOEXW),
-        ctypes.POINTER(_PROCESS_INFORMATION),
-    ]
-    create_process.restype = wintypes.BOOL
-    wait_for_single_object.argtypes = [wintypes.HANDLE, wintypes.DWORD]
-    wait_for_single_object.restype = wintypes.DWORD
-    get_exit_code.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-    get_exit_code.restype = wintypes.BOOL
-    terminate_process.argtypes = [wintypes.HANDLE, wintypes.UINT]
-    terminate_process.restype = wintypes.BOOL
-    read_file.argtypes = [
-        wintypes.HANDLE,
-        ctypes.c_void_p,
-        wintypes.DWORD,
-        ctypes.POINTER(wintypes.DWORD),
-        ctypes.c_void_p,
-    ]
-    read_file.restype = wintypes.BOOL
-    close_handle.argtypes = [wintypes.HANDLE]
-    close_handle.restype = wintypes.BOOL
-
-    def close_if_open(handle: wintypes.HANDLE | int | None) -> None:
-        value = handle if isinstance(handle, int) else handle.value if handle is not None else None
-        if value:
-            close_handle(wintypes.HANDLE(value))
-
-    input_read = wintypes.HANDLE()
-    input_write = wintypes.HANDLE()
-    output_read = wintypes.HANDLE()
-    output_write = wintypes.HANDLE()
-    console = wintypes.HANDLE()
-    process_info = _PROCESS_INFORMATION()
-    attribute_buffer = None
-    attributes_initialized = False
-    process_started = False
-    process_finished = False
-    reader = None
-    captured: list[bytes] = []
-
-    try:
-        if not create_pipe(ctypes.byref(input_read), ctypes.byref(input_write), None, 0):
-            raise ctypes.WinError(ctypes.get_last_error())
-        if not create_pipe(ctypes.byref(output_read), ctypes.byref(output_write), None, 0):
-            raise ctypes.WinError(ctypes.get_last_error())
-
-        result = create_pseudoconsole(
-            _COORD(120, 30),
-            input_read,
-            output_write,
-            0,
-            ctypes.byref(console),
-        )
-        if result < 0:
-            raise OSError(f"CreatePseudoConsole failed with HRESULT 0x{result & 0xFFFFFFFF:08X}")
-
-        # The pseudoconsole owns its ends of these pipes; the parent keeps only
-        # the output reader. Closing input also gives noninteractive commands EOF.
-        close_if_open(input_read)
-        input_read = wintypes.HANDLE()
-        close_if_open(output_write)
-        output_write = wintypes.HANDLE()
-        close_if_open(input_write)
-        input_write = wintypes.HANDLE()
-
-        attribute_size = ctypes.c_size_t()
-        initialize_attributes(None, 1, 0, ctypes.byref(attribute_size))
-        if not attribute_size.value or attribute_size.value > 65536:
-            raise OSError("Windows could not size the pseudoconsole process attributes.")
-        attribute_buffer = ctypes.create_string_buffer(attribute_size.value)
-        attribute_pointer = ctypes.cast(attribute_buffer, ctypes.c_void_p)
-        if not initialize_attributes(attribute_pointer, 1, 0, ctypes.byref(attribute_size)):
-            raise ctypes.WinError(ctypes.get_last_error())
-        attributes_initialized = True
-
-        # PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE from the Windows SDK.
-        if not update_attribute(
-            attribute_pointer,
-            0,
-            0x00020016,
-            ctypes.byref(console),
-            ctypes.sizeof(console),
-            None,
-            None,
-        ):
-            raise ctypes.WinError(ctypes.get_last_error())
-
-        startup = _STARTUPINFOEXW()
-        startup.StartupInfo.cb = ctypes.sizeof(_STARTUPINFOEXW)
-        startup.lpAttributeList = attribute_pointer
-        process_info = _PROCESS_INFORMATION()
-        command_line = ctypes.create_unicode_buffer(
-            subprocess.list2cmdline([str(argument) for argument in command])
-        )
-        extended_startup_info_present = 0x00080000
-        if not create_process(
-            str(command[0]),
-            command_line,
-            None,
-            None,
-            False,
-            extended_startup_info_present,
-            None,
-            str(cwd) if cwd is not None else None,
-            ctypes.byref(startup),
-            ctypes.byref(process_info),
-        ):
-            raise ctypes.WinError(ctypes.get_last_error())
-        process_started = True
-
-        delete_attributes(attribute_pointer)
-        attributes_initialized = False
-        attribute_buffer = None
-
-        def read_console_output() -> None:
-            while True:
-                buffer = ctypes.create_string_buffer(4096)
-                bytes_read = wintypes.DWORD()
-                succeeded = read_file(
-                    output_read,
-                    buffer,
-                    len(buffer),
-                    ctypes.byref(bytes_read),
-                    None,
-                )
-                if not succeeded or not bytes_read.value:
-                    return
-                captured.append(buffer.raw[: bytes_read.value])
-
-        reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
-        reader.start()
-
-        wait_timeout = min(int(timeout_seconds * 1000), 0xFFFFFFFE)
-        wait_result = wait_for_single_object(process_info.hProcess, wait_timeout)
-        if wait_result == 0x00000102:  # WAIT_TIMEOUT
-            terminate_process(process_info.hProcess, 1)
-            wait_for_single_object(process_info.hProcess, 0xFFFFFFFF)
-            process_finished = True
-            close_pseudoconsole(console)
-            console = wintypes.HANDLE()
-            reader.join()
-            output = b"".join(captured).decode("utf-8", errors="replace")
-            raise subprocess.TimeoutExpired(command, timeout_seconds, output=output)
-        if wait_result != 0:
-            raise ctypes.WinError(ctypes.get_last_error())
-
-        exit_code = wintypes.DWORD()
-        if not get_exit_code(process_info.hProcess, ctypes.byref(exit_code)):
-            raise ctypes.WinError(ctypes.get_last_error())
-        process_finished = True
-        close_pseudoconsole(console)
-        console = wintypes.HANDLE()
-        reader.join()
-        output = b"".join(captured).decode("utf-8", errors="replace")
-        return subprocess.CompletedProcess(command, exit_code.value, output, "")
-    finally:
-        if process_started and not process_finished and process_info.hProcess.value:
-            terminate_process(process_info.hProcess, 1)
-            wait_for_single_object(process_info.hProcess, 0xFFFFFFFF)
-        if reader is not None and reader.is_alive():
-            reader.join(timeout=2)
-        if attributes_initialized and attribute_buffer is not None:
-            delete_attributes(ctypes.cast(attribute_buffer, ctypes.c_void_p))
-        if console.value:
-            close_pseudoconsole(console)
-        close_if_open(input_read)
-        close_if_open(input_write)
-        close_if_open(output_write)
-        close_if_open(output_read)
-        close_if_open(process_info.hThread)
-        close_if_open(process_info.hProcess)
-
-
 def _windows_pseudoconsole_run(
     command: list[str],
     *,
@@ -590,10 +292,17 @@ def _windows_pseudoconsole_run(
     def _raise_last_error(operation: str) -> OSError:
         return OSError(ctypes.get_last_error(), f"Windows {operation} failed")
 
-    def _close(handle: HANDLE) -> None:
-        if handle and handle.value:
-            kernel32.CloseHandle(handle)
-            handle.value = None
+    def _handle_value(handle: HANDLE | int | None) -> int | None:
+        if isinstance(handle, int):
+            return handle
+        return handle.value if handle is not None else None
+
+    def _close(handle: HANDLE | int | None) -> None:
+        value = _handle_value(handle)
+        if value:
+            kernel32.CloseHandle(HANDLE(value))
+            if not isinstance(handle, int):
+                handle.value = None
 
     input_read = HANDLE()
     input_write = HANDLE()
@@ -735,7 +444,7 @@ def _windows_pseudoconsole_run(
             "",
         )
     finally:
-        if process_info.hProcess and process_info.hProcess.value and not process_finished:
+        if _handle_value(process_info.hProcess) and not process_finished:
             kernel32.TerminateProcess(process_info.hProcess, 1)
             kernel32.WaitForSingleObject(process_info.hProcess, 1000)
         if pseudo_console and pseudo_console.value:
@@ -818,18 +527,6 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 timeout=timeout_seconds,
             )
-        console_capture_error = None
-        if not _combined_output(help_result) and sys.platform == "win32":
-            try:
-                help_result = _windows_pseudoconsole_run(
-                    [str(executable), "--help"],
-                    timeout_seconds=timeout_seconds,
-                    cwd=executable.parent,
-                )
-            except OSError as exc:
-                # Preserve the precise empty-pipe diagnosis when ConPTY is missing
-                # or the executable cannot be started from this probe environment.
-                console_capture_error = type(exc).__name__
     except subprocess.TimeoutExpired:
         version = locals().get("version")
         version_from_metadata = locals().get("version_from_metadata", False)
@@ -863,8 +560,7 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
         message = (
             f"Bambu Studio CLI returned no response in captured stdout/stderr to --help "
             f"(exit code {help_result.returncode}); it may have written help directly to the console."
-            + (f" Windows pseudoconsole capture failed ({console_capture_error})." if console_capture_error else "")
-            + version_note
+            f"{version_note}"
         )
     elif help_result.returncode != 0:
         message = "Bambu Studio CLI returned a non-zero exit code for --help." + version_note
