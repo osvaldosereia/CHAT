@@ -36,7 +36,7 @@ O projeto declara atualmente `Proprietary - personal project` nos metadados. Ess
 
 - A documentação oficial do Qt for Python informa que a edição comunitária é distribuída sob LGPLv3/GPLv3, com opção comercial; a página de licenças lista código de terceiros e recomenda reconhecer os componentes usados. Metadados resumidos de pacote não substituem a revisão dos módulos/plugins efetivamente incluídos e dos avisos completos gerados.
 - A documentação oficial do Nuitka identifica AGPLv3 e uma exceção para os binários criados. O projeto continua sem decisão de licença de distribuição própria; essa nota não conclui compatibilidade jurídica dos demais componentes.
-- A auditoria do bundle está sendo ampliada para recusar diretórios/arquivos de ferramentas de build/teste (Nuitka, SCons, pyside6-deploy, pip, setuptools, wheel, pytest e uv) no runtime. Implementação em `de359224`; os workflows Windows dessa revisão ainda precisam concluir antes de registrar evidência.
+- A auditoria do bundle foi ampliada para recusar diretórios/arquivos de ferramentas de build/teste (Nuitka, SCons, pyside6-deploy, pip, setuptools, wheel, pytest e uv) no runtime. Implementação em `de359224`. A suíte Windows do run `41137359649` passou: **215 passed, 1 warning em 13.29s**; os testes incluem as nove famílias de ferramentas. O build standalone correspondente, run `41137359619`, ainda está pendente; a verificação do bundle real continua aberta.
 - Resultado desta revisão documental: gates de distribuição, decisão de licença própria, inspeção dos avisos completos e aprovação final permanecem abertos. Nenhuma publicação ou release foi iniciada.
 
 ## Fontes
