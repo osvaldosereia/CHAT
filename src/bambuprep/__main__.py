@@ -1,12 +1,15 @@
 """BambuPrep application entry point."""
 
+import sys
 
-def main() -> None:
-    raise SystemExit(
-        "BambuPrep interface is not implemented yet. "
-        "Run tools/bambu_cli_probe.py for the current local Studio diagnostic."
-    )
+
+def main() -> int:
+    if sys.platform != "win32":
+        raise SystemExit("BambuPrep desktop interface requires Windows.")
+    from bambuprep.app import run_windows_app
+
+    return run_windows_app()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
