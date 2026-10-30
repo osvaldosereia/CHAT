@@ -21,8 +21,27 @@ _TOTAL_PROFILE_LIMIT = 64 * 1024 * 1024
 _PROFILE_ENTRY_LIMIT = 4096
 
 
+_SAFE_PROFILE_DIAGNOSTIC_CODES = frozenset(
+    {
+        "profile_layout_missing",
+        "profile_manifest_unreadable",
+        "profile_manifest_invalid",
+        "profile_catalog_limit_exceeded",
+        "machine_model_profiles_invalid",
+        "machine_profiles_invalid",
+        "filament_profiles_invalid",
+        "process_profiles_invalid",
+        "profile_catalog_invalid",
+    }
+)
+
+
 class ProfileCatalogError(ValueError):
     """Raised when installed profile data is absent, unsafe, or inconsistent."""
+
+    def __init__(self, message: str, *, code: str = "profile_catalog_invalid") -> None:
+        super().__init__(message)
+        self.code = code if code in _SAFE_PROFILE_DIAGNOSTIC_CODES else "profile_catalog_invalid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,24 +69,45 @@ class ProfileCatalog:
         manifest_path = root / "resources" / "profiles" / "BBL.json"
         bbl_root = root / "resources" / "profiles" / "BBL"
         if not manifest_path.is_file() or not bbl_root.is_dir():
-            raise ProfileCatalogError("Bambu Studio profile manifest or BBL profile directory was not found")
+            raise ProfileCatalogError(
+                "Bambu Studio profile manifest or BBL profile directory was not found",
+                code="profile_layout_missing",
+            )
         try:
             manifest_size = manifest_path.stat().st_size
             if manifest_size > _MANIFEST_LIMIT:
-                raise ProfileCatalogError("Profile manifest exceeds the supported size limit")
+                raise ProfileCatalogError(
+                    "Profile manifest exceeds the supported size limit",
+                    code="profile_catalog_limit_exceeded",
+                )
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except ProfileCatalogError:
             raise
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            raise ProfileCatalogError("Could not read the Bambu Studio profile manifest") from exc
+            raise ProfileCatalogError(
+                "Could not read the Bambu Studio profile manifest",
+                code="profile_manifest_unreadable",
+            ) from exc
         if not isinstance(manifest, dict):
-            raise ProfileCatalogError("Profile manifest must be a JSON object")
+            raise ProfileCatalogError(
+                "Profile manifest must be a JSON object",
+                code="profile_manifest_invalid",
+            )
 
         loader = _ProfileLoader(bbl_root)
-        machine_models = loader.read_entries(manifest, "machine_model_list", "machine_model")
-        machines = loader.read_entries(manifest, "machine_list", "machine")
-        filaments = loader.read_entries(manifest, "filament_list", "filament")
-        processes = loader.read_entries(manifest, "process_list", "process")
+
+        def read_profile_entries(list_name: str, expected_type: str, code: str) -> dict[str, dict[str, Any]]:
+            try:
+                return loader.read_entries(manifest, list_name, expected_type)
+            except ProfileCatalogError as exc:
+                raise ProfileCatalogError(str(exc), code=code) from exc
+
+        machine_models = read_profile_entries(
+            "machine_model_list", "machine_model", "machine_model_profiles_invalid"
+        )
+        machines = read_profile_entries("machine_list", "machine", "machine_profiles_invalid")
+        filaments = read_profile_entries("filament_list", "filament", "filament_profiles_invalid")
+        processes = read_profile_entries("process_list", "process", "process_profiles_invalid")
 
         model = machine_models.get(MODEL_ID)
         if model is None:
@@ -139,10 +179,16 @@ class ProfileCatalog:
 
         version = manifest.get("version")
         if isinstance(version, (dict, list, bool)) or version is None:
-            raise ProfileCatalogError("Profile manifest is missing a usable version")
+            raise ProfileCatalogError(
+                "Profile manifest is missing a usable version",
+                code="profile_manifest_invalid",
+            )
         version_text = str(version).strip()
         if not version_text or len(version_text) > 128:
-            raise ProfileCatalogError("Profile manifest version is invalid")
+            raise ProfileCatalogError(
+                "Profile manifest version is invalid",
+                code="profile_manifest_invalid",
+            )
         return cls(model_id=MODEL_ID, profile_version=version_text, printers=tuple(printers))
 
     def printer(self, printer_id: str) -> PrinterProfile:
