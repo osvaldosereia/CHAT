@@ -3,6 +3,7 @@
 **Status:** proposta técnica para revisão do usuário. Nenhum código de produto será iniciado até a aprovação deste desenho.
 **Data:** 30 de outubro de 2026.
 **Repositório e branch:** osvaldosereia/CHAT, codex/bambu-a1-mini-foundation-20261029.
+**Alvo inicial:** Windows 10 22H2 x64 e Windows 11 x64; arquitetura ARM ou versão anterior exige confirmação antes de publicar build.
 
 ## Intenção
 
@@ -13,6 +14,7 @@ A pessoa escolhe ou confirma o bico instalado, revisa o resultado no Bambu Studi
 ## Decisões confirmadas
 
 - V1 exclusivamente local no Windows: sem site online, Supabase, fila remota ou envio de STL à nuvem.
+- A instalação verifica a versão/arquitetura do Windows e detecta a versão/build do Bambu Studio em tempo de execução; essa versão não será presumida nem codificada como fixa.
 - GitHub guarda o código, documentação e builds do aplicativo; nunca guarda STL, 3MF de usuário, chave OpenAI ou relatórios privados.
 - OpenAI API é usada para interpretar medições e imagens renderizadas. O STL original fica no computador; vistas renderizadas e métricas selecionadas são enviadas ao serviço OpenAI.
 - Equipamento inicial: Bambu Lab A1 mini, bico físico 0,4 mm ou 0,2 mm, Generic PLA e Bambu Textured PEI Plate original.
@@ -157,8 +159,9 @@ A ordem dos marcos é intencional: confirmar o CLI instalado é uma prova de via
 
 ## Pendências que não bloqueiam o desenho, mas bloqueiam a prova final
 
-- Versão/build do Bambu Studio e versão do Windows.
-- Confirmação se o STL Sentinel Busts continua acessível como arquivo de prova no momento da implementação.
+- O alvo do build será Windows 10 22H2 x64 e Windows 11 x64. A aplicação detecta o ambiente e informa se o PC estiver fora desse alvo; confirmar a versão exata do PC na primeira instalação.
+- A versão/build real do Bambu Studio será detectada no PC depois de instalado. O CLI e os perfis só serão declarados compatíveis depois da prova local com essa versão.
+- O STL Meshy_AI_Sentinel_Busts_20261029_generate.stl foi fornecido antes e é o arquivo de referência autorizado para esta preparação. Ele deverá ser disponibilizado na pasta local do Windows para a prova; não será enviado ao GitHub. Se ainda não estiver no PC, a prova básica poderá usar uma malha sintética e a validação do arquivo denso ficará pendente.
 - Chave individual OpenAI e autorização para usar a API, com orçamento/limite inicial definido na configuração.
 - Regras de retenção local (proposta inicial: não apagar arquivos de resultado automaticamente; usuário controla exclusão).
 - Verificação final de licenças e tamanho do pacote das dependências congeladas.
@@ -170,6 +173,7 @@ A ordem dos marcos é intencional: confirmar o CLI instalado é uma prova de via
 - Bambu Studio — relato recente de falha silenciosa no CLI: https://github.com/bambulab/BambuStudio/issues/10402
 - Qt for Python — implantação PySide6 e modos standalone/onefile: https://doc.qt.io/qtforpython-6/deployment/deployment-pyside6-deploy.html
 - Qt for Python — licença comunitária LGPLv3/GPLv3 e comercial: https://doc.qt.io/qtforpython-6/
+- Qt for Python — plataformas Windows e arquiteturas x64: https://doc.qt.io/qtforpython-6/overviews/qtdoc-windows.html
 - Trimesh — formatos, análise, watertightness e orientação para fixar versão: https://github.com/mikedh/trimesh
 - OpenAI — segurança de chaves de API: https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety
 - OpenAI — faturamento separado entre ChatGPT e API: https://help.openai.com/pt-br/articles/9039756-managing-billing-for-chatgpt-and-the-api-platform
