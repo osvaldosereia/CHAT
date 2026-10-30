@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import stat
 import zipfile
+import zlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable
@@ -78,7 +79,7 @@ def inspect_3mf(path: Path) -> Project3MFInspection:
             )
     except Project3MFError:
         raise
-    except (OSError, zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError, EOFError) as exc:
+    except (OSError, zipfile.BadZipFile, zipfile.LargeZipFile, RuntimeError, EOFError, zlib.error) as exc:
         raise Project3MFError(f"Could not read 3MF package ({type(exc).__name__})") from exc
 
 

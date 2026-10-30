@@ -1,4 +1,5 @@
 from pathlib import Path
+import struct
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -135,4 +136,19 @@ def test_inspector_rejects_external_entity_declarations(tmp_path):
     project = _write_project(tmp_path / "entity.3mf", model=model)
 
     with pytest.raises(Project3MFError, match="entity"):
+        inspect_3mf(project)
+
+
+def test_inspector_reports_corrupt_deflate_stream_as_project_error(tmp_path):
+    project = _write_project(tmp_path / "corrupt-deflate.3mf", extra={"unused.bin": b"A" * 4096})
+    with ZipFile(project) as archive:
+        info = archive.getinfo("unused.bin")
+        raw = bytearray(project.read_bytes())
+        filename_length, extra_length = struct.unpack_from("<HH", raw, info.header_offset + 26)
+        data_offset = info.header_offset + 30 + filename_length + extra_length
+
+    raw[data_offset] = 0xFF
+    project.write_bytes(raw)
+
+    with pytest.raises(Project3MFError, match="Could not read 3MF package"):
         inspect_3mf(project)
