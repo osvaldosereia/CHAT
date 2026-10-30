@@ -76,6 +76,10 @@ class WorkflowService:
         )
         return self._repository.create_job(document.path, document.sha256)
 
+    def delete_history(self) -> int:
+        """Delete local job records without deleting source STLs or result files."""
+        return self._repository.delete_history()
+
     def analyze(self, job_id: str, selection: PrinterSelection) -> MeshReport:
         """Analyze the selected file locally and save a bounded metrics snapshot."""
         job = self._repository.get_job(job_id)

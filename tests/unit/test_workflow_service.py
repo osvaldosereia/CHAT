@@ -214,3 +214,17 @@ def test_wrong_nozzle_is_rejected_before_starting_analysis(tmp_path):
         service.analyze(job.id, wrong_nozzle)
 
     assert repository.get_job(job.id).state is JobState.UPLOADED
+
+
+def test_delete_history_removes_local_records_without_deleting_source_files(tmp_path):
+    service, repository, _, _ = _service(tmp_path)
+    source = tmp_path / "private-local-model.stl"
+    source.write_bytes((FIXTURES / "cube_ascii.stl").read_bytes())
+    original = source.read_bytes()
+    service.create_job(source)
+
+    removed = service.delete_history()
+
+    assert removed == 1
+    assert repository.list_jobs() == []
+    assert source.read_bytes() == original

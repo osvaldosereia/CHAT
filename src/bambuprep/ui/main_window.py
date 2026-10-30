@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -16,7 +17,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
-    QPixmap,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
@@ -33,6 +33,7 @@ from bambuprep.mesh.render import render_views
 from bambuprep.recommendations.openai_client import CONSENT_NOTICE
 from bambuprep.recommendations.schema import Recommendation
 from bambuprep.ui.consent import run_consented_action
+from bambuprep.ui.settings_dialog import SettingsDialog
 from bambuprep.workflow.runner import WorkflowTaskRunner
 from bambuprep.workflow.service import WorkflowService
 
@@ -45,6 +46,7 @@ class BambuPrepMainWindow(QMainWindow):
         workflow: WorkflowService,
         catalog: ProfileCatalog,
         task_runner: WorkflowTaskRunner,
+        key_store: Any = None,
     ) -> None:
         super().__init__()
         if not catalog.printers:
@@ -52,6 +54,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._workflow = workflow
         self._catalog = catalog
         self._task_runner = task_runner
+        self._key_store = key_store
         self._job: JobRecord | None = None
         self._report: MeshReport | None = None
         self._recommendation: Recommendation | None = None
@@ -70,6 +73,15 @@ class BambuPrepMainWindow(QMainWindow):
         self.open_button = QPushButton("Selecionar STL…", central)
         self.open_button.clicked.connect(self._choose_stl)
         layout.addWidget(self.open_button)
+
+        utility_buttons = QHBoxLayout()
+        self.settings_button = QPushButton("Configurações da chave…", central)
+        self.settings_button.clicked.connect(self._open_settings)
+        utility_buttons.addWidget(self.settings_button)
+        self.delete_history_button = QPushButton("Apagar histórico local…", central)
+        self.delete_history_button.clicked.connect(self._delete_history)
+        utility_buttons.addWidget(self.delete_history_button)
+        layout.addLayout(utility_buttons)
 
         self.file_label = QLabel("Nenhum STL selecionado", central)
         layout.addWidget(self.file_label)
@@ -174,6 +186,38 @@ class BambuPrepMainWindow(QMainWindow):
         path = Path(filename)
         self._set_busy(True, "Validando STL local…")
         self._submit(self._workflow.create_job, (path,), self._job_created)
+
+    def _open_settings(self) -> None:
+        dialog = SettingsDialog(self._key_store, self)
+        dialog.exec()
+
+    def _delete_history(self) -> None:
+        if self._busy:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Apagar histórico local",
+            "Remover os registros de trabalhos do BambuPrep? Os STL originais e arquivos escolhidos "
+            "pelo usuário não serão apagados.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            removed = self._workflow.delete_history()
+        except Exception as error:
+            self._show_error(error)
+            return
+        self._job = None
+        self._report = None
+        self._recommendation = None
+        self.nozzle_confirm.setChecked(False)
+        self.file_label.setText("Nenhum STL selecionado")
+        self.report_view.clear()
+        self._clear_views()
+        self.status_label.setText(f"Histórico local removido ({removed} trabalhos). STL originais preservados.")
+        self._refresh_controls()
 
     def _job_created(self, job: JobRecord) -> None:
         self._job = job
@@ -307,6 +351,8 @@ class BambuPrepMainWindow(QMainWindow):
     def _refresh_controls(self, *_args: object) -> None:
         has_job = self._job is not None
         self.open_button.setEnabled(not self._busy)
+        self.settings_button.setEnabled(not self._busy)
+        self.delete_history_button.setEnabled(has_job and not self._busy)
         self.profile_combo.setEnabled(not self._busy)
         self.filament_combo.setEnabled(not self._busy)
         self.plate_combo.setEnabled(not self._busy)
