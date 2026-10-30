@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD registrado no ledger nas rodadas anteriores: `0a16670e83223892d1ace74790c790385f81a37c`.
-- HEAD do branch antes desta atualização: `be57eb4958dd1da3fdde641a9d0e6142fbf96857`; código mais recente em `690ab902ff4d476c91858e9eed2d4fc571d1cf12` e interface Qt em `bd475e953334d54d9cb52ac6eaa94f4d3e585e1b`.
+- HEAD do branch antes desta atualização: `a0029435505302cfe5dbb0099bab90b65b076476`; implementação de build em `690ab902ff4d476c91858e9eed2d4fc571d1cf12`, interface Qt em `bd475e953334d54d9cb52ac6eaa94f4d3e585e1b` e checklist preliminar em `842ea830756974af09aa37ed6b384a7017a90bff`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -235,9 +235,9 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0. PySide6 não instalado; execução
 
 ## Próxima execução
 
-A primeira etapa incompleta continua sendo a prova T1 em PC Windows com instalação real do Bambu Studio e o STL Sentinel. A nova confirmação de material/placa foi implementada sobre os valores autorizados do catálogo; conclusão manual da janela em Windows ainda falta. Seguir com a build standalone após a mudança de nome e revisar licenças/avisos. O CLI, fatiamento e 3MF permanecem bloqueados por T1.
+A primeira etapa incompleta continua sendo a prova T1 em PC Windows com instalação real do Bambu Studio e o STL Sentinel. O fluxo Qt exige confirmação do bico/material/placa e tem testes offscreen locais, mas QA manual Windows continua pendente. A integração CLI/fatiamento/3MF permanece bloqueada por T1.
 
-Resultados de build observados: 41032000203 e 41032383180 completaram compilação Nuitka mas falharam na checagem final de nome; o workflow esperava BambuPrep.exe, enquanto o log mostrou desktop_entry.exe. A correção de output-filename foi commitada em 690ab902ff4d476c91858e9eed2d4fc571d1cf12 e passou dry-run local. No último status, 41032896496, 41033836229 e 41034211145 ainda estavam in_progress com a configuração anterior; 41034211145 não tinha artefatos listados. Nenhum resultado Windows posterior à correção foi confirmado.
+A build standalone após output-filename ainda não tem resultado Windows confirmado: os runs 41032000203, 41032383180 e 41032896496 falharam ao verificar o nome antigo; 41033836229 e 41034211145 seguiam in_progress com configuração anterior. O status do commit 690ab902ff4d476c91858e9eed2d4fc571d1cf12 retornou statuses=[], então o dry-run Linux é a única evidência da correção de nome até aqui. Nenhum pacote ou artefato foi publicado. A revisão final de licenças aguarda inspeção do bundle efetivo e decisão de distribuição.
 ## Commits
 
 - Tarefa 1: `e0009136d3695beed890e9148e68d0db72a33ab7` (`feat: add Bambu Studio CLI discovery foundation`).
@@ -322,3 +322,20 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Sintaxe: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests — exit 0.
 - Commits: acd47cfafcd77fcefa2ed55ea52558b43d67641d (teste), 690ab902ff4d476c91858e9eed2d4fc571d1cf12 (configuração), be57eb4958dd1da3fdde641a9d0e6142fbf96857 (plano).
 
+
+
+## Continuação 2026-10-30 — inventário inicial de licenças
+
+- Criado docs/operations/release-checklist.md com metadados preliminares do ambiente build travado, separação de Nuitka (build-only) e gates para inspecionar bundle, componentes Qt, avisos e licenças antes de qualquer distribuição. A tarefa de revisão final continua aberta.
+- Comando de coleta executado: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-build-env uv run --locked --extra build python - (script de importlib.metadata.distributions que imprime Name, Version, License-Expression, License e classifiers de licença).
+- Resultado representativo observado: PySide6/Essentials/Addons/shiboken6 6.12.0 indicam LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only; Nuitka 4.3.1 declara GNU AGPLv3; trimesh e fast_simplification MIT; NumPy 2.5.4 combina BSD-3-Clause/0BSD/MIT/Zlib/CC0; Matplotlib 3.11.2 registra PSF License. O ambiente também contém dependências transitivas listadas no lock.
+- Limite: metadados de wheels não mostram quais módulos/DLLs/plugins/fontes entram no bundle final nem substituem revisão das licenças e avisos efetivamente distribuídos. Nenhuma conclusão de conformidade foi feita, nenhuma publicação foi executada.
+- Commits: 842ea830756974af09aa37ed6b384a7017a90bff (checklist), a0029435505302cfe5dbb0099bab90b65b076476 (subtarefa do plano).
+
+### Rechecagem dos builds Windows
+
+- 41032000203 — completed/failure; log mostra compilação Nuitka concluída e falha só na checagem do nome desktop_entry.exe versus BambuPrep.exe.
+- 41032383180 — completed/failure; mesma causa confirmada por log completo.
+- 41032896496 — completed/failure; status final após o polling. Não foi obtido log nesta rechecagem.
+- 41033836229 e 41034211145 — ainda in_progress em “Prepare MSVC and build standalone application” no último polling; run 41034211145 sem artefatos listados.
+- Nenhum status/build Windows pós-correção em output-filename foi confirmado. Os runs acima usam a configuração anterior ao commit 690ab902ff4d476c91858e9eed2d4fc571d1cf12.
