@@ -595,3 +595,12 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - O teste existente de resposta vazia agora exige uma mensagem que mencione stdout/stderr capturados e a possibilidade de saída direta ao console. A suíte passou; o probe continua false quando não há dados capturáveis.
 - O build standalone 41114864699 para o mesmo commit ainda estava in_progress na consulta. Ele não testa o Bambu Studio instalado nem a prova de fatiamento.
 - Não houve mudança no plano/checklists. A primeira etapa incompleta continua T1 (prova local); nenhum STL/3MF privado, chave, chamada OpenAI ou impressão foi usado.
+
+
+### Hipótese de captura via pipes sem console próprio (2026-10-30)
+
+- Hipótese para testar no Windows real: o executável pode estar escrevendo na consola herdada; iniciar com CREATE_NO_WINDOW talvez mantenha stdout/stderr redirecionados para o probe. É uma tentativa de captura, não confirmação de suporte CLI.
+- TDD em cópia isolada, Python 3.12.14: regressão simulou CREATE_NO_WINDOW=0x08000000 e exigiu que ambos os subprocessos (--version e --help) recebessem creationflags. RED: falhou com [None, None]. GREEN: após passar a flag com getattr(..., 0), três testes unittest isolados passaram (opções com underscore, diagnóstico de captura vazia e flag Windows).
+- Commit: c9b7f084c553f7b91ee59edf8dc78998c354f5b7 (fix: capture Bambu CLI without console allocation), filho de a8b3a37ef90eb676151eb2f32d9b7dcf6449ba7f. Adicionado teste cross-platform com constante simulada; em Windows o valor real vem de subprocess.CREATE_NO_WINDOW, em outras plataformas usa 0.
+- Runs do novo commit: testes Windows 41115260639 e build standalone 41115260192 estavam queued na consulta. A prova real depende de executar o branch atualizado contra o Bambu Studio 2.8.2.61 do usuário.
+- A detecção permanece segura: saída vazia continua em cli_available=false. Nenhum checkbox de prova real foi marcado; slice, perfis carregados, 3MF, revisão e impressão continuam não verificados.
