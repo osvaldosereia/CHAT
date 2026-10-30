@@ -50,6 +50,8 @@ def _catalog() -> ProfileCatalog:
                 default_adhesion_option="brim",
             ),
         ),
+        studio_root=Path("synthetic"),
+        profile_paths=(),
     )
 
 

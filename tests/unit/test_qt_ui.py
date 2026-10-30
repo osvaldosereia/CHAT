@@ -177,7 +177,7 @@ def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmati
 
         default_adhesion_option="brim",
     )
-    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
+    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,), Path("synthetic"), ())
     workflow = FakeWorkflow()
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(workflow, catalog, runner, MemoryKeyStore())
@@ -248,7 +248,7 @@ def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
 
         default_adhesion_option="brim",
     )
-    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
+    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,), Path("synthetic"), ())
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(FakeWorkflow(), catalog, runner, MemoryKeyStore())
     callbacks = []
@@ -294,7 +294,7 @@ def test_window_shows_indeterminate_progress_only_while_work_is_running(qapp):
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(
         FakeWorkflow(),
-        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,)),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,), Path("synthetic"), ()),
         runner,
         MemoryKeyStore(),
     )
@@ -331,7 +331,7 @@ def test_report_shows_manual_studio_values_and_keeps_slicing_unverified(qapp):
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(
         FakeWorkflow(),
-        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,)),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,), Path("synthetic"), ()),
         runner,
         MemoryKeyStore(),
     )
@@ -415,7 +415,7 @@ def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_chang
             default_adhesion_option="brim",
         ),
     )
-    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", profiles)
+    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", profiles, Path("synthetic"), ())
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(FakeWorkflow(), catalog, runner, MemoryKeyStore())
     first_job = JobRecord(
@@ -482,7 +482,7 @@ def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_pa
 
         default_adhesion_option="brim",
     )
-    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,))
+    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,), Path("synthetic"), ())
     workflow = FakeWorkflow()
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(workflow, catalog, runner, MemoryKeyStore())
@@ -561,7 +561,7 @@ def test_error_dialog_reports_persisted_state_and_recovery_action(qapp, tmp_path
     workflow.get_job = lambda job_id: persisted_job
     window = BambuPrepMainWindow(
         workflow,
-        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,)),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,), Path("synthetic"), ()),
         runner,
         MemoryKeyStore(),
     )
@@ -624,7 +624,7 @@ def test_manual_studio_button_opens_original_stl_without_marking_slice_verified(
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(
         workflow,
-        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (_manual_studio_test_profile(),)),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (_manual_studio_test_profile(),), Path("synthetic"), ()),
         runner,
         MemoryKeyStore(),
         MemoryPreferences(executable),
@@ -659,7 +659,7 @@ def test_delete_history_is_available_before_selecting_a_new_stl(qapp, monkeypatc
     runner = WorkflowTaskRunner(max_workers=1)
     window = BambuPrepMainWindow(
         workflow,
-        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (_manual_studio_test_profile(),)),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (_manual_studio_test_profile(),), Path("synthetic"), ()),
         runner,
         MemoryKeyStore(),
     )
