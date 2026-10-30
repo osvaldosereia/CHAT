@@ -234,6 +234,7 @@
 - [ ] Configurar GitHub Actions para instalar dependências bloqueadas, construir pacote standalone e publicar artefatos somente a partir de branch/tag de release autorizada.
 - [x] Dependências de teste/build usam `uv.lock` e `uv sync --locked`; a configuração foi verificada nos testes e o runner Windows completou a sincronização. Build e publicação seguem pendentes.
 - [ ] Rodar build em runner Windows limpo; confirmar ausência de chaves e arquivos de usuário no artefato.
+- [x] Dry-run local do pyside6-deploy confirma que Nuitka recebe --output-filename=BambuPrep.exe; compilação Windows e inspeção do bundle continuam pendentes.
 - [ ] Instalar/abrir o pacote em Windows 10 22H2 x64 e Windows 11 x64; verificar primeira configuração, análise local, erro sem API e abertura do 3MF no Studio.
 - [x] Documentar instalação, primeiro uso, cobrança OpenAI separada, dados enviados com consentimento, backup/exclusão local e limitações de suporte.
 - [ ] Revisar licenças/avisos de PySide6 e demais dependências antes de publicar; registrar a conclusão em docs/operations/release-checklist.md.
