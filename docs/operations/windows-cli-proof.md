@@ -1,15 +1,15 @@
 # Prova do CLI do Bambu Studio no Windows
 
-**Estado:** prova funcional e leitura dos perfis locais pelo probe pendentes. A instalação real observada no Windows é Bambu Studio 2.8.2.61, em `C:\Program Files\Bambu Studio\bambu-studio.exe`. A ajuda direta termina com código 0 e mostra as opções, mas o último JSON compartilhado ainda retorna `version: null`, `cli_available: false` e `capabilities: []`, sem capturar stdout/stderr. A versão atual da branch acrescenta `profile_catalog` ao JSON, mas o usuário ainda precisa executar esse probe atualizado. Não declarar compatibilidade de CLI, fatiamento ou 3MF verificado.
+**Estado:** prova funcional e validação do catálogo local ainda pendentes. A instalação real observada no Windows é Bambu Studio 2.8.2.61, em `C:\Program Files\Bambu Studio\bambu-studio.exe`. O probe atualizado detectou a versão pelo metadado do executável, mas informou `cli_available: false`, `capabilities: []`, `profile_catalog.available: false` e nenhum perfil. A ajuda direta mostra opções e termina com código 0, porém o probe não capturou seu texto. Isso não verifica fatiamento nem exportação 3MF.
 
 ## Dados a registrar
 
 - Data e versão do Windows (10 22H2 x64 ou 11 x64): pendente
 - Versão/build do Bambu Studio: 2.8.2.61 (tela Sobre; o cabeçalho da ajuda mostra `BambuStudio-02.08.02.61`; o probe ainda não captura essa saída)
 - Caminho do executável: `C:\Program Files\Bambu Studio\bambu-studio.exe` (observado no Explorador e no comando)
-- Probe Python atualizado: `version: null`, `cli_available: false`, `capabilities: []`; `--help` reporta código 0, mas a saída capturada é vazia.
+- Probe Python mais recente: `version: 2.8.2.61` obtida do metadado PE, `cli_available: false`, `capabilities: []`; `--help` reporta código 0, mas stdout/stderr capturados vieram vazios.
 - Opções exibidas pela ajuda direta: `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load-settings`, `--load-filaments`, `--load_settings` e `--load_filaments`. A presença na ajuda não comprova execução funcional.
-- Perfis A1 mini, bico usado, Generic PLA e Textured PEI encontrados pelo probe: pendente. O campo novo `profile_catalog` lista somente IDs allowlisted e valores de bico/opções oficiais; ainda não foi executado no PC.
+- Perfis A1 mini, bicos, Generic PLA e Textured PEI encontrados pelo probe: não validados. A última saída mostra `profile_catalog.available: false` e `printers: []`; sua mensagem é genérica e não inclui um código de falha.
 - Hash do STL de referência (não registrar caminho nem copiar o arquivo): pendente
 - Resultado exportado para 3MF e inspeção do arquivo: pendente
 - Projeto reaberto no Studio; Preview e perfis conferidos pelo usuário: pendente
@@ -55,4 +55,14 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 ## Saída de metadados Windows fornecida pelo usuário
 
 `(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` mostrou `ProductVersion` vazio e `FileVersion = 02.08.02.61`. O probe atualizado tenta ler ambos os recursos PE e tem teste Windows/mocks para FileVersion. O workflow Windows `41124225149`, no commit `d90416e`, terminou success com 180 testes e 1 warning esperado. A saída JSON compartilhada, sem `profile_catalog`, ainda não veio do script atualizado. A versão do Windows, os perfis carregados pelo probe e qualquer prova de slice/3MF permanecem pendentes.
+
+
+
+## Execução do probe atualizado recebida do usuário (2026-10-30 17:42)
+
+- A captura agora contém `profile_catalog`, confirmando que esta execução já usou uma versão mais recente do script do que as capturas antigas sem esse campo. O JSON reporta `version: 2.8.2.61`; a mensagem indica que ela veio dos metadados do executável Windows.
+- O Studio ainda retorna `cli_available: false`, `capabilities: []` e informa que a ajuda saiu com código 0, mas sem texto em stdout/stderr capturados. A saída de ajuda direta do usuário tinha mostrado `--slice`, `--export-3mf`, `--load-settings` e `--load-filaments`. A presença dessas opções não prova que carregamento de perfis, slice ou exportação funcionam.
+- `profile_catalog.available` segue `false`, com `printers: []` e a mensagem segura genérica “The installed A1 mini system profile set could not be validated.” O JSON compartilhado não contém um código de causa nem o código de saída final do probe.
+- Depois dessa captura, o branch adicionou códigos de diagnóstico allowlisted no catálogo e os inclui no JSON sem caminho, nome bruto de perfil, chave ou outro dado pessoal. Essa revisão ainda não foi executada no Windows.
+- A Tarefa 1 continua pendente; nenhum 3MF foi criado/reaberto, nenhum Preview foi conferido e nenhum arquivo foi impresso.
 
