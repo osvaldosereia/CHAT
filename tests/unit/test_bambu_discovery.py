@@ -300,15 +300,15 @@ def test_windows_version_resource_falls_back_to_product_version_string(tmp_path,
 
     def query_value(_data, subblock, value_out, size_out):
         queried.append(subblock)
-        if subblock == "\\\\":
+        if subblock == "\\":
             value_out._obj.value = ctypes.addressof(fixed_info)
             size_out._obj.value = ctypes.sizeof(fixed_info)
             return 1
-        if subblock == "\\\\VarFileInfo\\\\Translation":
+        if subblock == "\\VarFileInfo\\Translation":
             value_out._obj.value = ctypes.addressof(translation)
             size_out._obj.value = ctypes.sizeof(translation)
             return 1
-        if subblock == "\\\\StringFileInfo\\\\040904B0\\\\ProductVersion":
+        if subblock == "\\StringFileInfo\\040904B0\\ProductVersion":
             value_out._obj.value = ctypes.addressof(product_version)
             size_out._obj.value = len("02.08.02.61") + 1
             return 1
@@ -324,7 +324,7 @@ def test_windows_version_resource_falls_back_to_product_version_string(tmp_path,
 
     assert discovery._windows_file_version(executable) == "02.08.02.61"
     assert queried == [
-        "\\\\",
-        "\\\\VarFileInfo\\\\Translation",
-        "\\\\StringFileInfo\\\\040904B0\\\\ProductVersion",
+        "\\",
+        "\\VarFileInfo\\Translation",
+        "\\StringFileInfo\\040904B0\\ProductVersion",
     ]
