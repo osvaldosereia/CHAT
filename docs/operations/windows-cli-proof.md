@@ -37,6 +37,10 @@ O diagnóstico chama somente `--version` e `--help`, sem `shell=True` e sem inic
 7. Marque esta prova concluída somente quando as evidências acima forem registradas. Uma execução Linux/mock não substitui esta prova.
 
 
+## Estado do probe no branch atual (2026-10-30)
+
+O código atual tenta obter ProductVersion/FileVersion do recurso PE do executável no Windows quando `--version` não retorna texto. Isso só identifica a versão declarada no próprio arquivo; não prova que o comando CLI foi capturado nem habilita fatiamento. O fallback está coberto por um teste de API Win32 simulada, e a primeira execução Windows encontrou dois imports ausentes nos testes; a correção está no commit `9012c556`, aguardando nova suíte. O último JSON fornecido pelo usuário é anterior a essa implementação, então a versão real do probe ainda não foi compartilhada.
+
 ## Evidência parcial recebida do PC do usuário (2026-10-30)
 
 - A tela “Sobre Bambu Studio” mostrou a versão **2.8.2.61**. O Explorador e o comando do usuário identificaram o executável em `C:\Program Files\Bambu Studio\bambu-studio.exe`; a versão exata do Windows não foi registrada.
