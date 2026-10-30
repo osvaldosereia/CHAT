@@ -17,7 +17,7 @@ def test_deployment_spec_selects_standalone_entrypoint_and_noninteractive_downlo
     assert "project_file" not in app
     assert app["exec_directory"] == "dist"
     assert nuitka["mode"] == "standalone"
-    assert nuitka["extra_args"] == "--assume-yes-for-downloads"
+    assert nuitka["extra_args"] == "--assume-yes-for-downloads --output-filename=BambuPrep.exe"
 
 
 def test_windows_build_check_does_not_publish_or_use_secrets():
