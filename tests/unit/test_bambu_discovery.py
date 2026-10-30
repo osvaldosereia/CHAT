@@ -215,7 +215,7 @@ def test_windows_file_metadata_is_preferred_without_claiming_cli(tmp_path, monke
     assert result.cli_available is False
     assert result.capabilities == frozenset()
     assert "captured stdout/stderr" in result.message.lower()
-    assert calls == []
+    assert calls == ["--help"]
 
 
 
@@ -429,8 +429,9 @@ def test_windows_pseudoconsole_captures_direct_writeconsole_output(tmp_path):
             "wintypes.DWORD, ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]; "
             "k.WriteConsoleW.restype=wintypes.BOOL; "
             "h=k.GetStdHandle(0xFFFFFFF5); n=wintypes.DWORD(); "
-            "ok=k.WriteConsoleW(h, 'BAMBU_CONSOLE_CAPTURE_SENTINEL', 31, ctypes.byref(n), None); "
-            "raise SystemExit(0 if ok and n.value == 31 else 41)"
+            "message='BAMBU_CONSOLE_CAPTURE_SENTINEL'; "
+            "ok=k.WriteConsoleW(h, message, len(message), ctypes.byref(n), None); "
+            "raise SystemExit(0 if ok and n.value == len(message) else 41)"
         ),
     ]
     result = discovery._windows_pseudoconsole_run(
