@@ -503,3 +503,10 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Decisão registrada: a compilação interna pode terminar com sucesso e ainda reportar metadados de licença incompletos; o JSON exibe `license_metadata_complete`/contagem separadamente, enquanto checklist legal continua impedindo distribuição. Isso mantém build e inventário técnico testáveis sem convertê-los em aprovação jurídica. Custo se a decisão estiver errada: sucesso do CI poderia ser interpretado como liberação; mitigação atual é checklist aberto e nenhuma publicação/release autorizada.
 - A atualização da checklist de licenças no commit `6e21edc6b7627414586491b4eac0999e4dcf6757` registra o build/inventário técnico 41087845821 do código 7c8471e, com 28 distribuições, todas correspondentes ao lock, metadados preenchidos e 4 textos truncados apenas no resumo; isso não é SBOM SPDX/CycloneDX, revisão legal ou instalação manual. A revisão de licença e modelo de distribuição continua aberta.
 - Não houve chamada real à OpenAI, uso de chave, inclusão de STL/3MF ou histórico privado, upload de artefato, release, publicação, merge ou impressão.
+
+
+### Verificação Windows do erro DEFLATE (2026-10-30)
+
+- O workflow 41097747546 para commit 18d4243 concluiu success em Windows Server 2025 / Python 3.12.10: 161 passed, 1 aviso esperado, 13.48s. O teste novo de arquivo sintético corrompido está incluído; isso valida o tratamento Python no runner e não o Bambu Studio.
+- Na consulta às 17:20:50 UTC, build standalone 41097747966 para 18d4243, 41096415796 para 1176f9b e 41096762309 para 01bc2c continuavam `in_progress` no passo MSVC/Nuitka. Runs consultados retornaram `artifacts=[]`; aguardar e revisar o log de auditoria antes de encerrar verificações de build.
+- Ref branch confirmada após os commits: `2a7b672264c4b588a11d8a73944a4c0bab96811d`. Nenhum checkbox do plano mudou nesta atualização.
