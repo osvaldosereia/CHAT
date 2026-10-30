@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtWidgets import (
     QDialog,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -17,14 +19,22 @@ from PySide6.QtWidgets import (
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, key_store: Any, parent=None) -> None:
+    def __init__(self, key_store: Any, parent=None, preferences: Any = None) -> None:
         super().__init__(parent)
         self._key_store = key_store
+        self._preferences = preferences
         self.setWindowTitle("Configurações do BambuPrep")
         self.setModal(True)
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
+        self.studio_status = QLabel(self)
+        self.studio_status.setWordWrap(True)
+        form.addRow("Bambu Studio", self.studio_status)
+        self.studio_button = QPushButton("Escolher Bambu Studio…", self)
+        self.studio_button.clicked.connect(self._choose_studio)
+        form.addRow(self.studio_button)
+
         self.key_status = QLabel(self)
         form.addRow("Chave OpenAI", self.key_status)
         self.key_input = QLineEdit(self)
@@ -41,6 +51,31 @@ class SettingsDialog(QDialog):
         note.setWordWrap(True)
         layout.addWidget(note)
 
+        self.consent_note = QLabel(
+            "Cada recomendação exige uma confirmação nova por trabalho. Se você permitir, são enviadas "
+            "métricas e imagens renderizadas; o STL, nome/caminho e histórico local ficam no computador. "
+            "O uso da API pode ser cobrado separadamente do ChatGPT Plus.",
+            self,
+        )
+        self.consent_note.setWordWrap(True)
+        layout.addWidget(self.consent_note)
+
+        self.retention_note = QLabel(
+            "O histórico permanece no computador até você apagá-lo manualmente. Apagar o histórico não "
+            "remove os STL originais nem outros arquivos escolhidos pelo usuário.",
+            self,
+        )
+        self.retention_note.setWordWrap(True)
+        layout.addWidget(self.retention_note)
+
+        self.output_note = QLabel(
+            "A saída de fatiamento/3MF não está habilitada enquanto a integração real com o Bambu Studio "
+            "não for validada; nenhuma pasta de saída é usada por enquanto.",
+            self,
+        )
+        self.output_note.setWordWrap(True)
+        layout.addWidget(self.output_note)
+
         buttons = QHBoxLayout()
         self.save_button = QPushButton("Salvar chave", self)
         self.save_button.clicked.connect(self._save_key)
@@ -53,6 +88,63 @@ class SettingsDialog(QDialog):
         buttons.addWidget(close_button)
         layout.addLayout(buttons)
         self._refresh_status()
+        self._refresh_studio_status()
+
+    def _choose_studio(self) -> None:
+        loader = getattr(self._preferences, "load", None)
+        saver = getattr(self._preferences, "save_studio_executable", None)
+        if not callable(loader) or not callable(saver):
+            QMessageBox.warning(self, "BambuPrep", "As preferências locais do Studio estão indisponíveis.")
+            return
+        try:
+            saved_path = loader().studio_executable
+        except Exception:
+            saved_path = None
+        initial = str(saved_path) if saved_path is not None else ""
+        selected, _ = QFileDialog.getOpenFileName(
+            self,
+            "Localizar BambuStudio.exe",
+            initial,
+            "Executável do Bambu Studio (*.exe)",
+        )
+        if not selected:
+            return
+        executable = Path(selected)
+        if not executable.is_absolute() or not executable.is_file():
+            QMessageBox.warning(self, "BambuPrep", "Selecione um executável local existente do Bambu Studio.")
+            return
+        try:
+            saver(executable)
+        except Exception:
+            QMessageBox.warning(self, "BambuPrep", "O caminho do Bambu Studio não pôde ser salvo localmente.")
+            return
+        self._refresh_studio_status()
+        QMessageBox.information(
+            self,
+            "BambuPrep",
+            "O caminho local do Bambu Studio será usado na próxima inicialização.",
+        )
+
+    def _refresh_studio_status(self) -> None:
+        loader = getattr(self._preferences, "load", None)
+        saver = getattr(self._preferences, "save_studio_executable", None)
+        available = callable(loader) and callable(saver)
+        if not available:
+            self.studio_status.setText("Preferências locais indisponíveis.")
+            self.studio_button.setEnabled(False)
+            return
+        try:
+            executable = loader().studio_executable
+        except Exception:
+            self.studio_status.setText("O caminho local salvo não pôde ser lido.")
+            self.studio_button.setEnabled(False)
+            return
+        self.studio_status.setText(
+            f"Caminho salvo para a próxima inicialização: {executable}"
+            if executable is not None
+            else "Nenhum executável local salvo."
+        )
+        self.studio_button.setEnabled(True)
 
     def _refresh_status(self) -> None:
         getter = getattr(self._key_store, "get", None)

@@ -47,6 +47,7 @@ class BambuPrepMainWindow(QMainWindow):
         catalog: ProfileCatalog,
         task_runner: WorkflowTaskRunner,
         key_store: Any = None,
+        preferences: Any = None,
     ) -> None:
         super().__init__()
         if not catalog.printers:
@@ -55,6 +56,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._catalog = catalog
         self._task_runner = task_runner
         self._key_store = key_store
+        self._preferences = preferences
         self._job: JobRecord | None = None
         self._report: MeshReport | None = None
         self._recommendation: Recommendation | None = None
@@ -223,7 +225,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._open_stl_path(path)
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self._key_store, self)
+        dialog = SettingsDialog(self._key_store, self, preferences=self._preferences)
         dialog.exec()
 
     def _delete_history(self) -> None:

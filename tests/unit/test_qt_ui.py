@@ -9,9 +9,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QEventLoop, QMimeData, QPointF, QThread, QTimer, Qt, QUrl
 from PySide6.QtGui import QDropEvent
-from PySide6.QtWidgets import QApplication, QMessageBox, QLineEdit
+from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QLineEdit
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
+from bambuprep.config import LocalPreferences
 from bambuprep.domain.models import JobRecord, JobState
 from bambuprep.mesh.analyzer import MeshReport
 from bambuprep.recommendations.openai_client import CONSENT_NOTICE
@@ -37,6 +38,17 @@ class MemoryKeyStore:
 
     def delete(self):
         self.value = None
+
+
+class MemoryPreferences:
+    def __init__(self, studio_executable=None):
+        self.studio_executable = studio_executable
+
+    def load(self):
+        return LocalPreferences(self.studio_executable)
+
+    def save_studio_executable(self, path):
+        self.studio_executable = Path(path)
 
 
 class FakeMimeEvent:
@@ -83,6 +95,27 @@ def test_settings_dialog_requires_delete_confirmation(qapp, monkeypatch):
     assert store.value == "sk-local-test-only"
     dialog._delete_key()
     assert store.value is None
+    dialog.close()
+
+
+def test_settings_dialog_updates_local_studio_path_and_explains_privacy_and_retention(
+    qapp, tmp_path, monkeypatch
+):
+    preferences = MemoryPreferences()
+    store = MemoryKeyStore()
+    dialog = SettingsDialog(store, preferences=preferences)
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"synthetic executable placeholder")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(executable), ""))
+    monkeypatch.setattr(QMessageBox, "information", lambda *args: QMessageBox.StandardButton.Ok)
+
+    dialog.studio_button.click()
+
+    assert preferences.studio_executable == executable
+    assert "próxima inicialização" in dialog.studio_status.text().lower()
+    assert "imagens renderizadas" in dialog.consent_note.text().lower()
+    assert "apagar manualmente" in dialog.retention_note.text().lower()
+    assert "não está habilitada" in dialog.output_note.text().lower()
     dialog.close()
 
 
