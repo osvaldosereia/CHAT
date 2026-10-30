@@ -26,6 +26,12 @@ def _catalog() -> ProfileCatalog:
                 compatible_process_profile_ids=("0.10mm Standard @BBL A1M 0.2 nozzle",),
                 support_options=("tree(auto)",),
                 adhesion_options=("brim", "none"),
+
+                default_support_enabled=False,
+
+                default_support_option="tree(auto)",
+
+                default_adhesion_option="brim",
             ),
             PrinterProfile(
                 printer_id="Bambu Lab A1 mini 0.4 nozzle",
@@ -36,6 +42,12 @@ def _catalog() -> ProfileCatalog:
                 compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
                 support_options=("tree(auto)",),
                 adhesion_options=("brim", "none"),
+
+                default_support_enabled=False,
+
+                default_support_option="tree(auto)",
+
+                default_adhesion_option="brim",
             ),
         ),
     )
