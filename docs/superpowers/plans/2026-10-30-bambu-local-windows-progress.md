@@ -577,3 +577,13 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Workflow 41114493466 para `4ed85c92e74107af5fef60db6b863f37ed98bbb7` concluiu `success` em `windows-latest`; Python 3.12.10. Comando configurado no workflow: `uv run --locked --extra test python -m pytest -v` — **164 passed, 1 aviso esperado** da fixture ZIP com nome duplicado, em 14.28s.
 - A regressão `test_detects_profile_options_when_installed_help_uses_underscores` está incluída e passou. Este CI confirma o comportamento do parser, sem Bambu Studio instalado e sem validar o slice/3MF.
 - O HEAD no momento do registro é `de91661f435cd280ce6599d8cc6c7a324170281c`; o commit de código `4ed85c9` permanece filho de `7d31235`. Não houve alteração de checkbox no plano.
+
+
+### Mensagem para ajuda não capturada (2026-10-30)
+
+- A evidência do usuário mostrou que o comando direto --help imprimiu opções na janela do PowerShell, enquanto o probe recebeu stdout/stderr vazios. O diagnóstico anterior dizia apenas “no response”, sem esclarecer que a saída pode não ter sido capturada.
+- TDD isolado, Python 3.12.14: teste verificou cli_available=false e mensagem contendo captured e console. RED: falhou porque a mensagem antiga não mencionava captura; após a alteração no texto, o mesmo teste passou.
+- Código agora informa que não houve resposta em stdout/stderr capturados e que a ajuda pode ter sido escrita diretamente no console. A disponibilidade permanece false; nenhuma opção é inferida de saída que o processo não entregou ao probe.
+- Commit: 323145212c108fe316b98b155fcb99132c921544 (fix: clarify uncaptured Bambu Studio help output), filho de 4d6dbe0f6752db8f6213f851b268a75a1474be5c. Regressão acrescentada a tests/unit/test_bambu_discovery.py.
+- Runs do novo commit: testes Windows 41114864648 e build standalone 41114864699 estavam in_progress na consulta; resultados pendentes para a próxima atualização deste ledger.
+- O ajuste melhora o diagnóstico, mas não faz o probe capturar a ajuda; a Tarefa 1 continua incompleta e nenhum checkbox foi atualizado.
