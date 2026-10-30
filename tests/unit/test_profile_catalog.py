@@ -1,4 +1,5 @@
 import json
+import runpy
 import os
 import subprocess
 import sys
@@ -283,3 +284,27 @@ def test_profile_catalog_module_imports_without_mesh_stack():
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+
+def test_missing_profile_installation_layout_has_safe_diagnostic_code(tmp_path):
+    with pytest.raises(ProfileCatalogError) as error_info:
+        ProfileCatalog.load(tmp_path)
+
+    assert getattr(error_info.value, "code", None) == "profile_layout_missing"
+    assert str(tmp_path) not in str(error_info.value)
+
+
+def test_probe_summary_exposes_only_safe_catalog_error_code(tmp_path):
+    repository_root = Path(__file__).resolve().parents[2]
+    probe_module = runpy.run_path(str(repository_root / "tools" / "bambu_cli_probe.py"))
+
+    summary = probe_module["profile_catalog_summary"](tmp_path)
+
+    assert summary == {
+        "available": False,
+        "error_code": "profile_layout_missing",
+        "message": "The installed A1 mini system profile set could not be validated.",
+        "printers": [],
+    }
+    assert str(tmp_path) not in repr(summary)
