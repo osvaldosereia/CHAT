@@ -399,3 +399,11 @@ def test_detects_explicit_rotation_axes_needed_by_slice_plan(tmp_path, monkeypat
 
     assert result.cli_available is True
     assert {"rotation_x", "rotation_y", "rotation_z"}.issubset(result.capabilities)
+
+
+
+def test_rotation_z_detection_does_not_match_rotate_x_or_rotate_y_prefixes():
+    capabilities = discovery._detect_capabilities("--rotate-x --rotate-y")
+
+    assert {"rotation_x", "rotation_y"}.issubset(capabilities)
+    assert "rotation_z" not in capabilities

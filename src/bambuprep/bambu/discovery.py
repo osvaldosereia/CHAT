@@ -169,7 +169,7 @@ _CAPABILITY_PATTERNS = {
     "orientation": (r"--orient\b",),
     "rotation_x": (r"--rotate-x\b",),
     "rotation_y": (r"--rotate-y\b",),
-    "rotation_z": (r"--rotate\b",),
+    "rotation_z": (r"--rotate(?:\s|$)",),
     "arrangement": (r"--arrange\b",),
     "slicing": (r"--slice\b",),
     "export_3mf": (r"--export-3mf\b", r"--export\s+3mf\b"),
