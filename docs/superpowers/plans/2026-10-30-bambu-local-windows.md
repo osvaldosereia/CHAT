@@ -176,11 +176,11 @@
 - [x] Escrever testes com fixtures JSON sintéticas para mapear as duas variantes do A1 mini, Generic PLA, processo padrão, placa e opções allowlisted; cobrir perfil obrigatório ausente/incompatível, caminho fora da pasta e ciclo de herança.
 - [x] Implementar `ProfileCatalog.load` como leitor local somente leitura; a verificação automatizada usa apenas fixtures sintéticas e não afirma compatibilidade com uma instalação Windows real.
 - [x] Rodar `python -m pytest tests/unit/test_profile_catalog.py -v` — 9 passed.
-- [ ] Escrever testes para seleção obrigatória do bico por trabalho, opção incompatível no SlicePlan, argumentos seguros, timeout, saída inválida e falha do CLI.
+- [x] Escrever testes para seleção obrigatória do bico por trabalho, opção incompatível no SlicePlan, argumentos seguros, timeout, saída inválida e falha do CLI. Cobertura sintética em `tests/unit/test_slicer_cli.py`.
 - [x] Escrever testes sintéticos para validar a estrutura genérica ZIP/3MF e detectar partes sob `Metadata/`; isso não valida metadados Bambu nem configura projeto.
 - [x] Rodar `python -m pytest tests/unit/test_project_3mf.py -v` — 8 passed com pacotes sintéticos.
 - [x] Escrever teste garantindo que nenhuma saída vira slicer_verified sem conclusão válida e confirmação explícita do usuário após abrir/revisar o 3MF no Bambu Studio. A guarda de domínio/repositório exige 3MF estruturalmente válido, hash idêntico, setup selecionado correspondente e confirmações explícitas; os testes usam somente fixture sintética e mocks, sem comprovar Studio real.
-- [ ] Rodar python -m pytest tests/unit/test_profile_catalog.py tests/unit/test_slicer_cli.py tests/unit/test_project_3mf.py -v.
+- [x] Rodar python -m pytest tests/unit/test_profile_catalog.py tests/unit/test_slicer_cli.py tests/unit/test_project_3mf.py -v. No snapshot Linux das fontes/fixtures exatas do branch, mais `test_bambu_discovery.py`: 50 passed, 1 warning esperado; suíte Windows da revisão 6a9cab84 está em execução.
 - [ ] Implementar fatiamento usando apenas o CLI e perfis da versão comprovada na Tarefa 1; capturar logs locais sem STL ou chave.
 - [ ] Gerar 3MF somente se saída e configuração passarem pela inspeção. Usuário abre o arquivo no Studio e confirma máquina, bico, material, placa, suportes e Preview para concluir slicer_verified.
 - [x] Em CLI indisponível ou falho, não declarar slice pronto. A interface mostra os campos para conferência manual, oferece abertura do STL original no Bambu Studio por argumento local sem shell e mantém explícito que não executou fatiamento nem verificou 3MF. O fluxo continua em needs_review/recommendation_ready conforme o que foi realmente validado; coberto pelos testes Qt do fallback manual.
