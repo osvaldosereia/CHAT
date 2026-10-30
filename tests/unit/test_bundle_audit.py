@@ -51,6 +51,34 @@ def test_bundle_audit_rejects_user_file_without_echoing_private_filename(tmp_pat
     assert private_name not in str(caught.value)
 
 
+@pytest.mark.parametrize(
+    "build_tool_path",
+    (
+        "Nuitka/__init__.py",
+        "nuitka-4.3.1.dist-info/METADATA",
+        "SCons/Script/__init__.py",
+        "pyside6_deploy/__main__.py",
+        "pip/_internal/__init__.py",
+        "setuptools/__init__.py",
+        "wheel/__init__.py",
+        "pytest/__init__.py",
+        "uv/__init__.py",
+    ),
+)
+def test_bundle_audit_rejects_build_tool_files_without_echoing_paths(tmp_path, build_tool_path):
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "BambuPrep.exe").write_bytes(b"app")
+    tool_file = bundle / build_tool_path
+    tool_file.parent.mkdir(parents=True, exist_ok=True)
+    tool_file.write_bytes(b"synthetic build tool")
+
+    with pytest.raises(BundleAuditError, match="build-time tool") as caught:
+        inspect_standalone_bundle(bundle)
+
+    assert build_tool_path not in str(caught.value)
+
+
 def test_bundle_audit_rejects_openai_key_like_content_without_echoing_it(tmp_path):
     bundle = tmp_path / "bundle"
     bundle.mkdir()
