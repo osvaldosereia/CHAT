@@ -21,6 +21,9 @@ def test_windows_build_check_does_not_publish_or_use_secrets():
 
     assert "runs-on: windows-latest" in workflow
     assert "pyside6-deploy" in workflow
+    assert "vcvars64.bat" in workflow
+    assert "dumpbin.exe" in workflow
+    assert "ilammy/msvc-dev-cmd@" not in workflow
     assert "permissions:\n  contents: read" in workflow
     assert "upload-artifact" not in workflow.lower()
     assert "${{ secrets." not in workflow
