@@ -415,8 +415,6 @@ def _windows_pseudoconsole_run(
 
         reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
         reader.start()
-        reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
-        reader.start()
 
         startup = _STARTUPINFOEXW()
         startup.StartupInfo.cb = ctypes.sizeof(_STARTUPINFOEXW)
@@ -446,9 +444,6 @@ def _windows_pseudoconsole_run(
         input_read = wintypes.HANDLE()
         close_if_open(output_write)
         output_write = wintypes.HANDLE()
-        close_if_open(input_write)
-        input_write = wintypes.HANDLE()
-
         delete_attributes(attribute_pointer)
         attributes_initialized = False
         attribute_buffer = None
@@ -461,6 +456,8 @@ def _windows_pseudoconsole_run(
             process_finished = True
             close_pseudoconsole(console)
             console = wintypes.HANDLE()
+            close_if_open(input_write)
+            input_write = wintypes.HANDLE()
             reader.join()
             output = b"".join(captured).decode("utf-8", errors="replace")
             raise subprocess.TimeoutExpired(command, timeout_seconds, output=output)
@@ -479,7 +476,7 @@ def _windows_pseudoconsole_run(
         output = b"".join(captured).decode("utf-8", errors="replace")
         return subprocess.CompletedProcess(command, exit_code.value, output, "")
     finally:
-        if process_started and not process_finished and process_info.hProcess.value:
+        if process_started and not process_finished and process_info.hProcess:
             terminate_process(process_info.hProcess, 1)
             wait_for_single_object(process_info.hProcess, 0xFFFFFFFF)
         if attributes_initialized and attribute_buffer is not None:
