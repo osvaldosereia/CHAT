@@ -85,3 +85,13 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 - Correção em `e3db03371a01c0b17734254c2894a377db394a68`: o catálogo agora lê apenas os perfis de modelo, máquinas necessárias para a A1 mini (0,2/0,4 mm) e Generic PLA; aceita `from` ausente no perfil de modelo da lista de sistema. O probe agora prefere a versão do recurso PE no Windows e evita executar `--version` quando essa informação já está disponível.
 - Verificação local sintética após a correção: 32 testes relacionados aprovados e `compileall` sem erros. A captura enviada é anterior a esse commit, então é necessário executar o probe atualizado novamente para confirmar se o catálogo local passou.
 - Nenhum STL/3MF, chave, caminho de perfil, arquivo local ou captura foi adicionado ao repositório. Nenhum slice, 3MF ou revisão no Studio foi alegado.
+
+
+## Probe atualizado com catálogo A1 mini válido — 2026-10-30 18:41
+
+- O usuário executou a cópia do branch arquivada em `298b1956` no PowerShell. O comando de verificação encontrou `"error_code": exc.code` no script, e o JSON resultante incluiu `profile_catalog.available: true`.
+- A versão detectada foi `2.8.2.61`; o catálogo local reportou perfil `02.08.00.05`, modelo `Bambu Lab A1 mini`, variantes instaladas de 0,2 mm e 0,4 mm, Generic PLA correspondente, placa Textured PEI Plate, suporte `tree(auto)` e aderência `brim`.
+- O comando direto `--help` exibiu no console as opções `--slice`, `--export-3mf`, `--load-settings` e `--load-filaments`. No subprocesso do probe, `--help` terminou com código 0, mas stdout/stderr ficaram vazios; por isso o JSON continua corretamente em `cli_available: false` e `capabilities: []`. O código de saída do próprio script Python não foi informado.
+- Esta é a primeira evidência de descoberta bem-sucedida dos perfis instalados. Ela não demonstra execução de slice/export, integridade de 3MF Bambu, reabertura/revisão no Studio ou impressão.
+- A versão/build exata do Windows continua pendente; não é possível confirmar se o PC está nos alvos Windows 10 22H2 x64 ou Windows 11 x64. O probe foi executado na instalação Windows real, mas o primeiro item da Tarefa 1 permanece aberto até confirmar alvo suportado e capturar os demais dados.
+- A saída foi resumida sem registrar caminhos locais do usuário, arquivo de referência, captura de tela, STL/3MF, segredo ou histórico.
