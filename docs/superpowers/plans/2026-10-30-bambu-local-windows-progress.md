@@ -752,7 +752,11 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 
 - Nova saída PowerShell do usuário: `(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` mostrou `ProductVersion` vazio e `FileVersion = 02.08.02.61`. Isso confirma o build instalado pelo recurso FileVersion do Windows. A versão de Windows ainda não foi informada.
 - A invocação direta da ajuda já demonstrada no mesmo PC terminou com código 0 e mostrou `BambuStudio-02.08.02.61` e as opções `--load-settings`, `--load-filaments`, `--slice` e `--export-3mf`. Isso não valida a captura pelo probe, descoberta de perfis, execução de slice/export, integridade de um 3MF Bambu ou revisão no Preview.
-- Commit `d90416ebbc76749cbc9cabde90e3d1b3ee28c96a` adiciona regressão simulada para o caso observado: ProductVersion ausente e FileVersion presente. Código existente tenta ProductVersion primeiro e FileVersion como fallback; teste automatizado Windows ainda aguarda conclusão do run `41124225149`.
+- Commit `d90416ebbc76749cbc9cabde90e3d1b3ee28c96a` adiciona regressão simulada para o caso observado: ProductVersion ausente e FileVersion presente. O workflow Windows `41124225149` terminou success em `d90416e`: **180 passed, 1 warning em 32.00s**. O warning é o fixture intencional de ZIP duplicado.
 - Smoke local com API de versão falsa retornou `02.08.02.61`; `python3 -m compileall -q /tmp/bambu-version-check/src /tmp/bambu-version-check/tests` passou. Isso valida sintaxe e mock somente.
 - A captura JSON ainda não contém `profile_catalog`, portanto permanece evidência de uma cópia antiga do script. Tarefa 1 e gates de Tarefas 5/6 continuam pendentes; nenhuma caixa alterada.
 
+
+
+- Estado final desta rodada: branch `codex/bambu-a1-mini-foundation-20261029`; código/teste em `d90416eb`; HEAD observado após atualizações de evidência: `c7ccfb9236c12e3a166a64400ae8e2da0feb6a2f`. O build standalone `41123152619` do código `09ccbd4a` ainda estava na etapa MSVC/build, sem conclusão ou artefato.
+- Commits documentais posteriores: `6a7d3628f27a5d80a79e5e874f730c51ae94ac88` registra FileVersion do usuário; `c7ccfb9236c12e3a166a64400ae8e2da0feb6a2f` atualiza a prova operacional.
