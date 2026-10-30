@@ -171,7 +171,7 @@ def test_each_openai_attempt_requires_a_fresh_yes_and_runs_only_after_confirmati
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
@@ -242,7 +242,7 @@ def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
@@ -285,7 +285,7 @@ def test_window_shows_indeterminate_progress_only_while_work_is_running(qapp):
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
@@ -322,7 +322,7 @@ def test_report_shows_manual_studio_values_and_keeps_slicing_unverified(qapp):
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
@@ -392,7 +392,7 @@ def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_chang
             support_options=("tree(auto)",),
             adhesion_options=("brim", "none"),
 
-            default_support_enabled=false,
+            default_support_enabled=False,
 
             default_support_option="tree(auto)",
 
@@ -408,7 +408,7 @@ def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_chang
             support_options=("tree(auto)",),
             adhesion_options=("brim", "none"),
 
-            default_support_enabled=false,
+            default_support_enabled=False,
 
             default_support_option="tree(auto)",
 
@@ -476,7 +476,7 @@ def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_pa
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
@@ -543,7 +543,7 @@ def test_error_dialog_reports_persisted_state_and_recovery_action(qapp, tmp_path
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
@@ -601,7 +601,7 @@ def _manual_studio_test_profile():
         support_options=("tree(auto)",),
         adhesion_options=("brim", "none"),
 
-        default_support_enabled=false,
+        default_support_enabled=False,
 
         default_support_option="tree(auto)",
 
