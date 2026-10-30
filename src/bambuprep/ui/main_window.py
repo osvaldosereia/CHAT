@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
+from bambuprep.bambu.launcher import open_stl_in_studio
 from bambuprep.domain.models import JobRecord, JobState, PrinterSelection
 from bambuprep.mesh.analyzer import MeshReport
 from bambuprep.mesh.loader import load_stl
@@ -121,6 +122,9 @@ class BambuPrepMainWindow(QMainWindow):
         self.delete_history_button = QPushButton("Apagar histórico local…", central)
         self.delete_history_button.clicked.connect(self._delete_history)
         utility_buttons.addWidget(self.delete_history_button)
+        self.open_studio_button = QPushButton("Abrir STL original no Bambu Studio (manual)", central)
+        self.open_studio_button.clicked.connect(self._open_studio)
+        utility_buttons.addWidget(self.open_studio_button)
         layout.addLayout(utility_buttons)
 
         self.file_label = QLabel("Nenhum STL selecionado", central)
@@ -280,6 +284,40 @@ class BambuPrepMainWindow(QMainWindow):
     def _open_settings(self) -> None:
         dialog = SettingsDialog(self._key_store, self, preferences=self._preferences)
         dialog.exec()
+
+    def _open_studio(self) -> None:
+        job = self._job
+        if self._busy or job is None:
+            return
+        loader = getattr(self._preferences, "load", None)
+        if not callable(loader):
+            message = "Configure o executável do Bambu Studio em Configurações locais antes de abrir o STL."
+            self.status_label.setText(message)
+            QMessageBox.information(self, "BambuPrep", message)
+            return
+        try:
+            executable = getattr(loader(), "studio_executable", None)
+        except Exception:
+            executable = None
+        if executable is None:
+            message = "Configure o caminho do Bambu Studio em Configurações locais antes de abrir o STL."
+            self.status_label.setText(message)
+            QMessageBox.information(self, "BambuPrep", message)
+            return
+        try:
+            open_stl_in_studio(executable, job.source_path)
+        except (OSError, ValueError):
+            message = (
+                "O STL não foi aberto no Bambu Studio. Confira o executável e o STL local em "
+                "Configurações locais; nenhum fatiamento foi executado."
+            )
+            self.status_label.setText(message)
+            QMessageBox.warning(self, "BambuPrep", message)
+            return
+        self.status_label.setText(
+            "Comando local para abrir o STL original enviado ao Bambu Studio. Confira máquina, bico, "
+            "filamento, placa, suportes e Preview; o BambuPrep não executou fatiamento nem validou 3MF."
+        )
 
     def _delete_history(self) -> None:
         if self._busy:
@@ -485,7 +523,8 @@ class BambuPrepMainWindow(QMainWindow):
         )
         self.open_button.setEnabled(not self._busy)
         self.settings_button.setEnabled(not self._busy)
-        self.delete_history_button.setEnabled(has_job and not self._busy)
+        self.delete_history_button.setEnabled(not self._busy)
+        self.open_studio_button.setEnabled(has_job and not self._busy)
         self.profile_combo.setEnabled(not self._busy)
         self.filament_combo.setEnabled(not self._busy)
         self.plate_combo.setEnabled(not self._busy)
