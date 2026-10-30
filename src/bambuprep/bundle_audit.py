@@ -32,6 +32,18 @@ _PRIVATE_SUFFIXES = frozenset(
     }
 )
 _OPENAI_KEY_PATTERN = re.compile(rb"sk-[A-Za-z0-9_-]{20,}")
+_BUILD_TOOL_PATH_COMPONENTS = frozenset(
+    {
+        "nuitka",
+        "scons",
+        "pyside6-deploy",
+        "pip",
+        "setuptools",
+        "wheel",
+        "pytest",
+        "uv",
+    }
+)
 _SCAN_CHUNK_BYTES = 64 * 1024
 _SCAN_OVERLAP_BYTES = 512
 
@@ -92,6 +104,8 @@ def inspect_standalone_bundle(
             continue
         relative = path.relative_to(root).as_posix()
         filename = path.name.lower()
+        if _contains_build_tool_component(relative):
+            raise BundleAuditError("Standalone bundle contains build-time tooling.")
         if (
             path.suffix.lower() in _PRIVATE_SUFFIXES
             or filename == ".env"
@@ -113,6 +127,18 @@ def inspect_standalone_bundle(
         total_bytes=total_bytes,
         files=tuple(entries),
     )
+
+
+def _contains_build_tool_component(relative_path: str) -> bool:
+    """Return whether a bundle path names a build/test tool package."""
+    for component in relative_path.split("/"):
+        normalized = re.sub(r"[-_.]+", "-", component.lower())
+        if any(
+            normalized == name or normalized.startswith(f"{name}-")
+            for name in _BUILD_TOOL_PATH_COMPONENTS
+        ):
+            return True
+    return False
 
 
 def _hash_and_scan(path: Path) -> tuple[int, str, bool]:
