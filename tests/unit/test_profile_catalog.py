@@ -255,7 +255,7 @@ def test_catalog_rejects_inheritance_cycles(tmp_path):
 def test_profile_catalog_module_imports_without_mesh_stack():
     repository_root = Path(__file__).resolve().parents[2]
     script = textwrap.dedent(
-        """\\
+        """
         import importlib.abc
         import sys
 
