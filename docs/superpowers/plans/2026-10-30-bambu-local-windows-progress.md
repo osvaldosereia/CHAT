@@ -510,3 +510,16 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - O workflow 41097747546 para commit 18d4243 concluiu success em Windows Server 2025 / Python 3.12.10: 161 passed, 1 aviso esperado, 13.48s. O teste novo de arquivo sintético corrompido está incluído; isso valida o tratamento Python no runner e não o Bambu Studio.
 - Na consulta às 17:20:50 UTC, build standalone 41097747966 para 18d4243, 41096415796 para 1176f9b e 41096762309 para 01bc2c continuavam `in_progress` no passo MSVC/Nuitka. Runs consultados retornaram `artifacts=[]`; aguardar e revisar o log de auditoria antes de encerrar verificações de build.
 - Ref branch confirmada após os commits: `2a7b672264c4b588a11d8a73944a4c0bab96811d`. Nenhum checkbox do plano mudou nesta atualização.
+
+
+## Continuação 2026-10-30 — distinguir Windows cliente de Server
+
+- HEAD de código: ffc6d634bf327452c91908bceca9f1eee73d0082, na branch autorizada. A inspeção do platform_support.py revelou que o build 26100 do Windows Server 2025 podia ser classificado como Windows 11 suportado, embora o alvo da especificação seja Windows 10 22H2/Windows 11 cliente.
+- Teste RED inicial de UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_platform_support.py -q: 2 falhas esperadas; uma API de assess_windows_target ainda não tinha product_type, e a detecção runtime classificava o product_type 3 como Windows 11. A primeira forma do mock também exigiu ajuste porque Linux não possui sys.getwindowsversion; o teste foi corrigido para injetar um objeto de plataforma Windows.
+- Implementação: assess_windows_target recebe product_type; apenas product_type 1 (workstation) pode casar com Windows 10/11 suportado. Server/domain controller mostra um rótulo de servidor e permanece fora do alvo. detect_windows_target encaminha o product_type retornado por sys.getwindowsversion, com fallback defensivo para 1 caso a propriedade não exista.
+- GREEN focal: o mesmo comando de teste — 8 passed.
+- Suíte após as duas correções desta continuação: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q — 163 passed, 1 aviso esperado da fixture ZIP duplicada, 6.11s. UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests — exit 0.
+- Commit: ffc6d634bf327452c91908bceca9f1eee73d0082 (fix: exclude Windows Server from supported targets), update-ref confirmado usando expected SHA 354cd488b76b1048e6e1c1a470deed280b28d27b.
+- Runs Windows criados para esse commit: 41098415689 (testes) e 41098415681 (build standalone), ambos in_progress na consulta de 17:23:38 UTC. O build standalone não está pronto; nenhum 3MF/Bambu Studio é testado nesse workflow.
+- Permanecem inalterados os checkboxes do plano. A primeira etapa ainda incompleta é a prova real T1 com instalação Windows e Bambu Studio do usuário; Windows Server não é um substituto para o Windows cliente-alvo nem para a instalação Studio.
+- Nenhuma chamada OpenAI, chave, arquivo privado, artifact, release, publicação, merge ou impressão foi usada nesta alteração.
