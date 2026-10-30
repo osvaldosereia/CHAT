@@ -114,7 +114,8 @@ def test_settings_dialog_updates_local_studio_path_and_explains_privacy_and_rete
     assert preferences.studio_executable == executable
     assert "próxima inicialização" in dialog.studio_status.text().lower()
     assert "imagens renderizadas" in dialog.consent_note.text().lower()
-    assert "apagar manualmente" in dialog.retention_note.text().lower()
+    assert "manualmente" in dialog.retention_note.text().lower()
+    assert "não remove os stl originais" in dialog.retention_note.text().lower()
     assert "não está habilitada" in dialog.output_note.text().lower()
     dialog.close()
 
