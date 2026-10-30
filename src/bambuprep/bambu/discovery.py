@@ -398,7 +398,7 @@ def _windows_pseudoconsole_run(
             attribute_pointer,
             0,
             0x00020016,
-            ctypes.byref(console),
+            console,
             ctypes.sizeof(console),
             None,
             None,
