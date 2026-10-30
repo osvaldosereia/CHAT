@@ -726,3 +726,6 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
    Compartilhar apenas o JSON retornado. Ele não deve incluir caminhos de perfil pessoais, STL, chave ou histórico.
 2. Para liberar Tarefas 1/5: disponibilizar localmente o STL de referência (sem enviá-lo ao GitHub) e revisar com o usuário o resultado de slice/export 3MF sem imprimir, abrindo o projeto no Studio e confirmando máquina, bico, Generic PLA, Textured PEI, suportes e Preview.
 
+
+
+- Atualização documental desta retomada: commits `e24460b43c1af37bd38dc84720fe68a3fd0df3f2` (ledger), `51c3b889cbe1bf227f8cf4a91615ae84a57ddcf9` (estado do probe no guia) e `787a6a89b8e6546dab9231369224fae12a7b7683` (correção do caminho PowerShell). O workflow de teste `41122287080`, no commit de código `9012c556`, seguia `queued` na última consulta; portanto, a correção dos imports ainda não foi verificada em runner Windows.
