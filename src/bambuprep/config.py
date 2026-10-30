@@ -27,10 +27,11 @@ class LocalPreferences:
     """Non-secret local preferences; API credentials are never stored here."""
 
     studio_executable: Path | None = None
+    output_directory: Path | None = None
 
 
 class LocalPreferencesStore:
-    """Bounded JSON preference file containing only the selected Studio executable path."""
+    """Bounded JSON preference file containing non-secret local paths only."""
 
     def __init__(self, preferences_file: Path):
         self.path = Path(preferences_file)
@@ -51,24 +52,50 @@ class LocalPreferencesStore:
             data = json.loads(contents.decode("utf-8"))
         except (UnicodeError, json.JSONDecodeError):
             raise ValueError("Local preferences file is not valid UTF-8 JSON") from None
-        if not isinstance(data, dict) or set(data) != {"studio_executable"}:
+        if (
+            not isinstance(data, dict)
+            or "studio_executable" not in data
+            or not set(data).issubset({"studio_executable", "output_directory"})
+        ):
             raise ValueError("Local preferences contain unexpected fields")
-        raw_path = data["studio_executable"]
-        if raw_path is None:
-            return LocalPreferences()
-        if not isinstance(raw_path, str) or not raw_path.strip() or len(raw_path) > 4096 or "\x00" in raw_path:
-            raise ValueError("Configured Bambu Studio executable path is invalid")
-        executable = Path(raw_path)
-        if not executable.is_absolute():
-            raise ValueError("Configured Bambu Studio executable path must be absolute")
-        return LocalPreferences(studio_executable=executable)
+        executable = self._read_absolute_path(data["studio_executable"], "Bambu Studio executable")
+        output_directory = self._read_absolute_path(data.get("output_directory"), "output directory")
+        return LocalPreferences(studio_executable=executable, output_directory=output_directory)
 
     def save_studio_executable(self, executable: Path) -> None:
-        path = Path(executable)
+        path = self._write_absolute_path(executable, "Bambu Studio executable")
+        preferences = self.load()
+        self._save(LocalPreferences(studio_executable=path, output_directory=preferences.output_directory))
+
+    def save_output_directory(self, output_directory: Path) -> None:
+        path = self._write_absolute_path(output_directory, "output directory")
+        preferences = self.load()
+        self._save(LocalPreferences(studio_executable=preferences.studio_executable, output_directory=path))
+
+    @staticmethod
+    def _read_absolute_path(raw_path: object, label: str) -> Path | None:
+        if raw_path is None:
+            return None
+        if not isinstance(raw_path, str) or not raw_path.strip() or len(raw_path) > 4096 or "\x00" in raw_path:
+            raise ValueError(f"Configured {label} path is invalid")
+        path = Path(raw_path)
         if not path.is_absolute():
-            raise ValueError("Bambu Studio executable path must be absolute")
+            raise ValueError(f"Configured {label} path must be absolute")
+        return path
+
+    @staticmethod
+    def _write_absolute_path(raw_path: Path, label: str) -> Path:
+        path = Path(raw_path)
+        if not path.is_absolute():
+            raise ValueError(f"{label.capitalize()} path must be absolute")
+        return path
+
+    def _save(self, preferences: LocalPreferences) -> None:
         contents = json.dumps(
-            {"studio_executable": str(path)},
+            {
+                "studio_executable": str(preferences.studio_executable) if preferences.studio_executable else None,
+                "output_directory": str(preferences.output_directory) if preferences.output_directory else None,
+            },
             ensure_ascii=False,
             separators=(",", ":"),
         )
