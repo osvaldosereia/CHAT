@@ -214,8 +214,8 @@
 - [x] Integrar o executor à janela Qt, com atualização de widgets exclusivamente na thread principal.
 - [ ] Implementar janela de arrastar/selecionar STL, seleção explícita do bico, andamento, relatório e botões para abrir 3MF no Bambu Studio, confirmar revisão, apagar histórico e remover arquivos do aplicativo.
 - [x] Cobertura parcial verificada: aceitar um STL local existente por arrastar-e-soltar e rejeitar formatos remotos, múltiplos arquivos e outras extensões; revisão/abertura de 3MF e remoção de arquivos de saída seguem pendentes.
-- [ ] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
-- [x] A confirmação física do bico é exigida novamente após cada trabalho ou mudança de perfil; teste Qt verificado no CI Windows. Material/placa ainda não são seleções editáveis.
+- [x] Tornar a seleção do bico obrigatória por trabalho. Mostrar placa/material como seleções editáveis e confirmadas, sem alegar leitura automática da impressora.
+- [x] O usuário confirma o bico fisicamente e confirma os valores de filamento/placa apresentados pelo catálogo local em cada trabalho; as confirmações resetam após trocar STL ou perfil. O teste Qt verifica o bloqueio da análise sem ambas as confirmações.
 - [x] Implementar tela de configurações para Studio, chave OpenAI, consentimento, retenção e diretório de saída.
 - [x] A pasta de saída é uma preferência local não secreta; a janela avisa que não será usada para gerar arquivos enquanto a integração do Studio não for validada.
 - [ ] Confirmar manualmente no Windows que operações longas mantêm a janela responsiva e que um usuário consegue concluir o fluxo sem consultar os logs.
