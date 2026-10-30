@@ -188,6 +188,34 @@ def test_windows_probe_passes_create_no_window_to_version_and_help(tmp_path, mon
 
 
 
+def test_windows_probe_keeps_pipe_help_when_console_capture_is_unavailable(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+    monkeypatch.setattr(discovery.sys, "platform", "win32")
+    monkeypatch.setattr(discovery, "_windows_file_version", lambda _path: "2.8.2.61")
+    calls = []
+    pipe_help = (
+        "--load-settings --load-filaments --orient --rotate-x --rotate-y "
+        "--rotate --arrange --slice --export-3mf"
+    )
+
+    def fake_run(command, **kwargs):
+        calls.append(command[-1])
+        return CompletedProcess(command, 0, pipe_help, "")
+
+    def unavailable_console(*_args, **_kwargs):
+        raise OSError("ConPTY unavailable")
+
+    monkeypatch.setattr(discovery, "_windows_pseudoconsole_run", unavailable_console)
+    monkeypatch.setattr(discovery.subprocess, "run", fake_run)
+
+    result = probe_studio(executable)
+
+    assert calls == ["--help"]
+    assert result.cli_available is True
+    assert "export_3mf" in result.capabilities
+
+
 def test_windows_file_metadata_is_preferred_without_claiming_cli(tmp_path, monkeypatch):
     executable = tmp_path / "BambuStudio.exe"
     executable.write_bytes(b"stub")
@@ -429,7 +457,7 @@ def test_windows_pseudoconsole_captures_direct_writeconsole_output(tmp_path):
             "wintypes.DWORD, ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]; "
             "k.WriteConsoleW.restype=wintypes.BOOL; "
             "h=k.GetStdHandle(0xFFFFFFF5); n=wintypes.DWORD(); "
-            "message='BAMBU_CONSOLE_CAPTURE_SENTINEL'; "
+            "message='BAMBU_CONSOLE_CAPTURE_SENTINEL\\r\\n'; "
             "ok=k.WriteConsoleW(h, message, len(message), ctypes.byref(n), None); "
             "raise SystemExit(0 if ok and n.value == len(message) else 41)"
         ),

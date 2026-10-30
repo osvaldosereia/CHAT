@@ -374,12 +374,6 @@ def _windows_pseudoconsole_run(
         if result < 0:
             raise OSError(f"CreatePseudoConsole failed with HRESULT 0x{result & 0xFFFFFFFF:08X}")
 
-        # The pseudoconsole owns its ends of these pipes; the parent keeps only
-        # the output reader. Closing input also gives noninteractive commands EOF.
-        close_if_open(input_read)
-        input_read = wintypes.HANDLE()
-        close_if_open(output_write)
-        output_write = wintypes.HANDLE()
         attribute_size = ctypes.c_size_t()
         initialize_attributes(None, 1, 0, ctypes.byref(attribute_size))
         if not attribute_size.value or attribute_size.value > 65536:
@@ -401,6 +395,28 @@ def _windows_pseudoconsole_run(
             None,
         ):
             raise ctypes.WinError(ctypes.get_last_error())
+
+        # Drain output before launching the child so immediate console writes
+        # cannot race process startup or fill the pseudoconsole output channel.
+        def read_console_output() -> None:
+            while True:
+                buffer = ctypes.create_string_buffer(4096)
+                bytes_read = wintypes.DWORD()
+                succeeded = read_file(
+                    output_read,
+                    buffer,
+                    len(buffer),
+                    ctypes.byref(bytes_read),
+                    None,
+                )
+                if not succeeded or not bytes_read.value:
+                    return
+                captured.append(buffer.raw[: bytes_read.value])
+
+        reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
+        reader.start()
+        reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
+        reader.start()
 
         startup = _STARTUPINFOEXW()
         startup.StartupInfo.cb = ctypes.sizeof(_STARTUPINFOEXW)
@@ -425,27 +441,17 @@ def _windows_pseudoconsole_run(
             raise ctypes.WinError(ctypes.get_last_error())
         process_started = True
 
+        # Release the parent copies only after CreateProcess has attached the child.
+        close_if_open(input_read)
+        input_read = wintypes.HANDLE()
+        close_if_open(output_write)
+        output_write = wintypes.HANDLE()
+        close_if_open(input_write)
+        input_write = wintypes.HANDLE()
+
         delete_attributes(attribute_pointer)
         attributes_initialized = False
         attribute_buffer = None
-
-        def read_console_output() -> None:
-            while True:
-                buffer = ctypes.create_string_buffer(4096)
-                bytes_read = wintypes.DWORD()
-                succeeded = read_file(
-                    output_read,
-                    buffer,
-                    len(buffer),
-                    ctypes.byref(bytes_read),
-                    None,
-                )
-                if not succeeded or not bytes_read.value:
-                    return
-                captured.append(buffer.raw[: bytes_read.value])
-
-        reader = threading.Thread(target=read_console_output, name="bambuprep-console-reader", daemon=True)
-        reader.start()
 
         wait_timeout = min(int(timeout_seconds * 1000), 0xFFFFFFFE)
         wait_result = wait_for_single_object(process_info.hProcess, wait_timeout)
@@ -476,12 +482,13 @@ def _windows_pseudoconsole_run(
         if process_started and not process_finished and process_info.hProcess.value:
             terminate_process(process_info.hProcess, 1)
             wait_for_single_object(process_info.hProcess, 0xFFFFFFFF)
-        if reader is not None and reader.is_alive():
-            reader.join(timeout=2)
         if attributes_initialized and attribute_buffer is not None:
             delete_attributes(ctypes.cast(attribute_buffer, ctypes.c_void_p))
         if console.value:
             close_pseudoconsole(console)
+            console = wintypes.HANDLE()
+        if reader is not None and reader.is_alive():
+            reader.join()
         close_if_open(input_read)
         close_if_open(input_write)
         close_if_open(output_write)
