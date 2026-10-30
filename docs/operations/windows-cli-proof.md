@@ -1,14 +1,14 @@
 # Prova do CLI do Bambu Studio no Windows
 
-**Estado:** observação parcial no PC Windows do usuário em 2026-10-30; prova funcional pendente. A tela Sobre mostrou Bambu Studio 2.8.2.61, o executável foi identificado em `C:\Program Files\Bambu Studio\bambu-studio.exe` e uma execução direta de `--help` no PowerShell exibiu a ajuda e terminou com código 0. Um probe de uma cópia anterior retornou `cli_available=false`; o probe atualizado com captura sem console ainda precisa ser executado. Não declarar compatibilidade de CLI, fatiamento ou 3MF verificado.
+**Estado:** prova funcional pendente. A instalação real observada no Windows é Bambu Studio 2.8.2.61, em `C:\Program Files\Bambu Studio\bambu-studio.exe`. A ajuda direta termina com código 0 e mostra as opções, mas o probe Python atualizado ainda retorna `version: null`, `cli_available: false` e `capabilities: []`, sem capturar stdout/stderr. Não declarar compatibilidade de CLI, fatiamento ou 3MF verificado.
 
 ## Dados a registrar
 
 - Data e versão do Windows (10 22H2 x64 ou 11 x64): pendente
-- Versão/build do Bambu Studio: 2.8.2.61 (observada na tela Sobre; sem saída de versão capturada pelo probe)
+- Versão/build do Bambu Studio: 2.8.2.61 (tela Sobre; o cabeçalho da ajuda mostra `BambuStudio-02.08.02.61`; o probe ainda não captura essa saída)
 - Caminho do executável: `C:\Program Files\Bambu Studio\bambu-studio.exe` (observado no Explorador e no comando)
-- Ajuda direta no PowerShell: `bambu-studio.exe --help`, código de saída 0. Probe do branch atualizado: pendente.
-- Opções exibidas pela ajuda direta: `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load_settings` e `--load_filaments`. A presença na ajuda não comprova execução funcional.
+- Probe Python atualizado: `version: null`, `cli_available: false`, `capabilities: []`; `--help` reporta código 0, mas a saída capturada é vazia.
+- Opções exibidas pela ajuda direta: `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load-settings`, `--load-filaments`, `--load_settings` e `--load_filaments`. A presença na ajuda não comprova execução funcional.
 - Perfis A1 mini, bico usado, Generic PLA e Textured PEI encontrados: pendente
 - Hash do STL de referência (não registrar caminho nem copiar o arquivo): pendente
 - Resultado exportado para 3MF e inspeção do arquivo: pendente
@@ -39,7 +39,7 @@ O diagnóstico chama somente `--version` e `--help`, sem `shell=True` e sem inic
 ## Evidência parcial recebida do PC do usuário (2026-10-30)
 
 - A tela “Sobre Bambu Studio” mostrou a versão **2.8.2.61**. O Explorador e o comando do usuário identificaram o executável em `C:\Program Files\Bambu Studio\bambu-studio.exe`; a versão exata do Windows não foi registrada.
-- O usuário executou `python .\bambu_cli_probe.py --executable "$env:ProgramFiles\Bambu Studio\bambu-studio.exe"` na pasta `tools`. O JSON observado foi `version: null`, `cli_available: false`, `capabilities: []` e a mensagem de que o CLI não retornou resposta capturável a `--help`.
-- Ao invocar `--help` diretamente pelo PowerShell, a ajuda foi exibida no console. As capturas mostram `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl` e `--export-stls`; a prioridade de configurações menciona `--load_settings` e `--load_filaments` com sublinhados. Um filtro `Select-String` não filtrou a saída.
+- Uma execução anterior do probe Python no diretório `tools` retornou `version: null`, `cli_available: false`, `capabilities: []` e nenhuma saída capturada a `--help`. Uma execução posterior do branch com o diagnóstico do código de saída informou `exit code 0`, mas manteve `cli_available: false` e capacidades vazias.
+- Ao invocar `$studio --help 2>&1 | Select-String -SimpleMatch '--slice','--load-settings','--load-filaments','--export-3mf'`, o usuário recebeu o cabeçalho `BambuStudio-02.08.02.61`, toda a ajuda e `Exit code: 0`. A saída incluiu `--load-settings setting1.json;setting2.json`, `--load-filaments filament1.json;filament2.json`, `--slice option` e `--export-3mf filename.3mf`; a seção de prioridade também menciona formas com sublinhado. O filtro não reduziu a saída, o que sugere escrita direta no console (inferência), compatível com os pipes vazios do probe.
 - A captura mais recente do PowerShell mostra a ajuda completa e `Exit code: 0`, com retorno ao prompt. Isso confirma a saída da invocação direta de `--help`, não a saída capturada pelo probe atualizado nem o funcionamento das opções.
 - Não foram carregados perfis, executado slice, usado o STL Sentinel, criado/reaberto 3MF ou revisados Preview/configurações. A prova da Tarefa 1 permanece incompleta e seus checkboxes permanecem desmarcados. A imagem recebida não foi adicionada ao repositório.
