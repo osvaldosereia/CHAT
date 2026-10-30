@@ -457,3 +457,13 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Windows unit/Qt run 41078547798 concluiu success em Windows Server 2025 / Python 3.12.10: 149 passed, 1 aviso esperado de fixture ZIP duplicada, 15.31s.
 - Windows standalone build run 41078547742 segue `in_progress` no passo MSVC/Nuitka na consulta das 15:13 UTC. A validação do XML/report no Windows e a auditoria do bundle ainda aguardam o job. Nenhum artifact foi anexado.
 - O run de teste não valida Bambu Studio, CLI, slicing ou 3MF real. T1 permanece a primeira etapa incompleta; nenhuma caixa do plano foi alterada.
+
+
+### Continuação — inventário e deduplicação (2026-10-30)
+
+- O inventário sintético do ambiente `uv sync --locked --extra build` mostrou duas entradas metadata para o pacote editável BambuPrep. Um teste de regressão confirmou que o parser inicialmente rejeitava entradas XML repetidas com o mesmo nome/versão (RED: 1 failed). Após deduplicar pares normalizados idênticos, o conjunto focal `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_nuitka_license_report.py -q` passou: 6 passed.
+- Verificação adicional executada: gerando XML sintético com as distribuições instaladas únicas e comparando com o lock, o resumo reportou `distribution_count=33`, `all_distributions_locked=True` e 4 licenças truncadas; somente nomes/contagens foram exibidos.
+- Suíte local depois da deduplicação: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q` — 150 passed, 1 aviso esperado da fixture ZIP duplicada sintética, 4.65s. `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests` — exit 0.
+- Commit adicional: dce437f17d796424b29fb738a29c6c70fb83f5ad (`fix: deduplicate Nuitka distribution inventory entries`). HEAD verificado em dce437f.
+- Windows standalone build 41078547742 para o código 5df08bf permanecia `in_progress`; os workflows novos de 41079092993 (build) e 41079092872 (unit/Qt), para dce437f, estavam `queued` na consulta atual. Nenhum artifact foi anexado. Nenhuma caixa do plano ou checklist legal foi alterada; o build Windows real do resumidor continua pendente.
+- A prova T1 do Bambu Studio permanece bloqueada pela ausência da instalação Windows do usuário e do STL Sentinel. Sem alegação de compatibilidade CLI/fatiamento/3MF. Sem chamada OpenAI, arquivos privados, impressão, release ou publicação.
