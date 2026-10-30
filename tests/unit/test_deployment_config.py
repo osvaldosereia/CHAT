@@ -38,6 +38,11 @@ def test_windows_build_check_does_not_publish_or_use_secrets():
     assert "tools/summarize_nuitka_report.py" in workflow
     assert "bambuprep-compilation-report.xml" in workflow
     assert "bambuprep-license-report.rst" in workflow
+    assert '$notices = Join-Path $bundle "THIRD_PARTY_NOTICES.rst"' in workflow
+    assert "Copy-Item -LiteralPath $licenseReport -Destination $notices -Force" in workflow
+    assert workflow.index("Copy-Item -LiteralPath $licenseReport") < workflow.index(
+        "tools/audit_standalone_bundle.py --bundle $bundle"
+    )
     assert "upload-artifact" not in workflow.lower()
     assert "${{ secrets." not in workflow
     assert "/build-reports/" in (ROOT / ".gitignore").read_text(encoding="utf-8")

@@ -95,5 +95,11 @@ jobs:
             throw "Standalone executable is empty."
           }
 
+          $notices = Join-Path $bundle "THIRD_PARTY_NOTICES.rst"
+          Copy-Item -LiteralPath $licenseReport -Destination $notices -Force
+          if (-not (Test-Path -LiteralPath $notices -PathType Leaf)) {
+            throw "Third-party license notices were not copied into the standalone bundle."
+          }
+
           uv run --locked --extra build python tools/audit_standalone_bundle.py --bundle $bundle
           if ($LASTEXITCODE -ne 0) { throw "Standalone bundle audit failed." }
