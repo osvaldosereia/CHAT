@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD registrado no ledger nas rodadas anteriores: `0a16670e83223892d1ace74790c790385f81a37c`.
-- HEAD do branch antes desta atualização: `ec364093989aee5e739270b35352d755adf314ec`; código atualizado em `1934aa161cb0d4ca6ce04a2b992f6d1e9ebfc64c` e guia em `5bcfcd0920a8171e402d1f57271d234fc609ec28`.
+- HEAD do branch antes desta atualização: `be57eb4958dd1da3fdde641a9d0e6142fbf96857`; código mais recente em `690ab902ff4d476c91858e9eed2d4fc571d1cf12` e interface Qt em `bd475e953334d54d9cb52ac6eaa94f4d3e585e1b`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -235,9 +235,9 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0. PySide6 não instalado; execução
 
 ## Próxima execução
 
-A primeira etapa incompleta continua sendo a prova T1 em PC Windows com o Bambu Studio real e o STL Sentinel. Enquanto isso, continuar os itens técnicos independentes: rever as escolhas/confirmações editáveis de material e placa na Tarefa 6; concluir build standalone e inspeção de privacidade do bundle (T7); revisar licenças/avisos e executar QA manual no Windows. O caminho do Studio e a pasta de saída são preferências locais; a pasta ainda não é usada e nenhum teste atual comprova compatibilidade real do Studio.
+A primeira etapa incompleta continua sendo a prova T1 em PC Windows com instalação real do Bambu Studio e o STL Sentinel. A nova confirmação de material/placa foi implementada sobre os valores autorizados do catálogo; conclusão manual da janela em Windows ainda falta. Seguir com a build standalone após a mudança de nome e revisar licenças/avisos. O CLI, fatiamento e 3MF permanecem bloqueados por T1.
 
-No último status consultado, os builds 41034211145, 41033836229, 41032896496, 41032383180 e 41032000203 permaneciam in_progress na etapa “Prepare MSVC and build standalone application”. Os logs ainda retornavam 404 por não haver log final; o run 41034211145 não tinha artefatos listados. Verificar os resultados antes de marcar build concluído.
+Resultados de build observados: 41032000203 e 41032383180 completaram compilação Nuitka mas falharam na checagem final de nome; o workflow esperava BambuPrep.exe, enquanto o log mostrou desktop_entry.exe. A correção de output-filename foi commitada em 690ab902ff4d476c91858e9eed2d4fc571d1cf12 e passou dry-run local. No último status, 41032896496, 41033836229 e 41034211145 ainda estavam in_progress com a configuração anterior; 41034211145 não tinha artefatos listados. Nenhum resultado Windows posterior à correção foi confirmado.
 ## Commits
 
 - Tarefa 1: `e0009136d3695beed890e9148e68d0db72a33ab7` (`feat: add Bambu Studio CLI discovery foundation`).
@@ -259,7 +259,7 @@ No último status consultado, os builds 41034211145, 41033836229, 41032896496, 4
 1. Em PC Windows suportado, executar o diagnóstico contra a instalação real e registrar versão/build, caminho e argumentos/versão efetivamente observados.
 2. Disponibilizar no PC o STL Sentinel Busts de referência e criar o pequeno projeto de prova com A1 mini, bico confirmado, Generic PLA e Textured PEI.
 3. Reabrir o 3MF no Bambu Studio e conferir Preview e perfis. Até essa confirmação, não declarar CLI compatível, fatiamento/3MF verificado nem `slicer_verified`.
-4. Depois que a tela de configurações estiver pronta, cadastrar localmente uma chave OpenAI no Credential Locker e consentir separadamente por trabalho; até haver chave e consentimento explícito, manter mocks e não fazer chamadas reais.
+4. Validação real da OpenAI só se o usuário desejar: cadastrar chave individual no Credential Locker, definir orçamento/limite e consentir explicitamente por trabalho; até isso, manter mocks e não fazer chamadas reais.
 
 
 
@@ -294,3 +294,31 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - 1934aa161cb0d4ca6ce04a2b992f6d1e9ebfc64c — feat: select a local output directory.
 - 5bcfcd0920a8171e402d1f57271d234fc609ec28 — docs: explain local output directory preference.
 - ec364093989aee5e739270b35352d755adf314ec — docs: record verified BambuPrep UI and settings progress.
+
+
+## Continuação 2026-10-30 — confirmação por trabalho do perfil (Tarefa 6)
+
+- Adicionado checkbox com os IDs locais exatos do Generic PLA e da Textured PEI selecionados para o perfil. O usuário deve confirmar tanto bico físico quanto material/placa antes da análise; a lógica de _analyze também verifica ambas as confirmações, mesmo se o handler for chamado sem usar o botão.
+- Ambas as confirmações são resetadas ao selecionar outro STL ou mudar o perfil. As listas vêm do catálogo aprovado; esta V1 segue com Generic PLA e Textured PEI da opção instalada, sem ler estado da impressora.
+- Atualizado o guia de uso. A verificação não é QA manual de Windows, nem valida compatibilidade do Studio.
+- TDD: a primeira falha mostrou ausência do controle material_plate_confirm; após adicionar a UI, uma segunda falha mostrou que _analyze ainda submetia a operação sem a confirmação de material/placa. A guarda do método resolveu a regressão.
+- Comando RED: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_qt_ui.py::test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_change -q — 1 failed porque material_plate_confirm ainda não existia.
+- RED da guarda: mesmo teste — 1 failed porque _submit foi chamado sem a confirmação dos perfis.
+- GREEN: mesmo teste — 1 passed.
+- Qt após mudança: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_qt_ui.py -q — 8 passed.
+- Suíte completa: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q — 122 passed, 1 warning do fixture sintético ZIP duplicado; nenhum skip.
+- Sintaxe: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests — exit 0.
+- Commits: f8ed1b25a694673d5c8b1799624c84b530833f1a (teste), bd475e953334d54d9cb52ac6eaa94f4d3e585e1b (interface), 65255284e3db58d7def5f8ba4d4fdd41f970b974 (guia), 081378b1d999bd3b4f63a971fe59d322af9a8719 (plano).
+
+## Continuação 2026-10-30 — nome do executável standalone (Tarefa 7)
+
+- O run Windows 41032383180 concluiu a compilação Nuitka: gerou src/bambuprep/deployment/desktop_entry.dist/desktop_entry.exe e o deploy informou a pasta dist/BambuPrep.dist. O job falhou depois porque a verificação procurava dist/BambuPrep.dist/BambuPrep.exe. O run 41032000203 mostrou a mesma causa.
+- Root cause: pysidedeploy.spec aponta para desktop_entry.py; em standalone, o título BambuPrep nomeia a pasta .dist, mas o Nuitka usava o nome do módulo de entrada para o executável. Documentação consultada: Qt for Python deploy tool https://doc.qt.io/qtforpython-6/deployment/deployment-pyside6-deploy.html e Nuitka User Manual https://nuitka.net/user-documentation/user-manual.html.
+- Correção: extra_args inclui --output-filename=BambuPrep.exe, preservando o título/pasta e alinhando com o caminho esperado pela verificação.
+- RED: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_deployment_config.py::test_deployment_spec_selects_standalone_entrypoint_and_noninteractive_downloads -q — 1 failed: faltava --output-filename.
+- GREEN: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest tests/unit/test_deployment_config.py -q — 4 passed.
+- Dry-run: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-build-env uv run --locked --extra build pyside6-deploy -c pysidedeploy.spec --force --mode standalone --dry-run — exit 0; comando gerado inclui --output-filename=BambuPrep.exe e executável de entrada desktop_entry.py. Isso é apenas dry-run Linux, sem compilação Windows após a correção.
+- Suíte final da extensão: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q — 122 passed, 1 warning.
+- Sintaxe: UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests — exit 0.
+- Commits: acd47cfafcd77fcefa2ed55ea52558b43d67641d (teste), 690ab902ff4d476c91858e9eed2d4fc571d1cf12 (configuração), be57eb4958dd1da3fdde641a9d0e6142fbf96857 (plano).
+
