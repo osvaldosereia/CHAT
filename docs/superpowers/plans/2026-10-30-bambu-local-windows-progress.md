@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
-- HEAD remoto confirmado antes desta atualização do ledger: `85e8488f521b4691e5ecaf8494afe034db206371` (`feat: display local mesh views in analysis window`); o registro de docs anterior está em `0d93a835e4c4cd63752d3b10d8dc4106332dad7b`.
+- HEAD remoto confirmado antes desta atualização do ledger: `0b5ee53beca11b1d5974a9f074abbbf8b214ab25` (`feat: add local key settings and history cleanup controls`); commits de código anteriores da UI: `727811553b7c89b79c736a14d25d9a3a5614f513` e `85e8488f521b4691e5ecaf8494afe034db206371`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -200,9 +200,26 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0. PySide6 não instalado; execução
 - `git diff --check` — não executável neste espelho de workspace: não há diretório `.git` (exit 129); os commits/ref da branch foram verificados via GitHub API.
 - Não houve execução real da UI, chamada de rede OpenAI ou prova Bambu Studio.
 
+### Complemento — configurações seguras e limpeza do histórico
+
+- Adicionado `SettingsDialog`: entrada da chave mascarada, salva somente no adaptador Credential Locker; o valor não é exibido depois de salvar. Quando o backend está indisponível, a UI desabilita os controles e a análise local continua, sem fallback em arquivo.
+- Adicionado `WorkflowService.delete_history` e botão com confirmação explícita. Remove registros SQLite e limpa o trabalho atual da janela; informa que STL original e arquivos do usuário permanecem no disco.
+- Teste de serviço verifica que um trabalho pode ser removido do histórico sem apagar/modificar o STL. Não há exclusão de arquivos de saída pela UI porque ainda não existe fluxo que produza esses arquivos.
+- O import do pixmap foi alinhado à classe Qt oficial `PySide6.QtGui.QPixmap`; a API `loadFromData` foi conferida na documentação oficial citada acima.
+- Commit de código: `0b5ee53beca11b1d5974a9f074abbbf8b214ab25` (`feat: add local key settings and history cleanup controls`).
+
+### Evidência de testes desta extensão
+
+- RED: `python -m pytest tests/unit/test_workflow_service.py -k delete_history -v` — falhou com AttributeError porque o método de serviço ainda não existia.
+- GREEN focal: mesmo comando — 1 passed.
+- `python -m pytest tests/unit/test_workflow_service.py tests/unit/test_ui_consent.py -v` — 11 passed.
+- Suíte completa atual: `python -m pytest -v` — 106 passed; 1 aviso esperado do fixture ZIP com nome duplicado.
+- `python -m compileall -q src tools tests` — exit 0.
+- O módulo PySide6 continua ausente. Não foi possível importar, instanciar ou testar visualmente `QDialog/QMainWindow`; esses controles não estão marcados como verificados no plano. Nenhuma chamada OpenAI foi feita.
+
 ## Próxima execução
 
-Continuar a Tarefa 6: completar tela de configurações segura da chave, histórico/remoção e QA visual/interação Qt no Windows quando o runtime estiver disponível. A janela e as abas de vistas foram escritas, mas permanecem não verificadas visualmente porque PySide6 não está instalado. A inspeção genérica de 3MF só tem fixtures sintéticas; CLI, metadados Bambu e fatiamento permanecem bloqueados pela prova Windows real da Tarefa 1.
+Continuar a Tarefa 6: persistir/editar o caminho do Studio localmente, cobrir o comportamento Qt e validar a janela/consentimento no Windows; adicionar exclusão de arquivos apenas quando houver arquivos do app com política explícita. A tela da chave e a remoção SQLite estão codificadas, mas toda a UI segue sem QA Qt porque PySide6 não está instalado. Depois continuar Tarefa 7 sem publicar. CLI, metadados Bambu e fatiamento permanecem bloqueados pela prova Windows real da Tarefa 1.
 
 ## Commits
 
@@ -216,6 +233,7 @@ Continuar a Tarefa 6: completar tela de configurações segura da chave, histór
 - Tarefa 6 worker: `c4f32a210492ba8241fb5d0bdaa4f4ec1ec49688` (`feat: run workflow actions in bounded workers`).
 - Inspetor 3MF genérico: `670324be82bd3820b921261ae1fe71511355b5df` (`feat: inspect local 3MF package structure`); registro: `6932a2bac3aba81b67f84615dcd63b8960ae32f3` (`docs: record generic 3MF inspection evidence`).
 - UI parcial e consentimento: `727811553b7c89b79c736a14d25d9a3a5614f513` (`feat: add consent-gated local analysis window`); vistas locais: `85e8488f521b4691e5ecaf8494afe034db206371` (`feat: display local mesh views in analysis window`); registro parcial anterior: `0d93a835e4c4cd63752d3b10d8dc4106332dad7b` (`docs: record consent-gated UI progress and test evidence`).
+- Controles locais de chave/histórico: `0b5ee53beca11b1d5974a9f074abbbf8b214ab25` (`feat: add local key settings and history cleanup controls`).
 - Atualizações posteriores do plano/ledger seguem os commits de implementação.
 
 ## Bloqueios humanos indispensáveis

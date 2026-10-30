@@ -207,6 +207,7 @@
 - [ ] Escrever testes de fatiamento, project_configured e confirmação ausente após revisão; dependem das interfaces 3MF gated da Tarefa 5.
 - [x] Rodar `python -m pytest tests/unit/test_workflow_service.py -v` — 7 passed.
 - [x] Implementar `WorkflowService.create_job/analyze/recommend` para validar e analisar o STL localmente, persistir métricas/seleção sem bytes do arquivo, verificar o hash e chamar o serviço OpenAI somente quando consentimento explícito for passado.
+- [x] Expor `WorkflowService.delete_history` e testar que a limpeza de registros preserva os STL de origem.
 - [x] Implementar executor limitado `WorkflowTaskRunner`; as operações são submetidas a workers e devolvem `Future` para a interface observar sem bloquear.
 - [x] Rodar `python -m pytest tests/unit/test_workflow_runner.py -v` — 3 passed.
 - [ ] Integrar o executor à janela Qt, com atualização de widgets exclusivamente na thread principal.
