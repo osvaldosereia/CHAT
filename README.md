@@ -16,7 +16,7 @@ A meta é reduzir o trabalho a enviar o STL e revisar o resultado. A preparaçã
 
 ## Componentes previstos
 
-- **GitHub:** código e documentação; GitHub Pages para a interface e GitHub Actions para tarefas de análise que excedam os limites de uma função serverless.
+- **GitHub:** código/documentação e GitHub Actions para processamento assíncrono. A hospedagem final está em avaliação: GitHub Pages é apenas estático e não será presumido como backend nem como hospedagem de produção do app.
 - **Supabase:** autenticação, arquivos privados, banco de dados, histórico, recuperação de documentação técnica e funções de coordenação.
 - **API OpenAI:** interpretar imagens e métricas derivadas do STL e retornar recomendações estruturadas que o código valida.
 - **Bambu Studio oficial:** abrir, fatiar ou verificar o projeto e enviar à impressora pelo fluxo oficial da Bambu.
@@ -42,6 +42,7 @@ Como a aplicação não detecta a troca física do bico, cada tarefa precisa ind
 - [Requisitos e limites](docs/requirements.md)
 - [Arquitetura e fluxo de dados](docs/architecture.md)
 - [Pesquisa técnica e fontes](docs/research/technical-baseline.md)
+- [Opções GitHub-only e custos](docs/research/github-only-and-cost-options.md)
 - [Plano de execução](docs/superpowers/plans/2026-10-29-bambu-a1-mini-foundation.md)
 
 ## Próximas decisões e marcos
@@ -49,8 +50,8 @@ Como a aplicação não detecta a troca física do bico, cada tarefa precisa ind
 1. Conferir no Windows a versão oficial do Bambu Studio e provar a abertura de um 3MF local.
 2. Validar orientação, suporte, fatiamento e exportação para os perfis da A1 mini com 0,4 mm e 0,2 mm.
 3. Confirmar se o CLI oficial funciona com confiabilidade no ambiente automatizado. Até isso ocorrer, nenhum resultado será classificado como fatiamento verificado.
-4. Criar um projeto Supabase separado para esta aplicação após confirmar a organização e o custo aplicável.
-5. Implementar upload privado, análise geométrica, recomendações e interface de relatório.
+4. Escolher o modelo de acesso: aplicativo Windows local sem Supabase ou sistema online usando, se seguro, um projeto Supabase Pro existente.
+5. Só depois da escolha, iniciar o código do fluxo de upload/análise e da integração com Bambu Studio.
 
 ## Aviso sobre visibilidade
 
