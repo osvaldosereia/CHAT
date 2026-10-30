@@ -105,6 +105,7 @@
 - [x] Escrever testes para transições permitidas/proibidas, persistência após reiniciar a conexão SQLite, limpeza do histórico e isolamento do segredo.
 - [x] Rodar python -m pytest tests/unit/test_job_transitions.py tests/unit/test_local_storage.py tests/unit/test_api_key_store.py -v.
 - [x] Implementar caminhos padrão sob %LOCALAPPDATA%/BambuPrep, migração versionada de SQLite e repositório de histórico.
+- [x] Persistir somente o caminho absoluto do executável do Bambu Studio em preferências JSON locais, com tamanho limitado e rejeição de campos inesperados; sem segredos.
 - [x] Implementar armazenamento de chave usando Windows Credential Locker por meio de keyring; injetar a interface nos serviços para que testes não precisem de credenciais reais.
 - [x] Confirmar que o banco/logs não recebem chave OpenAI nem o conteúdo do STL.
 
