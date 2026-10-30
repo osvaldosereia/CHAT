@@ -38,6 +38,30 @@ def test_local_preferences_round_trip_only_non_secret_studio_path(tmp_path):
     assert "api_key" not in preferences_file.read_text(encoding="utf-8")
 
 
+def test_local_preferences_round_trip_studio_and_output_directory(tmp_path):
+    preferences_file = tmp_path / "BambuPrep" / "preferences.json"
+    store = LocalPreferencesStore(preferences_file)
+    executable = tmp_path / "Bambu Studio" / "BambuStudio.exe"
+    output_directory = tmp_path / "BambuPrep outputs"
+
+    store.save_studio_executable(executable)
+    store.save_output_directory(output_directory)
+
+    preferences = store.load()
+    assert preferences.studio_executable == executable
+    assert preferences.output_directory == output_directory
+    contents = preferences_file.read_text(encoding="utf-8")
+    assert "output_directory" in contents
+    assert "api_key" not in contents
+
+
+def test_local_preferences_reject_relative_output_directory(tmp_path):
+    store = LocalPreferencesStore(tmp_path / "preferences.json")
+
+    with pytest.raises(ValueError, match="absolute"):
+        store.save_output_directory(Path("BambuPrep outputs"))
+
+
 def test_local_preferences_reject_relative_paths_and_unknown_secret_fields(tmp_path):
     preferences_file = tmp_path / "preferences.json"
     store = LocalPreferencesStore(preferences_file)
