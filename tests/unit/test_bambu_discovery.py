@@ -272,3 +272,59 @@ def test_windows_version_resource_reads_fixed_product_version(tmp_path, monkeypa
 def test_windows_metadata_reader_is_noop_off_windows(tmp_path, monkeypatch):
     monkeypatch.setattr(discovery.sys, "platform", "linux")
     assert discovery._windows_file_version(tmp_path / "BambuStudio.exe") is None
+
+
+
+def test_windows_version_resource_falls_back_to_product_version_string(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+    fixed_info = discovery._VSFixedFileInfo()
+    fixed_info.dwSignature = 0
+    translation = (ctypes.c_ushort * 2)(0x0409, 0x04B0)
+    product_version = ctypes.create_unicode_buffer("02.08.02.61")
+    queried = []
+
+    class FakeFunction:
+        def __init__(self, callback):
+            self.callback = callback
+
+        def __call__(self, *args):
+            return self.callback(*args)
+
+    def get_size(_path, ignored_handle):
+        ignored_handle._obj.value = 0
+        return 256
+
+    def get_info(_path, _reserved, _size, _data):
+        return 1
+
+    def query_value(_data, subblock, value_out, size_out):
+        queried.append(subblock)
+        if subblock == "\\\\":
+            value_out._obj.value = ctypes.addressof(fixed_info)
+            size_out._obj.value = ctypes.sizeof(fixed_info)
+            return 1
+        if subblock == "\\\\VarFileInfo\\\\Translation":
+            value_out._obj.value = ctypes.addressof(translation)
+            size_out._obj.value = ctypes.sizeof(translation)
+            return 1
+        if subblock == "\\\\StringFileInfo\\\\040904B0\\\\ProductVersion":
+            value_out._obj.value = ctypes.addressof(product_version)
+            size_out._obj.value = len("02.08.02.61") + 1
+            return 1
+        return 0
+
+    version_api = SimpleNamespace(
+        GetFileVersionInfoSizeW=FakeFunction(get_size),
+        GetFileVersionInfoW=FakeFunction(get_info),
+        VerQueryValueW=FakeFunction(query_value),
+    )
+    monkeypatch.setattr(discovery.sys, "platform", "win32")
+    monkeypatch.setattr(discovery.ctypes, "WinDLL", lambda *_args, **_kwargs: version_api, raising=False)
+
+    assert discovery._windows_file_version(executable) == "02.08.02.61"
+    assert queried == [
+        "\\\\",
+        "\\\\VarFileInfo\\\\Translation",
+        "\\\\StringFileInfo\\\\040904B0\\\\ProductVersion",
+    ]
