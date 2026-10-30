@@ -155,6 +155,32 @@ def _install_fixture(root: Path, *, omit: str | None = None, incompatible_defaul
     return root
 
 
+def test_catalog_ignores_unrelated_machine_profiles_not_needed_for_a1_mini(tmp_path):
+    root = _install_fixture(tmp_path)
+    manifest_path = root / "resources" / "profiles" / "BBL.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["machine_list"].append(
+        {"name": "Unrelated printer 0.4 nozzle", "sub_path": "machine/not-installed.json"}
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    catalog = ProfileCatalog.load(root)
+
+    assert {printer.nozzle_mm for printer in catalog.printers} == {0.2, 0.4}
+
+
+def test_catalog_accepts_system_model_profile_without_from_field(tmp_path):
+    root = _install_fixture(tmp_path)
+    model_path = root / "resources" / "profiles" / "BBL" / "machine" / "Bambu Lab A1 mini.json"
+    model = json.loads(model_path.read_text(encoding="utf-8"))
+    model.pop("from")
+    model_path.write_text(json.dumps(model), encoding="utf-8")
+
+    catalog = ProfileCatalog.load(root)
+
+    assert catalog.model_id == "Bambu Lab A1 mini"
+
+
 def test_catalog_maps_installed_a1_mini_nozzles_generic_pla_and_default_plate(tmp_path):
     catalog = ProfileCatalog.load(_install_fixture(tmp_path))
 

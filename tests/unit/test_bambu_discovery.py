@@ -187,7 +187,7 @@ def test_windows_probe_passes_create_no_window_to_version_and_help(tmp_path, mon
 
 
 
-def test_windows_file_metadata_fills_missing_version_without_claiming_cli(tmp_path, monkeypatch):
+def test_windows_file_metadata_is_preferred_without_claiming_cli(tmp_path, monkeypatch):
     executable = tmp_path / "BambuStudio.exe"
     executable.write_bytes(b"stub")
     calls = []
@@ -209,7 +209,7 @@ def test_windows_file_metadata_fills_missing_version_without_claiming_cli(tmp_pa
     assert result.cli_available is False
     assert result.capabilities == frozenset()
     assert "captured stdout/stderr" in result.message.lower()
-    assert calls == ["--version", "--help"]
+    assert calls == ["--help"]
 
 
 

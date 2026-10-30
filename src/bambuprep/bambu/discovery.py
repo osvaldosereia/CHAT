@@ -210,21 +210,22 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
         )
 
     try:
-        version_result = subprocess.run(
-            [str(executable), "--version"],
-            capture_output=True,
-            text=True,
-            check=False,
-            shell=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            timeout=timeout_seconds,
-        )
-        version_text = _combined_output(version_result)
-        version = _first_line(version_text) if version_result.returncode == 0 else None
-        version_from_metadata = False
+        # Prefer Windows PE metadata so unsupported CLI switches such as
+        # "--version" are not needlessly launched on installed Studio builds.
+        version = _windows_file_version(executable)
+        version_from_metadata = version is not None
         if version is None:
-            version = _windows_file_version(executable)
-            version_from_metadata = version is not None
+            version_result = subprocess.run(
+                [str(executable), "--version"],
+                capture_output=True,
+                text=True,
+                check=False,
+                shell=False,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                timeout=timeout_seconds,
+            )
+            version_text = _combined_output(version_result)
+            version = _first_line(version_text) if version_result.returncode == 0 else None
 
         help_result = subprocess.run(
             [str(executable), "--help"],

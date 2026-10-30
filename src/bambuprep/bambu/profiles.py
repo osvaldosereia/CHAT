@@ -96,23 +96,48 @@ class ProfileCatalog:
 
         loader = _ProfileLoader(bbl_root)
 
-        def read_profile_entries(list_name: str, expected_type: str, code: str) -> dict[str, dict[str, Any]]:
+        def read_profile_entries(
+            list_name: str,
+            expected_type: str,
+            code: str,
+            include_names: frozenset[str] | None = None,
+        ) -> dict[str, dict[str, Any]]:
             try:
-                return loader.read_entries(manifest, list_name, expected_type)
+                return loader.read_entries(
+                    manifest, list_name, expected_type, include_names=include_names
+                )
             except ProfileCatalogError as exc:
                 raise ProfileCatalogError(str(exc), code=code) from exc
 
         machine_models = read_profile_entries(
-            "machine_model_list", "machine_model", "machine_model_profiles_invalid"
+            "machine_model_list",
+            "machine_model",
+            "machine_model_profiles_invalid",
+            include_names=frozenset({MODEL_ID}),
         )
-        machines = read_profile_entries("machine_list", "machine", "machine_profiles_invalid")
-        filaments = read_profile_entries("filament_list", "filament", "filament_profiles_invalid")
+        required_machine_ids = frozenset(
+            f"{MODEL_ID} {nozzle:.1f} nozzle" for nozzle in _REQUIRED_NOZZLES
+        )
+        machines = read_profile_entries(
+            "machine_list",
+            "machine",
+            "machine_profiles_invalid",
+            include_names=required_machine_ids,
+        )
+        required_filament_ids = frozenset(_generic_pla_id(nozzle) for nozzle in _REQUIRED_NOZZLES)
+        filaments = read_profile_entries(
+            "filament_list",
+            "filament",
+            "filament_profiles_invalid",
+            include_names=required_filament_ids,
+        )
         processes = read_profile_entries("process_list", "process", "process_profiles_invalid")
 
         model = machine_models.get(MODEL_ID)
         if model is None:
             raise ProfileCatalogError(f"Installed profiles do not include {MODEL_ID}")
-        if model.get("from") != "system":
+        # The BBL system manifest may identify its machine model without a "from" field.
+        if model.get("from") not in (None, "system"):
             raise ProfileCatalogError("A1 mini model profile is not a system profile")
         supported_nozzles = set(_number_values(model.get("nozzle_diameter"), "model nozzle diameter"))
         if not set(_REQUIRED_NOZZLES).issubset(supported_nozzles):
@@ -216,7 +241,14 @@ class _ProfileLoader:
         self.total_bytes = 0
         self.entries_read = 0
 
-    def read_entries(self, manifest: dict[str, Any], list_name: str, expected_type: str) -> dict[str, dict[str, Any]]:
+    def read_entries(
+        self,
+        manifest: dict[str, Any],
+        list_name: str,
+        expected_type: str,
+        *,
+        include_names: frozenset[str] | None = None,
+    ) -> dict[str, dict[str, Any]]:
         entries = manifest.get(list_name)
         if not isinstance(entries, list) or len(entries) > _PROFILE_ENTRY_LIMIT:
             raise ProfileCatalogError(f"Profile manifest has an invalid {list_name}")
@@ -225,6 +257,8 @@ class _ProfileLoader:
             if not isinstance(entry, dict):
                 raise ProfileCatalogError(f"Profile manifest has an invalid entry in {list_name}")
             name = _required_string(entry.get("name"), f"{list_name} name")
+            if include_names is not None and name not in include_names:
+                continue
             sub_path = _required_string(entry.get("sub_path"), f"{list_name} sub_path")
             if name in loaded:
                 raise ProfileCatalogError(f"Profile manifest contains a duplicate {expected_type} name")
