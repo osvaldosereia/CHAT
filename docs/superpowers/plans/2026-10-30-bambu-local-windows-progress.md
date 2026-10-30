@@ -629,3 +629,10 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Commit de código/teste: `0976450cb09e0700c62e742079fbb81110fcbfa2` (`fix: report Bambu CLI help exit status`), filho do commit de ledger `e3d6cdbd112475b57cd320e06e40ca059972a0ca`. O CI do commit iniciou: testes Windows 41118059732 e build standalone 41118059752 estavam `in_progress` na consulta.
 - O build standalone 41114864699 para o commit `323145212c108fe316b98b155fcb99132c921544` concluiu `success`; o build 41115260192 do commit `c9b7f084c553f7b91ee59edf8dc78998c354f5b7` ainda constava `in_progress`. Nenhum artefato foi anexado.
 - Nenhum checkbox foi alterado. A primeira tarefa incompleta segue a execução do probe atualizado no Windows real; não houve slice, STL Sentinel, perfil carregado, 3MF reaberto, revisão no Studio, chamada OpenAI ou impressão nesta rodada.
+
+### CI da mensagem com código de saída (2026-10-30)
+
+- Workflow Windows 41118059732 do commit `0976450cb09e0700c62e742079fbb81110fcbfa2` concluiu `success` em Windows Server 2025 / Python 3.12.10. Comando do workflow: `uv run --locked --extra test python -m pytest -v` — **165 passed, 1 aviso esperado** da fixture ZIP duplicada, em 16.42s.
+- O build standalone 41118059752 do mesmo commit permanecia `in_progress`, na etapa de compilação com MSVC. O build 41115260192 (commit `c9b7f084c553f7b91ee59edf8dc78998c354f5b7`) também continuava `in_progress`; build não equivale à integração com o Studio.
+- Revisão da documentação: os exemplos PowerShell agora usam barras invertidas simples, e a nota antiga de que a captura mais recente não mostrava código de saída foi removida. Commit de documentação `ce64d1b917fde9941544e1e76e9991a239dc3c11`.
+- O plano continua sem checkboxes adicionais. Primeiro gate pendente: executar no PC o probe do branch atualizado e compartilhar apenas o JSON. A execução manual direta de `--help` com código 0 não substitui esse passo.
