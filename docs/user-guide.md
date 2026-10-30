@@ -15,6 +15,8 @@ python -m bambuprep
 
 Na primeira execução, selecione o `BambuStudio.exe` instalado. O caminho absoluto escolhido fica em `%LOCALAPPDATA%\BambuPrep\preferences.json`; se o seletor for cancelado, o app tenta reutilizar o caminho salvo quando o executável ainda existir. O catálogo procura os perfis ao lado desse executável.
 
+Em **Configurações locais**, também é possível guardar uma pasta de saída preferida. Ela fica nas preferências locais e não é usada para gerar arquivos enquanto o fatiamento/3MF não estiver habilitado.
+
 A leitura dos perfis instalados serve para oferecer opções locais. Ela não testa nem declara compatibilidade do CLI, do fatiamento ou de um arquivo 3MF com o Bambu Studio.
 
 ## Analisar um STL
@@ -29,7 +31,7 @@ As estimativas de orientação, balanço e contato não garantem resultado físi
 
 ## Recomendação OpenAI opcional
 
-Em **Configurações da chave**, digite a chave individual. O campo é mascarado; a chave é salva apenas no Windows Credential Locker e nunca no arquivo de preferências, SQLite ou logs. Se o Credential Locker não estiver disponível, a análise local permanece disponível e a recomendação é desativada.
+Em **Configurações locais**, digite a chave individual. O campo é mascarado; a chave é salva apenas no Windows Credential Locker e nunca no arquivo de preferências, SQLite ou logs. Se o Credential Locker não estiver disponível, a análise local permanece disponível e a recomendação é desativada.
 
 Cada tentativa de recomendação abre uma confirmação nova, com **Não** como padrão. Se você permitir aquele trabalho, a solicitação envia métricas derivadas e as quatro imagens renderizadas; essas vistas podem revelar o formato da peça. O STL bruto, nome/caminho do arquivo e histórico local não são enviados no payload. O uso da API pode ser cobrado separadamente do ChatGPT Plus. Sem consentimento explícito ou chave válida, nenhuma chamada ocorre.
 
