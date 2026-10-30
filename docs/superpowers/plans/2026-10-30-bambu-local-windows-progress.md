@@ -4,7 +4,7 @@
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
 - HEAD anterior registrado no ledger: `3402943aa961ad258c03ca9006ade0a224f03954`; na rodada anterior, `ea19bfbea3c60d7e3fad3afcc92a9764867a5135`.
-- HEAD remoto confirmado ao início desta rodada: `a7a4fb5e72a18aa856982b638c05d67750139786`; commit de código desta entrega: `670324be82bd3820b921261ae1fe71511355b5df` (`feat: inspect local 3MF package structure`).
+- HEAD remoto confirmado ao início da implementação parcial da UI: `6932a2bac3aba81b67f84615dcd63b8960ae32f3`; código UI no branch: `727811553b7c89b79c736a14d25d9a3a5614f513` (`feat: add consent-gated local analysis window`).
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
 - Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
@@ -164,9 +164,31 @@ Ambiente Linux, Python 3.12.14, pytest 9.2.0; nenhum Bambu Studio ou dado privad
 - Sintaxe: `python -m compileall -q src tools tests` — exit 0.
 - Commit de código: `670324be82bd3820b921261ae1fe71511355b5df` (`feat: inspect local 3MF package structure`).
 
+## Continuação 2026-10-30 — interface parcial e barreira de consentimento
+
+- O primeiro gate incompleto segue sendo a prova real da Tarefa 1 em Windows. Esta rodada não teve instalação/build/path reais do Bambu Studio, STL Sentinel, chave API nem confirmação do usuário sobre o bico físico.
+- Criados `src/bambuprep/ui/main_window.py`, `ui/consent.py` e `app.py`; o entry point agora inicia a composição Windows. A janela recebe dependências locais, seleciona STL, apresenta variantes A1 mini/bico, Generic PLA e placa do catálogo, exige checkbox novo de confirmação física por trabalho e submete análise/recomendação no worker existente. Um QTimer consulta o Future e aplica resultados na thread Qt.
+- Cada tentativa de recomendação mostra modal com o texto de privacidade/cobrança e “Não” como padrão. O helper só executa a ação quando a resposta é o objeto booleano literal `True`; o teste verifica recusa, valores ambíguos e novo prompt em toda tentativa.
+- Não há fatiamento, botão de imprimir ou exibição de 3MF. A recomendação mostra explicitamente que não configura/fatia/inicia impressão. Ainda faltam prévia das quatro vistas na janela, tela de configurações para salvar chave no Credential Locker, histórico/exclusão pela UI, integração visual com Qt validada e testes Qt/Windows reais.
+- `pyproject.toml` passou a declarar PySide6 como dependência de runtime e o comando `bambuprep`. Se o Credential Locker estiver indisponível, o app cria somente um adaptador que retorna ausência de chave; não grava segredo em arquivo e mantém análise local.
+- Nenhuma chamada OpenAI foi realizada. A API só é alcançada pelo serviço se o usuário confirmar o modal daquele trabalho e houver chave local.
+
+### Comandos e evidência
+
+Ambiente Linux, Python 3.12.14, pytest 9.2.0. PySide6 não instalado; execução/QA visual Qt não verificada.
+
+- RED da barreira: `python -m pytest tests/unit/test_ui_consent.py -v` — exit 2 na coleta porque `bambuprep.ui` ainda não existia.
+- GREEN focado: `python -m pytest tests/unit/test_ui_consent.py -v` — 3 passed.
+- Suíte completa após os ajustes: `python -m pytest -v` — 105 passed; 1 aviso esperado da fixture ZIP duplicada em `test_project_3mf.py`.
+- Sintaxe: `python -m compileall -q src tools tests` — exit 0.
+- `python -c "import PySide6; print(PySide6.__version__)"` — exit 1: `ModuleNotFoundError`; UI real não pôde ser importada/aberta.
+- `python -m bambuprep` em Linux — exit 1 com “desktop interface requires Windows”, como esperado.
+- Instalação PySide6 havia sido tentada antes e ficou parada por timeouts de PyPI; não houve retry nesta parte. Nenhuma fonte alternativa de runtime foi encontrada nesta execução.
+- Commit parcial de código: `727811553b7c89b79c736a14d25d9a3a5614f513`. O helper de consentimento foi testado sem rede; o teste não comprova o comportamento de QMessageBox em Windows.
+
 ## Próxima execução
 
-Continuar a Tarefa 6 com a interface Qt, confirmação modal nova por trabalho e integração de workers. A tentativa anterior de instalar PySide6 ficou bloqueada por timeout no índice de pacotes; buscar uma via local disponível ou avançar código sem declarar UI verificada. Usar mocks para OpenAI. A inspeção estrutural genérica de 3MF já tem testes sintéticos; integração CLI, metadados Bambu e fatiamento continuam bloqueados pela prova Windows real da Tarefa 1.
+Continuar a Tarefa 6: completar configurações seguras da chave, prévia de vistas, histórico/remoção e provar a responsividade/consentimento com Qt no Windows quando o runtime estiver disponível. A interface foi escrita mas permanece não verificada visualmente porque PySide6 não está instalado no ambiente desta rodada. A inspeção estrutural genérica de 3MF tem somente provas sintéticas; CLI, metadados Bambu e fatiamento continuam bloqueados pela prova Windows real da Tarefa 1.
 
 ## Commits
 
@@ -185,6 +207,6 @@ Continuar a Tarefa 6 com a interface Qt, confirmação modal nova por trabalho e
 1. Em PC Windows suportado, executar o diagnóstico contra a instalação real e registrar versão/build, caminho e argumentos/versão efetivamente observados.
 2. Disponibilizar no PC o STL Sentinel Busts de referência e criar o pequeno projeto de prova com A1 mini, bico confirmado, Generic PLA e Textured PEI.
 3. Reabrir o 3MF no Bambu Studio e conferir Preview e perfis. Até essa confirmação, não declarar CLI compatível, fatiamento/3MF verificado nem `slicer_verified`.
-4. Fornecer chave OpenAI somente quando o fluxo de IA estiver implementado; até lá, usar mocks e não fazer chamadas de rede.
+4. Depois que a tela de configurações estiver pronta, cadastrar localmente uma chave OpenAI no Credential Locker e consentir separadamente por trabalho; até haver chave e consentimento explícito, manter mocks e não fazer chamadas reais.
 
 

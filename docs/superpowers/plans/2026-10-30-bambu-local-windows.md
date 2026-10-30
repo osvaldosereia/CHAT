@@ -203,6 +203,7 @@
 - Tela deve mostrar perfil da A1 mini, bico confirmado, Generic PLA, Textured PEI, dimensões, riscos, vistas, recomendações justificadas e status do trabalho.
 
 - [x] Escrever testes de criação/análise/recomendação simulada e dos caminhos blocked, needs_review, recommendation_ready, failed, consentimento ausente, fonte alterada e OpenAI indisponível.
+- [x] Escrever testes unitários da barreira de consentimento da interface: só o valor literal `True` autoriza a ação; negação bloqueia e cada tentativa exige novo prompt.
 - [ ] Escrever testes de fatiamento, project_configured e confirmação ausente após revisão; dependem das interfaces 3MF gated da Tarefa 5.
 - [x] Rodar `python -m pytest tests/unit/test_workflow_service.py -v` — 7 passed.
 - [x] Implementar `WorkflowService.create_job/analyze/recommend` para validar e analisar o STL localmente, persistir métricas/seleção sem bytes do arquivo, verificar o hash e chamar o serviço OpenAI somente quando consentimento explícito for passado.
