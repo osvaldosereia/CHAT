@@ -120,26 +120,26 @@ def _windows_file_version(executable: Path) -> str | None:
         if not get_info(str(executable), 0, size, data):
             return None
 
-        resource_version = _read_windows_version_string(data, query_value)
-        if resource_version:
-            return resource_version
-
         value = ctypes.c_void_p()
         value_size = wintypes.UINT()
-        if not query_value(data, "\\", ctypes.byref(value), ctypes.byref(value_size)):
-            return None
-        if not value.value or value_size.value < ctypes.sizeof(_VSFixedFileInfo):
-            return None
-
-        fixed_info = ctypes.cast(value, ctypes.POINTER(_VSFixedFileInfo)).contents
-        if fixed_info.dwSignature != 0xFEEF04BD:
-            return None
-        if fixed_info.dwProductVersionMS or fixed_info.dwProductVersionLS:
-            return _format_fixed_file_version(
-                fixed_info.dwProductVersionMS,
-                fixed_info.dwProductVersionLS,
-            )
-        return _format_fixed_file_version(fixed_info.dwFileVersionMS, fixed_info.dwFileVersionLS)
+        fixed_version = None
+        if query_value(data, "\\", ctypes.byref(value), ctypes.byref(value_size)):
+            if value.value and value_size.value >= ctypes.sizeof(_VSFixedFileInfo):
+                fixed_info = ctypes.cast(value, ctypes.POINTER(_VSFixedFileInfo)).contents
+                if fixed_info.dwSignature == 0xFEEF04BD:
+                    if fixed_info.dwProductVersionMS or fixed_info.dwProductVersionLS:
+                        fixed_version = _format_fixed_file_version(
+                            fixed_info.dwProductVersionMS,
+                            fixed_info.dwProductVersionLS,
+                        )
+                    else:
+                        fixed_version = _format_fixed_file_version(
+                            fixed_info.dwFileVersionMS,
+                            fixed_info.dwFileVersionLS,
+                        )
+        if fixed_version:
+            return fixed_version
+        return _read_windows_version_string(data, query_value)
     except (AttributeError, OSError, TypeError, ValueError):
         return None
 
