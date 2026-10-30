@@ -213,3 +213,50 @@ def test_windows_file_metadata_fills_missing_version_without_claiming_cli(tmp_pa
 def test_fixed_file_version_fields_are_formatted_as_four_components():
     assert _format_fixed_file_version(0x00020008, 0x0002003D) == "2.8.2.61"
     assert _format_fixed_file_version(0, 0) is None
+
+
+
+def test_windows_version_resource_reads_fixed_product_version(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+    fixed_info = discovery._VSFixedFileInfo()
+    fixed_info.dwSignature = 0xFEEF04BD
+    fixed_info.dwProductVersionMS = 0x00020008
+    fixed_info.dwProductVersionLS = 0x0002003D
+    subblocks = []
+
+    class FakeFunction:
+        def __init__(self, callback):
+            self.callback = callback
+
+        def __call__(self, *args):
+            return self.callback(*args)
+
+    def get_size(_path, ignored_handle):
+        ignored_handle._obj.value = 0
+        return ctypes.sizeof(fixed_info)
+
+    def get_info(_path, _reserved, _size, _data):
+        return 1
+
+    def query_value(_data, subblock, value_out, size_out):
+        subblocks.append(subblock)
+        value_out._obj.value = ctypes.addressof(fixed_info)
+        size_out._obj.value = ctypes.sizeof(fixed_info)
+        return 1
+
+    version_api = SimpleNamespace(
+        GetFileVersionInfoSizeW=FakeFunction(get_size),
+        GetFileVersionInfoW=FakeFunction(get_info),
+        VerQueryValueW=FakeFunction(query_value),
+    )
+    monkeypatch.setattr(discovery.sys, "platform", "win32")
+    monkeypatch.setattr(discovery.ctypes, "WinDLL", lambda *args, **kwargs: version_api, raising=False)
+
+    assert discovery._windows_file_version(executable) == "2.8.2.61"
+    assert subblocks == ["\\"]
+
+
+def test_windows_metadata_reader_is_noop_off_windows(tmp_path, monkeypatch):
+    monkeypatch.setattr(discovery.sys, "platform", "linux")
+    assert discovery._windows_file_version(tmp_path / "BambuStudio.exe") is None

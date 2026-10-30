@@ -76,7 +76,7 @@ def _windows_file_version(executable: Path) -> str | None:
 
         value = ctypes.c_void_p()
         value_size = wintypes.UINT()
-        if not query_value(data, "\\\\", ctypes.byref(value), ctypes.byref(value_size)):
+        if not query_value(data, "\\", ctypes.byref(value), ctypes.byref(value_size)):
             return None
         if not value.value or value_size.value < ctypes.sizeof(_VSFixedFileInfo):
             return None
