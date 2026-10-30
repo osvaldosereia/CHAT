@@ -1,15 +1,15 @@
 # Prova do CLI do Bambu Studio no Windows
 
-**Estado:** prova funcional e validação do catálogo local ainda pendentes. A instalação real observada no Windows é Bambu Studio 2.8.2.61, em `C:\Program Files\Bambu Studio\bambu-studio.exe`. O probe atualizado detectou a versão pelo metadado do executável, mas informou `cli_available: false`, `capabilities: []`, `profile_catalog.available: false` e nenhum perfil. A ajuda direta mostra opções e termina com código 0, porém o probe não capturou seu texto. Isso não verifica fatiamento nem exportação 3MF.
+**Estado:** prova funcional e validação do catálogo local ainda pendentes. A instalação real observada no Windows é Bambu Studio 2.8.2.61. O probe executado no commit `ac8396f8` retornou `cli_available: false`, `capabilities: []` e `profile_catalog.error_code: machine_profiles_invalid`. A ajuda direta termina com código 0 e lista opções, mas o texto não é capturado pelo probe; esta evidência não verifica fatiamento nem exportação 3MF. O commit `e3db033` atualiza o carregamento de perfis e a detecção da versão, mas ainda não foi executado no Windows do usuário.
 
 ## Dados a registrar
 
 - Data e versão do Windows (10 22H2 x64 ou 11 x64): pendente
 - Versão/build do Bambu Studio: 2.8.2.61 (tela Sobre; o cabeçalho da ajuda mostra `BambuStudio-02.08.02.61`; o probe ainda não captura essa saída)
 - Caminho do executável: `C:\Program Files\Bambu Studio\bambu-studio.exe` (observado no Explorador e no comando)
-- Probe Python mais recente: `version: 2.8.2.61` obtida do metadado PE, `cli_available: false`, `capabilities: []`; `--help` reporta código 0, mas stdout/stderr capturados vieram vazios.
+- Probe Python do commit `ac8396f8`: `version: 2.8.2.61` via metadado PE, `cli_available: false`, `capabilities: []`, `profile_catalog.error_code: machine_profiles_invalid`; stdout/stderr de `--help` vieram vazios.
 - Opções exibidas pela ajuda direta: `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load-settings`, `--load-filaments`, `--load_settings` e `--load_filaments`. A presença na ajuda não comprova execução funcional.
-- Perfis A1 mini, bicos, Generic PLA e Textured PEI encontrados pelo probe: não validados. A última saída mostra `profile_catalog.available: false` e `printers: []`; sua mensagem é genérica e não inclui um código de falha.
+- Perfis A1 mini, bicos, Generic PLA e Textured PEI: ainda não validados. A última saída tinha `profile_catalog.available: false`, `printers: []` e `error_code: machine_profiles_invalid`.
 - Hash do STL de referência (não registrar caminho nem copiar o arquivo): pendente
 - Resultado exportado para 3MF e inspeção do arquivo: pendente
 - Projeto reaberto no Studio; Preview e perfis conferidos pelo usuário: pendente
@@ -20,6 +20,7 @@
 No PowerShell aberto na pasta `tools` do branch atualizado:
 
 ```powershell
+Select-String -Path .\bambu_cli_probe.py -SimpleMatch '"error_code": exc.code'
 $studio = Join-Path $env:ProgramFiles 'Bambu Studio\bambu-studio.exe'
 python .\bambu_cli_probe.py --executable $studio
 ```
@@ -37,7 +38,7 @@ O diagnóstico chama somente `--version` e `--help`, sem `shell=True` e sem inic
 7. Marque esta prova concluída somente quando as evidências acima forem registradas. Uma execução Linux/mock não substitui esta prova.
 
 
-## Estado do probe no branch atual (2026-10-30)
+## Estado histórico do probe antes do diagnóstico atual (2026-10-30)
 A captura adicional do PowerShell ainda exibe JSON sem `profile_catalog`, portanto foi gerada por uma cópia anterior do probe; não substitui a execução da revisão atual. O código atual consegue ler strings ProductVersion/FileVersion, mas somente testes Win32 simulados foram verificados. Após atualizar a pasta `tools`, confira `profile_catalog` no JSON. Se `version` continuar nula, consulte localmente `(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion` e compartilhe apenas esses campos.
 
 
@@ -74,3 +75,13 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 - O arquivo `tools/bambu_cli_probe.py` no branch atual já inclui o campo `error_code` allowlisted. Portanto, a imagem parece vir de uma cópia anterior do script (inferência baseada na ausência do campo); ela ainda não identifica a causa do catálogo local.
 - A ajuda direta continua mostrando opções de CLI, mas isso não comprova o funcionamento do fatiamento ou a exportação/revisão de 3MF. Não foi informado o Windows instalado, nem foi usado o STL de referência nesta captura.
 - Para coletar o diagnóstico da revisão atual, na pasta `tools`, confirme primeiro que `Select-String -Path .\\bambu_cli_probe.py -SimpleMatch '"error_code": exc.code'` encontra o campo; depois execute `python .\\bambu_cli_probe.py --executable $studio`. Compartilhe apenas `profile_catalog.error_code`.
+
+
+## Diagnóstico atualizado recebido do usuário — 2026-10-30 18:29
+
+- O texto do PowerShell confirmou que a cópia baixada continha o campo `error_code`.
+- O executável declarou `FileVersion = 02.08.02.61`; a chamada `--version` foi rejeitada com `Invalid option --version`. A ajuda de `--help` listou opções e terminou com código 0, mas continua sem texto capturado pelo probe. Por isso `cli_available` segue falso e a lista de capacidades vazia.
+- O JSON retornou `profile_catalog.error_code: machine_profiles_invalid`. Ele identifica a etapa que falhou, não revela um caminho ou conteúdo de perfil específico.
+- Correção em `e3db03371a01c0b17734254c2894a377db394a68`: o catálogo agora lê apenas os perfis de modelo, máquinas necessárias para a A1 mini (0,2/0,4 mm) e Generic PLA; aceita `from` ausente no perfil de modelo da lista de sistema. O probe agora prefere a versão do recurso PE no Windows e evita executar `--version` quando essa informação já está disponível.
+- Verificação local sintética após a correção: 32 testes relacionados aprovados e `compileall` sem erros. A captura enviada é anterior a esse commit, então é necessário executar o probe atualizado novamente para confirmar se o catálogo local passou.
+- Nenhum STL/3MF, chave, caminho de perfil, arquivo local ou captura foi adicionado ao repositório. Nenhum slice, 3MF ou revisão no Studio foi alegado.

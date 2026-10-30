@@ -837,3 +837,17 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 - O build standalone do commit `4f644ffa`, run `41129328638`, ainda estava em andamento na última consulta; nenhum resultado ou artefato foi presumido.
 - Nenhuma chamada real OpenAI ocorreu, nenhuma chave foi usada e nenhum STL/3MF/imagem privada/histórico foi gravado. O plano permanece sem alterações; não marquei a Tarefa 1 nem a UI completa (abertura/revisão de 3MF ainda pendente).
 - A automação `6ae425e42b808191bdaf4f892611b197` segue habilitada com RRULE horária `America/Campo_Grande`, mas `automations_peek` continua retornando `next_run_time: null`; o próximo disparo não está confirmado pelo serviço.
+
+
+## Correção do catálogo A1 mini após novo diagnóstico — 2026-10-30
+
+- HEAD antes desta alteração: `ac8396f8ed001749380497510bf90acc5d214354`. O usuário enviou texto do probe executado nessa cópia; o JSON relatou versão `2.8.2.61`, `cli_available: false`, capacidades vazias e `profile_catalog.error_code: machine_profiles_invalid`. O Studio rejeitou `--version` como opção inválida; `--help` saiu com código 0, mas o probe não capturou seu texto. Não foram registrados caminhos da pasta de download nem conteúdo de STL/3MF/chave.
+- Diagnóstico: o leitor exigia a carga de todos os perfis de máquina mesmo usando somente a A1 mini e exigia `from: system` no perfil do modelo. A referência pública de perfil Bambu pode omitir esse campo no objeto de modelo; a cópia do usuário ainda precisa confirmar o comportamento depois da correção. Não se concluiu que essa era a única causa do erro local.
+- TDD em cópia temporária de fontes públicas do branch:
+  - testes novos falharam antes da implementação como esperado: **3 failed, 26 passed** (perfil de máquina irrelevante não instalado; perfil de modelo sem `from`; a versão não deveria executar `--version` quando metadado PE existe).
+  - após a implementação: `PYTHONPATH=/tmp/bambu-test-deps:/tmp/bambu-catalog-work/src:/tmp/bambu-catalog-work python3 -m pytest /tmp/bambu-catalog-work/tests/unit/test_profile_catalog.py /tmp/bambu-catalog-work/tests/unit/test_bambu_discovery.py /tmp/bambu-catalog-work/tests/unit/test_bambu_cli_probe.py -q` — **32 passed em 0.89s**.
+  - `python3 -m compileall -q /tmp/bambu-catalog-work/src /tmp/bambu-catalog-work/tests /tmp/bambu-catalog-work/tools` — exit 0.
+- Commit de código/testes: `e3db03371a01c0b17734254c2894a377db394a68` (`fix: load only required A1 mini system profiles`). Filtros limitam perfis de modelo, máquina e Generic PLA ao conjunto A1 mini requerido; o perfil de modelo pode omitir `from`; no Windows a versão do arquivo é consultada antes de tentar `--version`.
+- Esse teste é sintético em Linux e não confirma perfis instalados, disponibilidade do CLI, fatiamento ou 3MF Bambu. A prova Tarefa 1 continua incompleta; nenhum checkbox do plano foi alterado. Esperar nova execução local do probe atualizado. A revisão ainda não confirmou CLI capturado, STL Sentinel, slice, 3MF aberto/revisado ou impressão.
+- O build standalone anterior, run `41129328638` no commit `4f644ffa`, ainda constava `in_progress` na consulta às 21:13 UTC; nenhum resultado foi inventado. O status CI do novo commit ainda não foi observado nesta atualização.
+- Nenhuma chamada OpenAI real ocorreu. Nenhum arquivo privado foi copiado ou enviado.
