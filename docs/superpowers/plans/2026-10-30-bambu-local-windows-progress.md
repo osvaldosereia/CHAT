@@ -683,3 +683,14 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 3. Confirmar a versão do Windows e testar no próprio PC a abertura manual/resp. Qt. A instalação/UX em Windows 10 e Windows 11 só pode ser declarada após teste em cada alvo.
 4. Chamada real OpenAI segue opcional e depende da chave individual configurada localmente e consentimento explícito por trabalho; até lá, os mocks continuam sendo a única verificação.
 5. Revisão legal/licenças e decisão de distribuição só se tornam necessárias antes de qualquer publicação futura; release e publicação continuam proibidos neste trabalho.
+
+
+
+## Revisão final desta rodada e encerramento da recorrência — 2026-10-30
+
+- Revisado o branch em `1b5b11e3b73c333e96e7997e7537914fd3346990`. A primeira etapa incompleta permanece Tarefa 1: executar o probe atualizado no Windows e registrar os perfis locais. Os itens de slice/export 3MF, reabertura/revisão, STL Sentinel e QA em Windows cliente também dependem de ações locais do usuário.
+- O fallback de abertura manual do STL e os controles de histórico são o avanço implementável sem a prova real; suíte Windows do commit `09c330f` passou com 174 testes e o estado foi registrado no plano/guia.
+- Workflow de build `41120368628` permanecia em execução na etapa MSVC durante a revisão. Sem conclusão não há alegação de build verificado nem artifact.
+- Não resta implementação independente que possa validar o CLI, perfiles instalados, 3MF ou comportamento do desktop real sem a próxima execução no PC Windows. A chave/API/OpenAI é opcional e permanece sem teste real.
+- A automação `6ae425e42b808191bdaf4f892611b197` foi atualizada com `is_enabled=false`; a ferramenta confirmou sucesso, `next_run_time=null`. **A recorrência foi encerrada.** A retomada fica manual após o usuário compartilhar somente o JSON do probe atualizado.
+- Estado privado/segurança: nenhum STL/3MF, captura de tela, chave, histórico, chamada OpenAI ou impressão foi usado ou enviado ao repositório.
