@@ -6,7 +6,7 @@ from concurrent.futures import Future
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -16,8 +16,11 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPixmap,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -25,6 +28,8 @@ from PySide6.QtWidgets import (
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
 from bambuprep.domain.models import JobRecord, PrinterSelection
 from bambuprep.mesh.analyzer import MeshReport
+from bambuprep.mesh.loader import load_stl
+from bambuprep.mesh.render import render_views
 from bambuprep.recommendations.openai_client import CONSENT_NOTICE
 from bambuprep.recommendations.schema import Recommendation
 from bambuprep.ui.consent import run_consented_action
@@ -105,7 +110,26 @@ class BambuPrepMainWindow(QMainWindow):
         self.report_view = QPlainTextEdit(central)
         self.report_view.setReadOnly(True)
         self.report_view.setPlaceholderText("As medições e os avisos locais aparecerão aqui.")
-        layout.addWidget(self.report_view, stretch=1)
+        self.tabs = QTabWidget(central)
+        report_tab = QWidget(self.tabs)
+        report_layout = QVBoxLayout(report_tab)
+        report_layout.addWidget(self.report_view)
+        self.tabs.addTab(report_tab, "Relatório")
+        self._view_labels: dict[str, QLabel] = {}
+        for view_id, title in (
+            ("front", "Frente"),
+            ("side", "Lado"),
+            ("top", "Topo"),
+            ("risk", "Riscos"),
+        ):
+            image_label = QLabel("A vista será gerada após a análise local.", self.tabs)
+            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            scroll = QScrollArea(self.tabs)
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(image_label)
+            self._view_labels[view_id] = image_label
+            self.tabs.addTab(scroll, title)
+        layout.addWidget(self.tabs, stretch=1)
 
         self.setCentralWidget(central)
 
@@ -134,6 +158,7 @@ class BambuPrepMainWindow(QMainWindow):
             self._report = None
             self._recommendation = None
             self.report_view.clear()
+            self._clear_views()
             self.status_label.setText("A configuração mudou. Analise novamente antes de pedir recomendações.")
             self._refresh_controls()
 
@@ -157,6 +182,7 @@ class BambuPrepMainWindow(QMainWindow):
         self.nozzle_confirm.setChecked(False)
         self.file_label.setText(job.source_path.name)
         self.report_view.clear()
+        self._clear_views()
         self.status_label.setText("STL validado localmente. Confirme o bico antes de analisar.")
         self._refresh_controls()
 
@@ -174,14 +200,33 @@ class BambuPrepMainWindow(QMainWindow):
         self._report = None
         self._recommendation = None
         self.report_view.clear()
+        self._clear_views()
         self._set_busy(True, "Análise geométrica local em andamento…")
-        self._submit(self._workflow.analyze, (job.id, selection), self._analysis_finished)
+        self._submit(self._analyze_and_render, (job, selection), self._analysis_finished)
 
-    def _analysis_finished(self, report: MeshReport) -> None:
+    def _analyze_and_render(
+        self,
+        job: JobRecord,
+        selection: PrinterSelection,
+    ) -> tuple[MeshReport, dict[str, bytes]]:
+        report = self._workflow.analyze(job.id, selection)
+        document = load_stl(job.source_path)
+        if document.sha256 != job.source_sha256:
+            raise ValueError("O STL mudou após a análise; selecione novamente o arquivo antes de exibir vistas.")
+        return report, render_views(document, report)
+
+    def _analysis_finished(self, result: tuple[MeshReport, dict[str, bytes]]) -> None:
+        report, views = result
         self._report = report
         self._recommendation = None
         self.status_label.setText("Análise local concluída. Revise as medições e os avisos abaixo.")
         self.report_view.setPlainText(_format_report(report))
+        for view_id, image_bytes in views.items():
+            image = QPixmap()
+            if not image.loadFromData(image_bytes, "PNG"):
+                self._clear_views()
+                raise ValueError(f"A vista local {view_id} não pôde ser carregada como PNG.")
+            self._view_labels[view_id].setPixmap(image)
         self._refresh_controls()
 
     def _recommend(self) -> None:
@@ -278,6 +323,10 @@ class BambuPrepMainWindow(QMainWindow):
         if message:
             self.status_label.setText(message)
         self._refresh_controls()
+
+    def _clear_views(self) -> None:
+        for label in getattr(self, "_view_labels", {}).values():
+            label.clear()
 
     def _show_error(self, error: Exception) -> None:
         QMessageBox.warning(self, "BambuPrep", str(error))
