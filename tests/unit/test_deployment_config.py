@@ -13,7 +13,7 @@ def test_deployment_spec_selects_standalone_entrypoint_and_noninteractive_downlo
     nuitka = config["nuitka"]
     assert app["title"] == "BambuPrep"
     assert app["input_file"] == "src/bambuprep/desktop_entry.py"
-    assert app["project_file"] == "pyproject.toml"
+    assert "project_file" not in app
     assert app["exec_directory"] == "dist"
     assert nuitka["mode"] == "standalone"
     assert nuitka["extra_args"] == "--assume-yes-for-downloads"
