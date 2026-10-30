@@ -200,6 +200,67 @@ def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
         runner.close(wait=True)
 
 
+def test_physical_nozzle_confirmation_is_required_again_after_job_or_profile_change(qapp, tmp_path):
+    profiles = (
+        PrinterProfile(
+            printer_id="Bambu Lab A1 mini 0.4 nozzle",
+            nozzle_mm=0.4,
+            generic_pla_profile_id="Generic PLA @BBL A1M",
+            default_process_profile_id="0.20mm Standard @BBL A1M",
+            plate_id="Textured PEI Plate",
+            compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
+            support_options=("tree(auto)",),
+            adhesion_options=("brim", "none"),
+        ),
+        PrinterProfile(
+            printer_id="Bambu Lab A1 mini 0.2 nozzle",
+            nozzle_mm=0.2,
+            generic_pla_profile_id="Generic PLA @BBL A1M 0.2 nozzle",
+            default_process_profile_id="0.12mm Fine @BBL A1M 0.2 nozzle",
+            plate_id="Textured PEI Plate",
+            compatible_process_profile_ids=("0.12mm Fine @BBL A1M 0.2 nozzle",),
+            support_options=("tree(auto)",),
+            adhesion_options=("brim", "none"),
+        ),
+    )
+    catalog = ProfileCatalog("Bambu Lab A1 mini", "synthetic", profiles)
+    runner = WorkflowTaskRunner(max_workers=1)
+    window = BambuPrepMainWindow(FakeWorkflow(), catalog, runner, MemoryKeyStore())
+    first_job = JobRecord(
+        id="job-1",
+        created_at=datetime.now(timezone.utc),
+        source_path=tmp_path / "first.stl",
+        source_sha256="a" * 64,
+        state=JobState.NEEDS_REVIEW,
+    )
+    window._job_created(first_job)
+
+    assert window.nozzle_confirm.isEnabled()
+    assert not window.nozzle_confirm.isChecked()
+    assert not window.analyze_button.isEnabled()
+    window.nozzle_confirm.setChecked(True)
+    assert window.analyze_button.isEnabled()
+
+    window.profile_combo.setCurrentIndex(1)
+    assert not window.nozzle_confirm.isChecked()
+    assert not window.analyze_button.isEnabled()
+
+    second_job = JobRecord(
+        id="job-2",
+        created_at=datetime.now(timezone.utc),
+        source_path=tmp_path / "second.stl",
+        source_sha256="b" * 64,
+        state=JobState.NEEDS_REVIEW,
+    )
+    window.nozzle_confirm.setChecked(True)
+    window._job_created(second_job)
+    assert not window.nozzle_confirm.isChecked()
+    assert not window.analyze_button.isEnabled()
+
+    window.close()
+    runner.close(wait=True)
+
+
 def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_path, monkeypatch):
     profile = PrinterProfile(
         printer_id="Bambu Lab A1 mini 0.4 nozzle",
