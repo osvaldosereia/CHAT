@@ -611,3 +611,13 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Workflow 41115260639 para c9b7f084c553f7b91ee59edf8dc78998c354f5b7 concluiu success em windows-latest/Python 3.12.10. Comando: uv run --locked --extra test python -m pytest -v — 165 passed, 1 aviso esperado de nome ZIP duplicado, 17.99s.
 - A regressão confirma que o probe passa a constante CREATE_NO_WINDOW nas chamadas --version e --help quando disponível. Isso valida somente a construção do subprocesso no runner Windows; o CLI real 2.8.2.61 ainda precisa ser exercitado pelo usuário.
 - Build standalone 41115260192 permanecia in_progress; nenhum artefato foi anexado/publicado. Nenhum checkbox do plano foi marcado.
+
+
+### Evidência adicional do Bambu Studio 2.8.2.61 (2026-10-30)
+
+- A nova captura enviada pelo usuário mostra a ajuda completa no PowerShell, retorno ao prompt e `Exit code: 0`. A ajuda direta exibe `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load_settings` e `--load_filaments`.
+- Isso comprova que a invocação direta de `--help` terminou com sucesso nesta instalação; não comprova que o probe Python capturou stdout/stderr nem que qualquer operação de slice/export funciona. A mudança `CREATE_NO_WINDOW` ainda precisa ser testada no Studio 2.8.2.61.
+- Evidência registrada em `docs/operations/windows-cli-proof.md`, commit `94022d047ac3bd25e0f1896dbbc41d74e20ff676`. A captura não foi versionada. O plano não foi marcado: Tarefa 1 ainda exige executar o probe do branch atualizado e ler perfis; projeto/3MF e revisão continuam não realizados.
+- Verificação de código existente: workflow Windows 41115260639, commit `c9b7f084c553f7b91ee59edf8dc78998c354f5b7`, `uv run --locked --extra test python -m pytest -v` — success, 165 passed e um aviso esperado da fixture ZIP duplicada (Windows Server runner, Python 3.12.10). É CI de testes, não prova do Bambu Studio.
+- Workflow de build standalone 41115260192 permanecia `in_progress` na consulta desta rodada. Não há checkout Git no ambiente desta sessão; por isso nenhum comando de teste foi executado localmente nesta rodada. Nenhum arquivo privado, STL/3MF, chave ou captura foi enviado ao GitHub.
+- Próxima ação indispensável do usuário: baixar o ZIP atualizado do branch, abrir `tools` no PowerShell e executar `python .\bambu_cli_probe.py --executable "$env:ProgramFiles\Bambu Studio\bambu-studio.exe"`; compartilhar apenas o JSON. A prova de integração permanece aberta.
