@@ -54,6 +54,9 @@ class PrinterProfile:
     compatible_process_profile_ids: tuple[str, ...]
     support_options: tuple[str, ...]
     adhesion_options: tuple[str, ...]
+    default_support_enabled: bool | None
+    default_support_option: str | None
+    default_adhesion_option: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +64,8 @@ class ProfileCatalog:
     model_id: str
     profile_version: str
     printers: tuple[PrinterProfile, ...]
+    studio_root: Path
+    profile_paths: tuple[tuple[str, str, Path], ...]
 
     @classmethod
     def load(cls, studio_root: Path) -> ProfileCatalog:
@@ -177,6 +182,7 @@ class ProfileCatalog:
                 process_id: _resolve_process(process_id, processes, set())
                 for process_id in compatible
             }
+            resolved_default = resolved_processes[default_process_id]
             support_options: set[str] = set()
             adhesion_options: set[str] = set()
             for process_id, resolved in resolved_processes.items():
@@ -199,6 +205,13 @@ class ProfileCatalog:
                     compatible_process_profile_ids=tuple(sorted(compatible)),
                     support_options=tuple(sorted(support_options)),
                     adhesion_options=tuple(sorted(adhesion_options)),
+                    default_support_enabled=_boolean_setting(resolved_default.get("enable_support")),
+                    default_support_option=(
+                        _required_string(resolved_default.get("support_type"), "default support type")
+                        if resolved_default.get("support_type") is not None
+                        else None
+                    ),
+                    default_adhesion_option=_adhesion_option(resolved_default, default_process_id),
                 )
             )
 
@@ -214,7 +227,25 @@ class ProfileCatalog:
                 "Profile manifest version is invalid",
                 code="profile_manifest_invalid",
             )
-        return cls(model_id=MODEL_ID, profile_version=version_text, printers=tuple(printers))
+        return cls(
+            model_id=MODEL_ID,
+            profile_version=version_text,
+            printers=tuple(printers),
+            studio_root=root,
+            profile_paths=tuple(
+                (profile_type, profile_id, profile_path)
+                for (profile_type, profile_id), profile_path in sorted(loader.profile_paths.items())
+            ),
+        )
+
+    def profile_path(self, profile_type: str, profile_id: str) -> Path:
+        """Return a validated system profile path loaded from this installation."""
+        if profile_type not in {"machine", "process", "filament"}:
+            raise ProfileCatalogError("Requested system profile type is not supported")
+        for loaded_type, loaded_id, path in self.profile_paths:
+            if loaded_type == profile_type and loaded_id == profile_id:
+                return path
+        raise ProfileCatalogError("Requested system profile is not present in the installed catalog")
 
     def printer(self, printer_id: str) -> PrinterProfile:
         for printer in self.printers:
@@ -240,6 +271,7 @@ class _ProfileLoader:
         self.root = bbl_root.resolve()
         self.total_bytes = 0
         self.entries_read = 0
+        self.profile_paths: dict[tuple[str, str], Path] = {}
 
     def read_entries(
         self,
@@ -262,13 +294,14 @@ class _ProfileLoader:
             sub_path = _required_string(entry.get("sub_path"), f"{list_name} sub_path")
             if name in loaded:
                 raise ProfileCatalogError(f"Profile manifest contains a duplicate {expected_type} name")
-            profile = self._read_profile(sub_path)
+            profile, profile_path = self._read_profile(sub_path)
             if profile.get("type") != expected_type or profile.get("name") != name:
                 raise ProfileCatalogError(f"Profile type or name does not match the manifest entry: {name}")
             loaded[name] = profile
+            self.profile_paths[(expected_type, name)] = profile_path
         return loaded
 
-    def _read_profile(self, sub_path: str) -> dict[str, Any]:
+    def _read_profile(self, sub_path: str) -> tuple[dict[str, Any], Path]:
         if len(sub_path) > 512 or "\\" in sub_path or "\x00" in sub_path:
             raise ProfileCatalogError("Profile path is invalid")
         relative = PurePosixPath(sub_path)
@@ -295,7 +328,7 @@ class _ProfileLoader:
             raise ProfileCatalogError("Could not read an installed Bambu Studio profile file") from exc
         if not isinstance(data, dict):
             raise ProfileCatalogError("Installed profile must be a JSON object")
-        return data
+        return data, resolved
 
 
 def _find_machine_profile(machines: dict[str, dict[str, Any]], nozzle: float) -> dict[str, Any]:
@@ -310,6 +343,22 @@ def _find_machine_profile(machines: dict[str, dict[str, Any]], nozzle: float) ->
         nozzle_label = f"{nozzle:.1f}"
         raise ProfileCatalogError(f"Expected exactly one installed A1 mini {nozzle_label} mm machine profile")
     return matches[0]
+
+
+def _boolean_setting(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    if value is None:
+        return None
+    raise ProfileCatalogError("Installed support-enabled setting is invalid")
 
 
 def _generic_pla_id(nozzle: float) -> str:

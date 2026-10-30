@@ -51,6 +51,14 @@ _ROTATIONS = (
 )
 
 
+def orientation_rotation_degrees(orientation_id: str) -> tuple[int, int, int]:
+    """Return the deterministic rotation for a measured orientation identifier."""
+    for candidate_id, rotation_degrees, _matrix in _ROTATIONS:
+        if candidate_id == orientation_id:
+            return rotation_degrees
+    raise ValueError("Orientation identifier is not a measured local candidate")
+
+
 def _face_geometry(mesh: trimesh.Trimesh) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     triangles = np.asarray(mesh.vertices, dtype=np.float64)[np.asarray(mesh.faces, dtype=np.int64)]
     cross = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])

@@ -377,3 +377,25 @@ def test_windows_version_resource_falls_back_to_file_version_string(tmp_path, mo
         r"\StringFileInfo\040904B0\ProductVersion",
         r"\StringFileInfo\040904B0\FileVersion",
     ]
+
+
+def test_detects_explicit_rotation_axes_needed_by_slice_plan(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+
+    def fake_run(command, **kwargs):
+        if command[-1] == "--version":
+            return CompletedProcess(command, 0, "Bambu Studio 2.8.2.61", "")
+        return CompletedProcess(
+            command,
+            0,
+            "--orient --rotate-x --rotate-y --rotate --arrange --slice --export-3mf "
+            "--load-settings --load-filaments",
+            "",
+        )
+
+    monkeypatch.setattr("bambuprep.bambu.discovery.subprocess.run", fake_run)
+    result = probe_studio(executable)
+
+    assert result.cli_available is True
+    assert {"rotation_x", "rotation_y", "rotation_z"}.issubset(result.capabilities)
