@@ -804,3 +804,10 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 - O plano de implementação não teve checkboxes alterados. A prova real da Tarefa 1, slice/3MF da Tarefa 5, reabertura/revisão no Studio e impressão física continuam pendentes. Nenhum STL/3MF, captura de tela, chave, histórico local ou imagem privada foi gravado no GitHub; nenhuma chamada OpenAI foi feita.
 - Próxima ação humana para diagnóstico: baixar a branch atualizada depois destes commits e executar novamente o probe em `tools`; compartilhar apenas o JSON contendo `profile_catalog.error_code`. A versão do Windows e a prova local com o STL Sentinel/3MF ainda serão necessárias antes de declarar integração verificada. Não é necessário reenviar a ajuda completa.
 
+
+
+## Recorrência horária retomada — 2026-10-30
+
+- Como há programação independente ainda possível nas Tarefas 5–7, a automação anteriormente pausada foi reabilitada após o usuário compartilhar o resultado novo do probe. Isso retoma o pedido anterior de execução horária; a próxima resposta do usuário ainda é necessária para obter o código de falha específico do catálogo local.
+- Estado confirmado por `automations_peek`: `is_enabled: true`, fuso `America/Campo_Grande`, agenda `DTSTART;TZID=America/Campo_Grande:20261030T175500` com `RRULE:FREQ=HOURLY;INTERVAL=1`. O relógio local do ambiente foi `2026-10-30 16:54:39 -04`; a agenda foi reancorada para uma hora depois.
+- O serviço retornou `next_run_time: null` mesmo com agenda horária e tarefa habilitada; por isso, o ledger não declara um horário de execução efetivamente agendado. Confirmar em uma execução posterior. Ao restarem só ações humanas, desabilitar novamente a recorrência conforme instrução.
