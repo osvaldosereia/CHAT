@@ -1,4 +1,5 @@
 import ctypes
+import sys
 from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
 from types import SimpleNamespace
@@ -407,3 +408,73 @@ def test_rotation_z_detection_does_not_match_rotate_x_or_rotate_y_prefixes():
 
     assert {"rotation_x", "rotation_y"}.issubset(capabilities)
     assert "rotation_z" not in capabilities
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="requires the Windows pseudoconsole API")
+def test_windows_pseudoconsole_captures_direct_writeconsole_output(tmp_path):
+    command = [
+        sys.executable,
+        "-c",
+        (
+            "import ctypes; from ctypes import wintypes; "
+            "k=ctypes.WinDLL('kernel32', use_last_error=True); "
+            "k.GetStdHandle.argtypes=[wintypes.DWORD]; "
+            "k.GetStdHandle.restype=wintypes.HANDLE; "
+            "k.WriteConsoleW.argtypes=[wintypes.HANDLE, wintypes.LPCWSTR, "
+            "wintypes.DWORD, ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]; "
+            "k.WriteConsoleW.restype=wintypes.BOOL; "
+            "h=k.GetStdHandle(0xFFFFFFF5); n=wintypes.DWORD(); "
+            "ok=k.WriteConsoleW(h, 'BAMBU_CONSOLE_CAPTURE_SENTINEL', 31, ctypes.byref(n), None); "
+            "raise SystemExit(0 if ok and n.value == 31 else 41)"
+        ),
+    ]
+    result = discovery._windows_pseudoconsole_run(
+        command,
+        timeout_seconds=10,
+        cwd=tmp_path,
+    )
+
+    assert result.returncode == 0
+    assert "BAMBU_CONSOLE_CAPTURE_SENTINEL" in result.stdout
+
+
+def test_windows_probe_uses_console_capture_when_standard_pipes_are_empty(tmp_path, monkeypatch):
+    executable = tmp_path / "BambuStudio.exe"
+    executable.write_bytes(b"stub")
+    monkeypatch.setattr(discovery.sys, "platform", "win32")
+    monkeypatch.setattr(discovery, "_windows_file_version", lambda _path: "2.8.2.61")
+    captured = []
+
+    def fake_console_run(command, *, timeout_seconds, cwd):
+        captured.append((command, timeout_seconds, cwd))
+        return CompletedProcess(
+            command,
+            0,
+            "--load-settings --load-filaments --orient --rotate-x --rotate-y "
+            "--rotate --arrange --slice --export-3mf",
+            "",
+        )
+
+    def empty_standard_pipe(command, **kwargs):
+        return CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(discovery, "_windows_pseudoconsole_run", fake_console_run, raising=False)
+    monkeypatch.setattr(discovery.subprocess, "run", empty_standard_pipe)
+
+    result = probe_studio(executable)
+
+    assert result.cli_available is True
+    assert {
+        "machine_profiles",
+        "filament_profiles",
+        "orientation",
+        "rotation_x",
+        "rotation_y",
+        "rotation_z",
+        "arrangement",
+        "slicing",
+        "export_3mf",
+    } <= result.capabilities
+    assert len(captured) == 1
+    assert captured[0][0][-1] == "--help"
+    assert captured[0][2] == executable.parent
