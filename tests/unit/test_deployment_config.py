@@ -40,4 +40,22 @@ def test_windows_build_installs_the_pinned_deployment_compiler():
     assert build_dependencies == ["Nuitka==4.3.1"]
 
     workflow = (ROOT / ".github" / "workflows" / "windows-build.yml").read_text(encoding="utf-8")
-    assert 'python -m pip install -e ".[build]"' in workflow
+    assert "uv sync --locked --extra build" in workflow
+    assert "uv run --locked --extra build pyside6-deploy" in workflow
+
+
+def test_windows_actions_install_and_use_the_committed_dependency_lock():
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    nuitka = next(package for package in lock["package"] if package["name"] == "nuitka")
+    assert nuitka["version"] == "4.3.1"
+
+    expected = {
+        ".github/workflows/windows-build.yml": "build",
+        ".github/workflows/windows-tests.yml": "test",
+    }
+    for relative_path, extra in expected.items():
+        workflow = (ROOT / relative_path).read_text(encoding="utf-8")
+        assert "python -m pip install uv==0.13.4" in workflow
+        assert f"uv sync --locked --extra {extra}" in workflow
+        assert f"uv run --locked --extra {extra}" in workflow
+        assert '"uv.lock"' in workflow
