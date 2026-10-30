@@ -4,7 +4,7 @@
 
 ## Inventário preliminar do ambiente de build
 
-A coleta foi feita em 30/10/2026 no ambiente Linux x86_64 criado com `uv run --locked --extra build`. As expressões abaixo vêm dos metadados das distribuições instaladas. A primeira compilação standalone após a correção do nome foi concluída em runner GitHub Actions Windows Server 2025 (run 41036004359, commit 690ab902), com varredura por extensões de dados locais. Uma execução posterior (run 41046396800, commit 106465fd2fb91c10fd201c0e59c59b7e2bae750f) concluiu a auditoria standalone: o log contém inventário de 922 arquivos relativos e 209.267.185 bytes, incluindo `BambuPrep.exe` com 63.209.984 bytes e SHA-256 `772154dce5d9c5239de1bd5da41c5132ba56e02fd781080927a79c779070b777`. O scanner percorreu os arquivos do bundle, rejeitou as extensões cobertas de STL/3MF/histórico/credenciais e procurou tokens com formato OpenAI `sk-`; sucesso indica que nenhum item coberto foi encontrado. Nenhum artifact transferível foi anexado. O inventário não contém `*.dist-info/METADATA`, portanto não mapeia módulos binários/plugins/fontes incluídos para suas licenças e não é um SBOM. A build do commit de código atual 4054ee9 ainda está em andamento (run 41054439734); este relatório não substitui a inspeção do bundle dessa revisão. A revisão efetiva de componentes/licenças continua aberta.
+A coleta foi feita em 30/10/2026 no ambiente Linux x86_64 criado com `uv run --locked --extra build`. As expressões abaixo vêm dos metadados das distribuições instaladas. A build standalone do commit 4054ee9cafc2541181d66f137f96a6c5ba997875 concluiu success no runner GitHub Actions Windows Server 2025 (run 41054439734). O log contém inventário relativo de 922 arquivos e 209.397.745 bytes; `BambuPrep.exe` tem 63.340.544 bytes e SHA-256 `370eb9778049650ab50af14fe2a52863a908f21156a71ce815fcb8866b47f691`. O scanner percorreu os arquivos do bundle, rejeitou extensões cobertas de STL/3MF/histórico/credenciais e procurou tokens com formato OpenAI `sk-`; sucesso indica que nenhum item coberto foi encontrado. Nenhum artifact transferível foi anexado. O inventário do bundle não contém `*.dist-info/METADATA` nem estabelece por si só o mapa de licenças. O relatório de licença do build ainda não foi gerado; até lá, a revisão efetiva de componentes/licenças permanece aberta.
 
 | Distribuição travada | Versão observada | Metadado de licença observado | Próxima verificação |
 |---|---:|---|---|
@@ -23,7 +23,7 @@ O projeto declara atualmente `Proprietary - personal project` nos metadados. Ess
 
 ## Gates antes de qualquer distribuição
 
-- [ ] Construir o pacote Windows standalone e listar todos os arquivos, DLLs, plugins Qt, fontes e dados incluídos.
+- [x] Construir o pacote Windows standalone e listar todos os arquivos, DLLs, plugins Qt, fontes e dados incluídos. Run 41054439734, commit 4054ee9: inventário completo relativo de 922 arquivos e hashes no log do job; nenhum artifact foi anexado.
 - [ ] Gerar SBOM/inventário de licenças a partir do bundle efetivo e relacioná-lo ao uv.lock.
 - [ ] Conferir os termos do Qt para os componentes efetivamente incluídos. Qt for Python oferece Community Edition sob LGPLv3/GPLv3 e uma edição comercial; componentes específicos e bibliotecas de terceiros podem ter termos próprios.
 - [ ] Decidir e registrar a licença do BambuPrep e o modelo de distribuição.

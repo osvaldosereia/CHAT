@@ -390,3 +390,12 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Verificação local final, após as últimas alterações: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q` — 143 passed, 1 aviso esperado da fixture sintética ZIP duplicada, em 4.93s. `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests` — exit 0. Checagem Python de trailing whitespace — `trailing whitespace: []`.
 - Commit de código/testes: 4054ee9cafc2541181d66f137f96a6c5ba997875. Windows unit/Qt run 41054439811 concluiu success em Windows Server 2025, Python 3.12.10: 143 passed, 1 warning, em 15.78s. Windows standalone build run 41054439734 ainda estava in_progress às 12:20:22 UTC; a auditoria atual do bundle aguarda esse job.
 - Não houve chamada OpenAI, chave real, uso de STL/3MF do usuário, impressão, artifact upload, merge, release ou publicação. A checklist de licenças e a validação real continuam pendentes.
+
+
+## Atualização de build Windows — commit 4054ee9 (2026-10-30)
+
+- Windows standalone run 41054439734 concluiu success às 12:45:55 UTC em Windows Server 2025. O log confirma a criação de `src/bambuprep/deployment/desktop_entry.dist/BambuPrep.exe` e a cópia para `dist/BambuPrep.dist`; a auditoria também passou.
+- Inventário do bundle: 922 arquivos, 209.397.745 bytes; `BambuPrep.exe` tem 63.340.544 bytes, SHA-256 `370eb9778049650ab50af14fe2a52863a908f21156a71ce815fcb8866b47f691`. O resumo não contém caminho absoluto; nenhum artifact foi anexado.
+- A suíte Windows run 41054439811 concluiu success: 143 passed, 1 warning, 15.78s. Local: `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m pytest -q` — 143 passed, 1 warning; `UV_PROJECT_ENVIRONMENT=/tmp/bambuprep-qt-env uv run --locked --extra test python -m compileall -q src tools tests` — exit 0; whitespace: `trailing whitespace: []`.
+- T7 build e auditoria de arquivos/segredos estão verificados para o commit 4054ee9. O mapa de licenças do conteúdo compilado e a licença/NOTICE do projeto continuam abertos. T1 continua a primeira pendência geral, dependente da instalação real do Bambu Studio e do STL Sentinel no Windows do usuário.
+- Nenhuma chamada OpenAI, chave real, arquivo privado, impressão, publicação ou artifact upload.
