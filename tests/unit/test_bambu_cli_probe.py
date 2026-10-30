@@ -66,6 +66,7 @@ def test_profile_summary_fails_closed_without_install_profile_data(tmp_path, mon
 
     assert summary == {
         "available": False,
+        "error_code": "profile_catalog_invalid",
         "message": "The installed A1 mini system profile set could not be validated.",
         "printers": [],
     }
@@ -92,3 +93,4 @@ def test_cli_json_contains_profile_summary_even_when_help_is_uncaptured(tmp_path
     assert payload["profile_catalog"]["available"] is True
     assert payload["profile_catalog"]["printers"][1]["plate_id"] == "Textured PEI Plate"
     assert str(tmp_path) not in json.dumps(payload["profile_catalog"])
+
