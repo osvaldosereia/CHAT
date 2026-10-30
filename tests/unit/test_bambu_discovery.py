@@ -318,6 +318,7 @@ def test_windows_version_resource_falls_back_to_product_version_string(tmp_path,
 
     assert discovery._windows_file_version(executable) == "02.08.02.61"
     assert queried == [
+        r"\",
         r"\VarFileInfo\Translation",
         r"\StringFileInfo\040904B0\ProductVersion",
     ]
