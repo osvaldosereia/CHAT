@@ -859,3 +859,15 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 - O workflow standalone do mesmo commit, run `41132208745`, estava `in_progress` na última consulta. Nenhum resultado de build foi presumido; aguardar ou registrar conclusão/falha em rodada posterior.
 - A correção foi verificada na suíte Windows; a captura do usuário ainda corresponde ao commit anterior `ac8396f8`. O novo catálogo precisa ser executado no PC para confirmar se reconhece os perfis instalados. `cli_available` continua não verificado, pois a ajuda aparece no console sem texto capturado. A prova da Tarefa 1 permanece pendente; slice, exportação/revisão de 3MF e confirmação física também.
 - O branch não alterou `main`, plano ou checkboxes. Nenhum arquivo privado, STL/3MF, imagem anexada, chave ou histórico local foi adicionado; nenhuma chamada real à OpenAI ocorreu.
+
+
+## Nova execução Windows do probe — 2026-10-30 18:41
+
+- Resultado compartilhado pelo usuário a partir da cópia do branch no commit `298b1956c101f1636343a46be2e676ed4297f098`: a busca em `tools/bambu_cli_probe.py` encontrou o campo de erro sanitizado; a execução local retornou JSON com `version: 2.8.2.61` e `profile_catalog.available: true`.
+- O catálogo da instalação reconheceu `Bambu Lab A1 mini`, catálogo de perfis `02.08.00.05`, bicos 0,2/0,4 mm, Generic PLA para cada bico, Textured PEI Plate, `tree(auto)` e `brim`. A atualização correspondente em `docs/operations/windows-cli-proof.md` foi gravada no commit `94e55adc785c10edfae5a99f7952b4f130ccd083`.
+- A ajuda foi exibida no console pelo comando direto e incluiu `--slice`, `--export-3mf`, `--load-settings` e `--load-filaments`; no probe, o processo de ajuda saiu com código 0, porém stdout/stderr continuam vazios. Resultado: `cli_available: false`, `capabilities: []`; a saída do script Python (código 2 quando CLI não disponível) não foi informada.
+- Isso confirma leitura dos perfis locais após `e3db0337`; não confirma que o CLI consiga carregar, fatiar ou exportar, nem que um 3MF Bambu abra corretamente. Nenhum STL Sentinel foi usado, nenhum arquivo abriu/revisou no Studio e nenhuma impressão física foi validada.
+- A versão exata do Windows/arquitetura não foi enviada, então o requisito de ambiente suportado (Windows 10 22H2 x64 ou Windows 11 x64) continua pendente. A primeira caixa de prova real da Tarefa 1 permanece desmarcada; nenhuma outra caixa do plano foi alterada.
+- Evidência recebida: texto PowerShell fornecido pelo usuário. Nenhum arquivo local, caminho pessoal, imagem, STL/3MF, chave ou histórico foi salvo no repositório. Nenhuma chamada real OpenAI ocorreu.
+- Windows standalone build do commit `e3db0337`, run `41132208745`, ainda estava `in_progress` na última consulta; não registrar sucesso sem conclusão do workflow.
+- Estado do branch antes desta atualização de evidência: `298b1956c101f1636343a46be2e676ed4297f098`. Nenhum merge, release ou publicação ocorreu.
