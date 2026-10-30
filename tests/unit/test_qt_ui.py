@@ -41,14 +41,18 @@ class MemoryKeyStore:
 
 
 class MemoryPreferences:
-    def __init__(self, studio_executable=None):
+    def __init__(self, studio_executable=None, output_directory=None):
         self.studio_executable = studio_executable
+        self.output_directory = output_directory
 
     def load(self):
-        return LocalPreferences(self.studio_executable)
+        return LocalPreferences(self.studio_executable, self.output_directory)
 
     def save_studio_executable(self, path):
         self.studio_executable = Path(path)
+
+    def save_output_directory(self, path):
+        self.output_directory = Path(path)
 
 
 class FakeMimeEvent:
@@ -117,6 +121,25 @@ def test_settings_dialog_updates_local_studio_path_and_explains_privacy_and_rete
     assert "manualmente" in dialog.retention_note.text().lower()
     assert "não remove os stl originais" in dialog.retention_note.text().lower()
     assert "não está habilitada" in dialog.output_note.text().lower()
+    dialog.close()
+
+
+def test_settings_dialog_saves_output_directory_without_claiming_slicing_is_enabled(
+    qapp, tmp_path, monkeypatch
+):
+    preferences = MemoryPreferences()
+    dialog = SettingsDialog(MemoryKeyStore(), preferences=preferences)
+    output_directory = tmp_path / "prepared projects"
+    output_directory.mkdir()
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *args: str(output_directory))
+    monkeypatch.setattr(QMessageBox, "information", lambda *args: QMessageBox.StandardButton.Ok)
+
+    dialog.output_directory_button.click()
+
+    assert preferences.output_directory == output_directory
+    assert str(output_directory) in dialog.output_directory_status.text()
+    assert "fatiamento/3mf não está habilitada" in dialog.output_note.text().lower()
+    assert "não é usada enquanto" in dialog.output_note.text().lower()
     dialog.close()
 
 
