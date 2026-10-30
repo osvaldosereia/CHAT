@@ -44,8 +44,54 @@ def _format_fixed_file_version(version_ms: int, version_ls: int) -> str | None:
     )
 
 
+def _read_windows_version_string(data: ctypes.Array, query_value: object) -> str | None:
+    """Read ProductVersion/FileVersion strings using the resource translation table."""
+    translations = ctypes.c_void_p()
+    translations_size = wintypes.UINT()
+    if not query_value(
+        data,
+        r"\VarFileInfo\Translation",
+        ctypes.byref(translations),
+        ctypes.byref(translations_size),
+    ):
+        return None
+    if not translations.value or translations_size.value < 4 or translations_size.value > 256:
+        return None
+
+    translation_data = ctypes.string_at(translations.value, translations_size.value)
+    language_pairs = [
+        (
+            int.from_bytes(translation_data[offset : offset + 2], "little"),
+            int.from_bytes(translation_data[offset + 2 : offset + 4], "little"),
+        )
+        for offset in range(0, len(translation_data) - 3, 4)
+    ]
+    for resource_name in ("ProductVersion", "FileVersion"):
+        for language, codepage in language_pairs:
+            if not language and not codepage:
+                continue
+            query_path = "\\StringFileInfo\\{:04X}{:04X}\\{}".format(
+                language,
+                codepage,
+                resource_name,
+            )
+            value = ctypes.c_void_p()
+            value_size = wintypes.UINT()
+            if not query_value(data, query_path, ctypes.byref(value), ctypes.byref(value_size)):
+                continue
+            if not value.value or not value_size.value or value_size.value > 256:
+                continue
+            try:
+                text = ctypes.wstring_at(value.value, value_size.value).split("\x00", 1)[0].strip()
+            except (TypeError, ValueError):
+                continue
+            if text:
+                return text
+    return None
+
+
 def _windows_file_version(executable: Path) -> str | None:
-    """Read the executable's ProductVersion from Windows version resources."""
+    """Read a Windows executable's fixed or string version resource."""
     if sys.platform != "win32":
         return None
     try:
@@ -73,6 +119,10 @@ def _windows_file_version(executable: Path) -> str | None:
         data = ctypes.create_string_buffer(size)
         if not get_info(str(executable), 0, size, data):
             return None
+
+        resource_version = _read_windows_version_string(data, query_value)
+        if resource_version:
+            return resource_version
 
         value = ctypes.c_void_p()
         value_size = wintypes.UINT()
