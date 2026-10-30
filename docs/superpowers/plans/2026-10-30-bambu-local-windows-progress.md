@@ -604,3 +604,10 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Commit: c9b7f084c553f7b91ee59edf8dc78998c354f5b7 (fix: capture Bambu CLI without console allocation), filho de a8b3a37ef90eb676151eb2f32d9b7dcf6449ba7f. Adicionado teste cross-platform com constante simulada; em Windows o valor real vem de subprocess.CREATE_NO_WINDOW, em outras plataformas usa 0.
 - Runs do novo commit: testes Windows 41115260639 e build standalone 41115260192 estavam queued na consulta. A prova real depende de executar o branch atualizado contra o Bambu Studio 2.8.2.61 do usuário.
 - A detecção permanece segura: saída vazia continua em cli_available=false. Nenhum checkbox de prova real foi marcado; slice, perfis carregados, 3MF, revisão e impressão continuam não verificados.
+
+
+### CI Windows do teste de captura do console (2026-10-30)
+
+- Workflow 41115260639 para c9b7f084c553f7b91ee59edf8dc78998c354f5b7 concluiu success em windows-latest/Python 3.12.10. Comando: uv run --locked --extra test python -m pytest -v — 165 passed, 1 aviso esperado de nome ZIP duplicado, 17.99s.
+- A regressão confirma que o probe passa a constante CREATE_NO_WINDOW nas chamadas --version e --help quando disponível. Isso valida somente a construção do subprocesso no runner Windows; o CLI real 2.8.2.61 ainda precisa ser exercitado pelo usuário.
+- Build standalone 41115260192 permanecia in_progress; nenhum artefato foi anexado/publicado. Nenhum checkbox do plano foi marcado.
