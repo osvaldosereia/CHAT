@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from bambuprep.config import get_app_paths
+from bambuprep.config import LocalPreferencesStore, get_app_paths
 
 
 def test_default_paths_are_under_localappdata_bambuprep():
@@ -23,3 +23,27 @@ def test_app_data_root_can_be_injected_for_isolated_tests(tmp_path):
 def test_windows_paths_fail_closed_without_localappdata():
     with pytest.raises(RuntimeError, match="LOCALAPPDATA"):
         get_app_paths(environ={})
+
+
+def test_local_preferences_round_trip_only_non_secret_studio_path(tmp_path):
+    preferences_file = tmp_path / "BambuPrep" / "preferences.json"
+    store = LocalPreferencesStore(preferences_file)
+    executable = tmp_path / "Bambu Studio" / "BambuStudio.exe"
+
+    assert store.load().studio_executable is None
+    store.save_studio_executable(executable)
+
+    assert store.load().studio_executable == executable
+    assert "BambuStudio.exe" in preferences_file.read_text(encoding="utf-8")
+    assert "api_key" not in preferences_file.read_text(encoding="utf-8")
+
+
+def test_local_preferences_reject_relative_paths_and_unknown_secret_fields(tmp_path):
+    preferences_file = tmp_path / "preferences.json"
+    store = LocalPreferencesStore(preferences_file)
+    with pytest.raises(ValueError, match="absolute"):
+        store.save_studio_executable(Path("BambuStudio.exe"))
+
+    preferences_file.write_text('{"studio_executable":"C:/Studio.exe","api_key":"private"}')
+    with pytest.raises(ValueError, match="unexpected"):
+        store.load()

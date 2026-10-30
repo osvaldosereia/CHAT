@@ -20,7 +20,7 @@ def run_windows_app() -> int:
     from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox
 
     from bambuprep.bambu.profiles import ProfileCatalog
-    from bambuprep.config import get_app_paths
+    from bambuprep.config import LocalPreferencesStore, get_app_paths
     from bambuprep.recommendations.openai_client import ResponsesAPIClient
     from bambuprep.security.api_key_store import create_windows_api_key_store
     from bambuprep.storage.jobs import JobRepository
@@ -29,21 +29,33 @@ def run_windows_app() -> int:
     from bambuprep.workflow.service import WorkflowService
 
     application = QApplication.instance() or QApplication(sys.argv)
-    executable, _ = QFileDialog.getOpenFileName(
-        None,
-        "Localize o BambuStudio.exe instalado",
-        "",
-        "Bambu Studio (BambuStudio.exe);;Executáveis (*.exe)",
-    )
-    if not executable:
-        return 0
-
     try:
-        catalog = ProfileCatalog.load(Path(executable).parent)
         paths = get_app_paths()
         paths.data_dir.mkdir(parents=True, exist_ok=True)
         paths.logs_dir.mkdir(parents=True, exist_ok=True)
         paths.temp_dir.mkdir(parents=True, exist_ok=True)
+        preferences = LocalPreferencesStore(paths.data_dir / "preferences.json")
+        saved_preferences = preferences.load()
+        initial_location = (
+            str(saved_preferences.studio_executable)
+            if saved_preferences.studio_executable is not None
+            else ""
+        )
+        selected_executable, _ = QFileDialog.getOpenFileName(
+            None,
+            "Localize o BambuStudio.exe instalado",
+            initial_location,
+            "Executáveis do Bambu Studio (*.exe);;Todos os executáveis (*.exe)",
+        )
+        if selected_executable:
+            executable = Path(selected_executable)
+        elif saved_preferences.studio_executable is not None and saved_preferences.studio_executable.is_file():
+            executable = saved_preferences.studio_executable
+        else:
+            return 0
+
+        catalog = ProfileCatalog.load(executable.parent)
+        preferences.save_studio_executable(executable)
         repository = JobRepository(paths.database_file)
         credential_warning = False
         try:
