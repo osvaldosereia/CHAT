@@ -720,8 +720,8 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 
 1. Baixar/atualizar o branch para incluir `9012c556` e os commits subsequentes de documentação; no PowerShell, a partir da pasta `tools`, executar:
    ```powershell
-   $studio = Join-Path $env:ProgramFiles 'Bambu Studio\\bambu-studio.exe'
-   python .\\bambu_cli_probe.py --executable $studio
+   $studio = Join-Path $env:ProgramFiles 'Bambu Studio\bambu-studio.exe'
+   python .\bambu_cli_probe.py --executable $studio
    ```
    Compartilhar apenas o JSON retornado. Ele não deve incluir caminhos de perfil pessoais, STL, chave ou histórico.
 2. Para liberar Tarefas 1/5: disponibilizar localmente o STL de referência (sem enviá-lo ao GitHub) e revisar com o usuário o resultado de slice/export 3MF sem imprimir, abrindo o projeto no Studio e confirmando máquina, bico, Generic PLA, Textured PEI, suportes e Preview.
