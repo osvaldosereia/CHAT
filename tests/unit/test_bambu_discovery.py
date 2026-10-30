@@ -3,7 +3,7 @@ from subprocess import CompletedProcess, TimeoutExpired
 
 import pytest
 
-from bambuprep.bambu.discovery import probe_studio
+from bambuprep.bambu.discovery import _format_fixed_file_version, probe_studio
 
 
 def test_missing_executable_is_reported_without_running_process(tmp_path, monkeypatch):
@@ -207,3 +207,9 @@ def test_windows_file_metadata_fills_missing_version_without_claiming_cli(tmp_pa
     assert result.capabilities == frozenset()
     assert "captured stdout/stderr" in result.message.lower()
     assert calls == ["--version", "--help"]
+
+
+
+def test_fixed_file_version_fields_are_formatted_as_four_components():
+    assert _format_fixed_file_version(0x00020008, 0x0002003D) == "2.8.2.61"
+    assert _format_fixed_file_version(0, 0) is None
