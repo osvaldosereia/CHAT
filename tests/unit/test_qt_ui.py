@@ -7,8 +7,8 @@ import pytest
 pytest.importorskip("PySide6")
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QEventLoop, QMimeData, QPoint, QPointF, QThread, QTimer, Qt, QUrl
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtCore import QEventLoop, QMimeData, QPointF, QThread, QTimer, Qt, QUrl
+from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QApplication, QMessageBox, QLineEdit
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
@@ -36,6 +36,24 @@ class MemoryKeyStore:
 
     def delete(self):
         self.value = None
+
+
+class FakeMimeEvent:
+    def __init__(self, mime_data):
+        self._mime_data = mime_data
+        self._accepted = False
+
+    def mimeData(self):
+        return self._mime_data
+
+    def acceptProposedAction(self):
+        self._accepted = True
+
+    def ignore(self):
+        self._accepted = False
+
+    def isAccepted(self):
+        return self._accepted
 
 
 def test_settings_dialog_masks_key_and_saves_only_to_injected_credential_store(qapp, monkeypatch):
@@ -204,13 +222,7 @@ def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_pa
     stl_path.write_text("solid local\nendsolid local\n", encoding="ascii")
     valid_mime = QMimeData()
     valid_mime.setUrls([QUrl.fromLocalFile(str(stl_path))])
-    drag = QDragEnterEvent(
-        QPoint(5, 5),
-        Qt.DropAction.CopyAction,
-        valid_mime,
-        Qt.MouseButton.LeftButton,
-        Qt.KeyboardModifier.NoModifier,
-    )
+    drag = FakeMimeEvent(valid_mime)
     window.dragEnterEvent(drag)
     assert drag.isAccepted()
 
@@ -236,13 +248,7 @@ def test_window_accepts_one_local_stl_drop_and_rejects_other_inputs(qapp, tmp_pa
     for urls in invalid_url_sets:
         unsupported_mime = QMimeData()
         unsupported_mime.setUrls(urls)
-        unsupported_drag = QDragEnterEvent(
-            QPoint(5, 5),
-            Qt.DropAction.CopyAction,
-            unsupported_mime,
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.NoModifier,
-        )
+        unsupported_drag = FakeMimeEvent(unsupported_mime)
         window.dragEnterEvent(unsupported_drag)
         assert not unsupported_drag.isAccepted()
     assert len(submitted) == 1
