@@ -23,6 +23,7 @@ def assess_windows_target(
     platform_system: str,
     version: tuple[int, int, int],
     architecture: str,
+    product_type: int = 1,
 ) -> WindowsTarget:
     """Describe whether an OS/architecture matches the documented target."""
     system_name = platform_system.strip() or "Unknown OS"
@@ -34,7 +35,10 @@ def assess_windows_target(
         else machine
     )
 
-    if system_name.casefold() == "windows" and major == 10 and minor == 0:
+    if system_name.casefold() == "windows" and product_type != 1:
+        role = "Windows Server" if product_type in (2, 3) else f"Windows product type {product_type}"
+        label = f"{role} build {build} {architecture_name}"
+    elif system_name.casefold() == "windows" and major == 10 and minor == 0:
         if build == 19045 and machine.casefold() in _X64_ARCHITECTURES:
             return WindowsTarget(True, "Windows 10 22H2 x64", "")
         if build >= 22000 and machine.casefold() in _X64_ARCHITECTURES:
@@ -58,10 +62,13 @@ def detect_windows_target() -> WindowsTarget:
     if sys.platform == "win32":
         version = sys.getwindowsversion()
         version_tuple = (version.major, version.minor, version.build)
+        product_type = getattr(version, "product_type", 1)
     else:
         version_tuple = (0, 0, 0)
+        product_type = 1
     return assess_windows_target(
         platform_system=platform.system(),
         version=version_tuple,
         architecture=platform.machine(),
+        product_type=product_type,
     )
