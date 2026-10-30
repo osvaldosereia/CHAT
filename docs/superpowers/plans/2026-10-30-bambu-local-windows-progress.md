@@ -760,3 +760,11 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 
 - Estado final desta rodada: branch `codex/bambu-a1-mini-foundation-20261029`; código/teste em `d90416eb`; HEAD observado após atualizações de evidência: `c7ccfb9236c12e3a166a64400ae8e2da0feb6a2f`. O build standalone `41123152619` do código `09ccbd4a` ainda estava na etapa MSVC/build, sem conclusão ou artefato.
 - Commits documentais posteriores: `6a7d3628f27a5d80a79e5e874f730c51ae94ac88` registra FileVersion do usuário; `c7ccfb9236c12e3a166a64400ae8e2da0feb6a2f` atualiza a prova operacional.
+
+
+## Correção do status de builds Windows — 2026-10-30
+
+- Revisão posterior dos runs corrigiu uma pendência antiga do ledger: build `41120368628`, commit `09c330f1`, terminou success às 20:32 UTC. Nuitka criou `BambuPrep.exe`; o relatório de licenças continha 28 distribuições com correspondência ao `uv.lock`; a auditoria de bundle passou com 923 arquivos e 209.525.955 bytes. O executável tinha 63.375.360 bytes (SHA-256 `d847275c4152eeebd043c09598071d9885df0d549511720c9574e33e7c824c1c`). A consulta de artifacts retornou lista vazia; nenhum bundle foi publicado/anexado.
+- Isso valida o build do commit `09c330f1`, anterior ao leitor de versão PE. O build representativo do novo código, run `41123152619` no commit `09ccbd4a`, continuava em `Prepare MSVC and build standalone application` na última consulta. Os runs `41122951552` e `41121669025` ainda também apareciam em andamento; não atribuir sucesso a esses builds.
+- Nenhuma tarefa da prova real do Studio foi marcada. A automação continua desabilitada; a próxima barreira da implementação é atualizar a pasta local `tools` e executar o probe que contém `profile_catalog`.
+
