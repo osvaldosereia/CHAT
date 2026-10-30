@@ -83,7 +83,14 @@ def run_windows_app() -> int:
             ResponsesAPIClient(),
         )
         task_runner = WorkflowTaskRunner(max_workers=1)
-        window = BambuPrepMainWindow(workflow, catalog, task_runner, key_store, preferences)
+        window = BambuPrepMainWindow(
+            workflow,
+            catalog,
+            task_runner,
+            key_store,
+            preferences,
+            app_paths=paths,
+        )
     except Exception as error:
         QMessageBox.critical(None, "BambuPrep", str(error))
         return 1
@@ -100,3 +107,4 @@ def run_windows_app() -> int:
     )
     window.show()
     return application.exec()
+

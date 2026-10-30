@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -18,11 +19,23 @@ from PySide6.QtWidgets import (
 )
 
 
+from bambuprep.config import AppPaths
+from bambuprep.storage.app_data_cleanup import AppDataCleanupError, remove_local_app_files
+
+
 class SettingsDialog(QDialog):
-    def __init__(self, key_store: Any, parent=None, preferences: Any = None) -> None:
+    app_data_removed = Signal(int)
+    def __init__(
+        self,
+        key_store: Any,
+        parent=None,
+        preferences: Any = None,
+        app_paths: AppPaths | None = None,
+    ) -> None:
         super().__init__(parent)
         self._key_store = key_store
         self._preferences = preferences
+        self._app_paths = app_paths
         self.setWindowTitle("Configurações do BambuPrep")
         self.setModal(True)
 
@@ -82,6 +95,18 @@ class SettingsDialog(QDialog):
         )
         self.output_note.setWordWrap(True)
         layout.addWidget(self.output_note)
+
+        self.remove_app_files_note = QLabel(
+            "Remove banco/histórico, preferências, logs e arquivos temporários do BambuPrep. "
+            "Não apaga STLs/3MFs escolhidos, a pasta de saída personalizada nem a chave do Credential Locker.",
+            self,
+        )
+        self.remove_app_files_note.setWordWrap(True)
+        layout.addWidget(self.remove_app_files_note)
+        self.remove_app_files_button = QPushButton("Remover dados locais do BambuPrep…", self)
+        self.remove_app_files_button.clicked.connect(self._remove_app_files)
+        self.remove_app_files_button.setEnabled(app_paths is not None)
+        layout.addWidget(self.remove_app_files_button)
 
         buttons = QHBoxLayout()
         self.save_button = QPushButton("Salvar chave", self)
@@ -263,3 +288,35 @@ class SettingsDialog(QDialog):
         finally:
             self.key_input.clear()
             self._refresh_status()
+
+
+
+    def _remove_app_files(self) -> None:
+        if self._app_paths is None:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Remover dados locais do BambuPrep",
+            "Esta ação apagará o histórico, as preferências, os logs e os arquivos temporários reconhecidos do BambuPrep. "
+            "O aplicativo será encerrado. STL/3MFs escolhidos, a pasta de saída personalizada e a chave do Credential "
+            "Locker serão preservados. Deseja continuar?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            removed = remove_local_app_files(self._app_paths)
+        except AppDataCleanupError as exc:
+            message = str(exc)
+            if exc.removed_files:
+                message += f"\nArquivos removidos antes da falha: {exc.removed_files}. Feche e reabra o BambuPrep."
+            QMessageBox.warning(self, "BambuPrep", message)
+            return
+        QMessageBox.information(
+            self,
+            "Dados locais removidos",
+            f"Foram removidos {removed} arquivo(s) reconhecidos do BambuPrep. O aplicativo será encerrado.",
+        )
+        self.app_data_removed.emit(removed)
+        self.accept()

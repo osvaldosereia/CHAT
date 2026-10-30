@@ -12,7 +12,7 @@ from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QApplication, QFileDialog, QMessageBox, QLineEdit
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
-from bambuprep.config import LocalPreferences
+from bambuprep.config import LocalPreferences, LocalPreferencesStore, get_app_paths
 from bambuprep.domain.models import JobRecord, JobState
 from bambuprep.mesh.analyzer import MeshReport
 from bambuprep.recommendations.openai_client import CONSENT_NOTICE
@@ -619,3 +619,59 @@ def test_delete_history_is_available_before_selecting_a_new_stl(qapp, monkeypatc
     assert window._job is None
     window.close()
     runner.close(wait=True)
+
+
+
+
+def test_settings_dialog_removes_only_local_app_files_after_confirmation(qapp, tmp_path, monkeypatch):
+    paths = get_app_paths(local_app_data=tmp_path / "LOCALAPPDATA")
+    paths.data_dir.mkdir(parents=True)
+    paths.database_file.write_bytes(b"local history")
+    paths.logs_dir.mkdir()
+    (paths.logs_dir / "run.log").write_text("local log")
+    paths.temp_dir.mkdir()
+    (paths.temp_dir / "view.png").write_bytes(b"temporary view")
+    output = tmp_path / "chosen-output"
+    output.mkdir()
+    project = output / "keep.3mf"
+    project.write_bytes(b"user output")
+    LocalPreferencesStore(paths.data_dir / "preferences.json").save_output_directory(output)
+    store = MemoryKeyStore()
+    store.save("sk-local-test-only")
+    dialog = SettingsDialog(store, preferences=MemoryPreferences(), app_paths=paths)
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(QMessageBox, "information", lambda *args: QMessageBox.StandardButton.Ok)
+    removed = []
+    dialog.app_data_removed.connect(removed.append)
+
+    dialog.remove_app_files_button.click()
+
+    assert removed == [4]
+    assert not paths.database_file.exists()
+    assert not (paths.data_dir / "preferences.json").exists()
+    assert not paths.logs_dir.exists()
+    assert not paths.temp_dir.exists()
+    assert project.read_bytes() == b"user output"
+    assert store.value == "sk-local-test-only"
+    assert dialog.result() == 1
+    dialog.close()
+
+
+def test_settings_dialog_keeps_app_files_when_removal_is_cancelled(qapp, tmp_path, monkeypatch):
+    paths = get_app_paths(local_app_data=tmp_path / "LOCALAPPDATA")
+    paths.data_dir.mkdir(parents=True)
+    paths.database_file.write_bytes(b"local history")
+    preferences = paths.data_dir / "preferences.json"
+    preferences.write_text('{"studio_executable":null}')
+    dialog = SettingsDialog(MemoryKeyStore(), app_paths=paths)
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
+    removed = []
+    dialog.app_data_removed.connect(removed.append)
+
+    dialog.remove_app_files_button.click()
+
+    assert paths.database_file.read_bytes() == b"local history"
+    assert preferences.exists()
+    assert removed == []
+    assert dialog.result() == 0
+    dialog.close()

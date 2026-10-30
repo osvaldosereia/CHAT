@@ -9,6 +9,7 @@ from typing import Any, Callable
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -27,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from bambuprep.bambu.profiles import ProfileCatalog, PrinterProfile
+from bambuprep.config import AppPaths
 from bambuprep.bambu.launcher import open_stl_in_studio
 from bambuprep.domain.models import JobRecord, JobState, PrinterSelection
 from bambuprep.mesh.analyzer import MeshReport
@@ -86,6 +88,7 @@ class BambuPrepMainWindow(QMainWindow):
         task_runner: WorkflowTaskRunner,
         key_store: Any = None,
         preferences: Any = None,
+        app_paths: AppPaths | None = None,
     ) -> None:
         super().__init__()
         if not catalog.printers:
@@ -95,6 +98,7 @@ class BambuPrepMainWindow(QMainWindow):
         self._task_runner = task_runner
         self._key_store = key_store
         self._preferences = preferences
+        self._app_paths = app_paths
         self._job: JobRecord | None = None
         self._report: MeshReport | None = None
         self._recommendation: Recommendation | None = None
@@ -282,7 +286,15 @@ class BambuPrepMainWindow(QMainWindow):
         self._open_stl_path(path)
 
     def _open_settings(self) -> None:
-        dialog = SettingsDialog(self._key_store, self, preferences=self._preferences)
+        dialog = SettingsDialog(
+            self._key_store,
+            self,
+            preferences=self._preferences,
+            app_paths=self._app_paths,
+        )
+        application = QApplication.instance()
+        if application is not None:
+            dialog.app_data_removed.connect(lambda _count: QTimer.singleShot(0, application.quit))
         dialog.exec()
 
     def _open_studio(self) -> None:
@@ -662,3 +674,4 @@ def _format_manual_studio_setup(
         )
     )
     return "\n".join(lines)
+

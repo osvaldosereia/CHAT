@@ -46,6 +46,8 @@ Cada tentativa de recomendação abre uma confirmação nova, com **Não** como 
 
 Para preservar o histórico, feche o aplicativo e copie a pasta `%LOCALAPPDATA%\BambuPrep` para um backup local protegido. Ela pode conter caminhos de arquivos e métricas privadas; não a envie ao GitHub. O backup não inclui os STL originais.
 
+Em **Configurações locais**, o botão **Remover dados locais do BambuPrep…** pede confirmação e apaga o banco/histórico, as preferências, os logs e os arquivos temporários reconhecidos pelo aplicativo. Em seguida, o BambuPrep é encerrado. A ação preserva os STL e 3MF escolhidos pelo usuário, a pasta de saída personalizada, a chave no Windows Credential Locker e arquivos desconhecidos na pasta do aplicativo. Para remover a chave, use separadamente **Remover chave**. Se o Windows bloquear a remoção no meio da operação, o aviso informa que alguns arquivos podem já ter sido apagados; feche e reabra o aplicativo para conferir o estado.
+
 Este protótipo ainda não gera projeto 3MF, não chama o slicer, não abre um resultado no Bambu Studio e não envia impressão. A prova do CLI deve ser feita com a instalação real do Windows e o STL Sentinel local antes de implementar ou declarar compatibilidade de fatiamento. O usuário sempre continua responsável por revisar o Preview e iniciar qualquer impressão manualmente.
 
 Para executar a suíte local:
@@ -55,3 +57,4 @@ python -m pytest -v
 ```
 
 Os testes de janela Qt são habilitados quando PySide6 está instalado. Em ambientes sem Qt eles são ignorados; isso não conta como validação visual.
+

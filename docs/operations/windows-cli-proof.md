@@ -66,3 +66,11 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 - Depois dessa captura, o branch adicionou códigos de diagnóstico allowlisted no catálogo e os inclui no JSON sem caminho, nome bruto de perfil, chave ou outro dado pessoal. Essa revisão ainda não foi executada no Windows.
 - A Tarefa 1 continua pendente; nenhum 3MF foi criado/reaberto, nenhum Preview foi conferido e nenhum arquivo foi impresso.
 
+
+
+## Captura subsequente do probe — 2026-10-30, 18:05
+
+- A nova captura do PowerShell mostra novamente `version: 2.8.2.61`, `cli_available: false`, `capabilities: []`, `profile_catalog.available: false` e `printers: []`. O JSON não inclui `profile_catalog.error_code`.
+- O arquivo `tools/bambu_cli_probe.py` no branch atual já inclui o campo `error_code` allowlisted. Portanto, a imagem parece vir de uma cópia anterior do script (inferência baseada na ausência do campo); ela ainda não identifica a causa do catálogo local.
+- A ajuda direta continua mostrando opções de CLI, mas isso não comprova o funcionamento do fatiamento ou a exportação/revisão de 3MF. Não foi informado o Windows instalado, nem foi usado o STL de referência nesta captura.
+- Para coletar o diagnóstico da revisão atual, na pasta `tools`, confirme primeiro que `Select-String -Path .\\bambu_cli_probe.py -SimpleMatch '"error_code": exc.code'` encontra o campo; depois execute `python .\\bambu_cli_probe.py --executable $studio`. Compartilhe apenas `profile_catalog.error_code`.
