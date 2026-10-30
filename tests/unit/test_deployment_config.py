@@ -27,8 +27,10 @@ def test_deployment_spec_selects_standalone_entrypoint_and_noninteractive_downlo
 def test_windows_build_check_does_not_publish_or_use_secrets():
     workflow_path = ROOT / ".github" / "workflows" / "windows-build.yml"
     workflow = workflow_path.read_text(encoding="utf-8")
+    build_paths = workflow.split("paths:\n", 1)[1].split("\n  workflow_dispatch", 1)[0]
 
     assert "runs-on: windows-latest" in workflow
+    assert '"tools/**"' in build_paths
     assert "pyside6-deploy -c pysidedeploy.spec --force --mode standalone" in workflow
     assert "vcvars64.bat" in workflow
     assert "dumpbin.exe" in workflow

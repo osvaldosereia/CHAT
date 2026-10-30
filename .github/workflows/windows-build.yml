@@ -9,6 +9,7 @@ on:
       - "pyproject.toml"
       - "pysidedeploy.spec"
       - "src/**"
+      - "tools/**"
       - "uv.lock"
   workflow_dispatch:
 
