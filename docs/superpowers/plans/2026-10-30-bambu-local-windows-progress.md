@@ -729,3 +729,20 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 
 
 - Atualização documental desta retomada: commits `e24460b43c1af37bd38dc84720fe68a3fd0df3f2` (ledger), `51c3b889cbe1bf227f8cf4a91615ae84a57ddcf9` (estado do probe no guia) e `787a6a89b8e6546dab9231369224fae12a7b7683` (correção do caminho PowerShell). O workflow de teste `41122287080`, no commit de código `9012c556`, seguia `queued` na última consulta; portanto, a correção dos imports ainda não foi verificada em runner Windows.
+
+
+## Leitura de versão por string PE e nova captura PowerShell — 2026-10-30
+
+- Captura recém-enviada: a ajuda do Bambu Studio aparece no console, mas o JSON do probe ainda mostra `version: null`, `cli_available: false`, `capabilities: []` e código 0 sem texto capturado. O JSON mostrado não contém `profile_catalog`, campo introduzido no commit `81c20f31`; por isso, a evidência indica que a pasta `tools` executada não veio do código atual do branch. O help direto confirma opções observadas na instalação, mas não perfil/slice/3MF.
+- Avanço independente no código: commit `1b30c6b07e3aed9bd6368eb42fa292b515baf6d9` lê a string `ProductVersion`/`FileVersion` do recurso de versão do executável Windows quando a estrutura numérica não basta. Uma primeira execução Windows identificou prioridade incorreta: um fixture genérico permitiu que o bloco fixo fosse interpretado como tabela de idiomas. Corrigido em `09ccbd4a6cc83ad5878e011d1f6c298f02370160`: validar primeiro a assinatura e versão fixa, usar strings apenas como fallback.
+- Teste de string resource foi adicionado antes da correção de produção. Os commits intermediários `aaae8f41`, `2c960828`, `4558102a` e `10ea97e3` registram o teste, ajustes de caminhos e a expectativa da ordem; não alteram o gate de compatibilidade.
+- Verificação Windows atual:
+  - Run `41122287080`, commit `9012c556`: **178 passed, 1 warning em 26.27s**; corrigiu e verificou os imports ausentes dos testes Win32.
+  - Run `41123189968`, commit `1aa3021a` (inclui código `09ccbd4a` e teste final): **179 passed, 1 warning em 13.88s**. Os testes `test_windows_version_resource_reads_fixed_product_version` e `test_windows_version_resource_falls_back_to_product_version_string` passaram em runner Windows. O único warning continua sendo a fixture intencional de parte ZIP duplicada.
+  - Build standalone `41123152619`, código `09ccbd4a`: na última consulta ainda em `Prepare MSVC and build standalone application`; sem conclusão.
+- Comandos locais realmente executados sobre cópias do código recuperado do branch: `python3 -m compileall -q /tmp/bambu-version-check/src /tmp/bambu-version-check/tests` — exit 0; smoke com `version.dll` simulado — exit 0 e retornou `02.08.02.61`. Esse smoke usa API falsa em Linux; não é prova do executável instalado.
+- HEAD do código/testes antes desta atualização documental: `1aa3021a1f3af488fe3f81ba3e627c6053262910`. A correção de captura ainda não significa que o probe tenha sido executado com a versão atual no PC do usuário. Não marcar T1 ou slice/3MF.
+
+### Próxima ação humana
+
+Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior, conferir que o JSON inclui `profile_catalog`, e repetir o probe. Se a versão continuar nula, compartilhar também apenas a saída de `(Get-Item $studio).VersionInfo | Format-List ProductVersion,FileVersion`; não é necessário enviar STL ou segredo para esse diagnóstico.
