@@ -1,15 +1,15 @@
 # Prova do CLI do Bambu Studio no Windows
 
-**Estado:** prova funcional e validação do catálogo local ainda pendentes. A instalação real observada no Windows é Bambu Studio 2.8.2.61. O probe executado no commit `ac8396f8` retornou `cli_available: false`, `capabilities: []` e `profile_catalog.error_code: machine_profiles_invalid`. A ajuda direta termina com código 0 e lista opções, mas o texto não é capturado pelo probe; esta evidência não verifica fatiamento nem exportação 3MF. O commit `e3db033` atualiza o carregamento de perfis e a detecção da versão, mas ainda não foi executado no Windows do usuário.
+**Estado atual:** a instalação Windows reportada é Bambu Studio 2.8.2.61 e o catálogo local foi validado para A1 mini, bicos 0,2/0,4 mm, Generic PLA, Textured PEI Plate, `tree(auto)` e `brim`. A ajuda direta mostra opções de CLI, mas os pipes comuns do probe não capturavam a saída. O branch agora usa ConPTY, coberto por uma captura sintética no runner Windows; a versão atualizada ainda não foi executada contra o Studio instalado do usuário. A versão do Windows não foi informada. Nenhum slice, 3MF ou revisão no Studio foi verificado; a prova funcional da Tarefa 1 segue pendente.
 
 ## Dados a registrar
 
 - Data e versão do Windows (10 22H2 x64 ou 11 x64): pendente
-- Versão/build do Bambu Studio: 2.8.2.61 (tela Sobre; o cabeçalho da ajuda mostra `BambuStudio-02.08.02.61`; o probe ainda não captura essa saída)
+- Versão/build do Bambu Studio: 2.8.2.61 (tela Sobre; o cabeçalho da ajuda mostra `BambuStudio-02.08.02.61`; o probe atualizado com ConPTY ainda precisa ser executado contra esta instalação)
 - Caminho do executável: `C:\Program Files\Bambu Studio\bambu-studio.exe` (observado no Explorador e no comando)
 - Probe Python do commit `ac8396f8`: `version: 2.8.2.61` via metadado PE, `cli_available: false`, `capabilities: []`, `profile_catalog.error_code: machine_profiles_invalid`; stdout/stderr de `--help` vieram vazios.
 - Opções exibidas pela ajuda direta: `--orient`, `--arrange`, `--slice`, `--export-3mf`, `--export-stl`, `--export-stls`, `--load-settings`, `--load-filaments`, `--load_settings` e `--load_filaments`. A presença na ajuda não comprova execução funcional.
-- Perfis A1 mini, bicos, Generic PLA e Textured PEI: ainda não validados. A última saída tinha `profile_catalog.available: false`, `printers: []` e `error_code: machine_profiles_invalid`.
+- Perfis A1 mini, bicos, Generic PLA e Textured PEI: validados na saída do probe compartilhada em 2026-10-30 18:41; catálogo `02.08.00.05`, A1 mini 0,2/0,4 mm, Generic PLA, Textured PEI, `tree(auto)` e `brim`. Esta leitura não comprova que o CLI fatie ou exporte.
 - Hash do STL de referência (não registrar caminho nem copiar o arquivo): pendente
 - Resultado exportado para 3MF e inspeção do arquivo: pendente
 - Projeto reaberto no Studio; Preview e perfis conferidos pelo usuário: pendente
@@ -95,3 +95,11 @@ O código atual tenta obter ProductVersion/FileVersion do recurso PE do executá
 - Esta é a primeira evidência de descoberta bem-sucedida dos perfis instalados. Ela não demonstra execução de slice/export, integridade de 3MF Bambu, reabertura/revisão no Studio ou impressão.
 - A versão/build exata do Windows continua pendente; não é possível confirmar se o PC está nos alvos Windows 10 22H2 x64 ou Windows 11 x64. O probe foi executado na instalação Windows real, mas o primeiro item da Tarefa 1 permanece aberto até confirmar alvo suportado e capturar os demais dados.
 - A saída foi resumida sem registrar caminhos locais do usuário, arquivo de referência, captura de tela, STL/3MF, segredo ou histórico.
+
+
+## Retomada do capture de ajuda via ConPTY — 2026-10-30
+
+- O probe agora tenta capturar a ajuda do Bambu Studio via ConPTY quando subprocess.run retorna sem saída. O teste Windows usa um processo sintético que escreve diretamente em CONOUT$; não foi executado contra a instalação do usuário.
+- A suíte Windows do commit 3df25aee passou no runner Windows Server 2025: 206 passed, 1 warning esperado (fixture ZIP com nome duplicado), em 17.70s. O HEAD atual cf320a9d contém as mesmas fontes/testes; o diff de cf320a9d sobre 3df25aee altera apenas .github/workflows/windows-build.yml e .github/workflows/windows-tests.yml.
+- O usuário ainda precisa executar o probe atualizado no PC com o Studio instalado e compartilhar apenas o JSON. A saída pode confirmar a captura de ajuda, mas ainda não comprova slice, exportação/reabertura de 3MF ou revisão do Preview/perfis.
+- Versão/edição do Windows, STL Sentinel, 3MF reaberto/revisado e qualquer validação física continuam pendentes. Nenhuma impressão foi alegada.
