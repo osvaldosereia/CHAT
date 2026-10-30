@@ -257,6 +257,37 @@ def test_future_result_callback_runs_on_the_qt_main_thread(qapp):
         runner.close(wait=True)
 
 
+def test_window_shows_indeterminate_progress_only_while_work_is_running(qapp):
+    profile = PrinterProfile(
+        printer_id="Bambu Lab A1 mini 0.4 nozzle",
+        nozzle_mm=0.4,
+        generic_pla_profile_id="Generic PLA @BBL A1M",
+        default_process_profile_id="0.20mm Standard @BBL A1M",
+        plate_id="Textured PEI Plate",
+        compatible_process_profile_ids=("0.20mm Standard @BBL A1M",),
+        support_options=("tree(auto)",),
+        adhesion_options=("brim", "none"),
+    )
+    runner = WorkflowTaskRunner(max_workers=1)
+    window = BambuPrepMainWindow(
+        FakeWorkflow(),
+        ProfileCatalog("Bambu Lab A1 mini", "synthetic", (profile,)),
+        runner,
+        MemoryKeyStore(),
+    )
+
+    assert window.progress_bar.isHidden()
+    window._set_busy(True, "Análise local em andamento…")
+    assert not window.progress_bar.isHidden()
+    assert window.progress_bar.minimum() == window.progress_bar.maximum() == 0
+    assert window.progress_bar.accessibleName() == "Operação local em andamento"
+    window._set_busy(False, "")
+    assert window.progress_bar.isHidden()
+
+    window.close()
+    runner.close(wait=True)
+
+
 def test_nozzle_and_material_plate_confirmation_reset_after_job_or_profile_change(qapp, tmp_path, monkeypatch):
     profiles = (
         PrinterProfile(

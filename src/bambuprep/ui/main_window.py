@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QProgressBar,
     QScrollArea,
     QTabWidget,
     QVBoxLayout,
@@ -161,6 +162,14 @@ class BambuPrepMainWindow(QMainWindow):
         self.status_label = QLabel("Selecione um STL para começar.", central)
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
+
+        self.progress_bar = QProgressBar(central)
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setAccessibleName("Operação local em andamento")
+        self.progress_bar.setAccessibleDescription("Indicador indeterminado; a operação pode levar algum tempo.")
+        self.progress_bar.hide()
+        layout.addWidget(self.progress_bar)
 
         self.report_view = QPlainTextEdit(central)
         self.report_view.setReadOnly(True)
@@ -475,6 +484,7 @@ class BambuPrepMainWindow(QMainWindow):
 
     def _set_busy(self, busy: bool, message: str) -> None:
         self._busy = busy
+        self.progress_bar.setVisible(busy)
         if message:
             self.status_label.setText(message)
         self._refresh_controls()
