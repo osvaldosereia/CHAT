@@ -3,10 +3,10 @@
 ## Estado atual — 2026-10-30
 
 - Branch: `codex/bambu-a1-mini-foundation-20261029`
-- HEAD registrado no ledger nas rodadas anteriores: `0a16670e83223892d1ace74790c790385f81a37c`.
-- HEAD do branch antes desta atualização: `a0029435505302cfe5dbb0099bab90b65b076476`; implementação de build em `690ab902ff4d476c91858e9eed2d4fc571d1cf12`, interface Qt em `bd475e953334d54d9cb52ac6eaa94f4d3e585e1b` e checklist preliminar em `842ea830756974af09aa37ed6b384a7017a90bff`.
+- HEAD documental antes do registro final desta rodada: `5803db6508488b553e2c6574de5c6be8e35f71b1`. Última revisão de código verificada: `de3592243df979ffde9534b9081b2f07eac5a3d2`; alterações recentes limitam-se a documentação e registro.
+- Histórico da primeira rodada: HEAD `a0029435505302cfe5dbb0099bab90b65b076476`; implementação de build `690ab902ff4d476c91858e9eed2d4fc571d1cf12`, interface Qt `bd475e953334d54d9cb52ac6eaa94f4d3e585e1b` e checklist preliminar `842ea830756974af09aa37ed6b384a7017a90bff`.
 - Escopo confirmado: aplicativo local; nenhuma API remota, Supabase, upload de STL/3MF nem impressão automática.
-- Primeiro item incompleto no plano: prova real do Bambu Studio na Tarefa 1, dependente do PC Windows do usuário e do STL de referência. O diagnóstico e os testes simulados existem, mas não há evidência de instalação Windows real.
+- Primeiro item incompleto segue sendo a prova real da Tarefa 1. O usuário informou Bambu Studio 2.8.2.61 e compartilhou catálogo local A1 mini válido no probe anterior, mas o probe atualizado com ConPTY ainda não foi executado contra essa instalação; versão/edição do Windows, slice e reabertura/revisão de 3MF continuam sem evidência.
 - O ledger acompanha tarefas, comandos, resultados, decisões e bloqueios desta implementação.
 
 ## Concluído nesta rodada
@@ -897,3 +897,23 @@ Atualizar a pasta `tools` a partir do branch que contém `1aa3021a` ou posterior
 - Checklist de release atualizado nos commits `27d25fc9429a3fb0c7fed46d36c0671ff08df58b` e `2317611ebcfab903514f84d33b0d1cb7d0207e4e`. A leitura técnica registra as fontes oficiais Qt for Python (LGPLv3/GPLv3/comercial e licenças de terceiros) e Nuitka (AGPLv3 com exceção para binários criados); não toma decisão jurídica nem define licença própria. Decisão de distribuição e inspeção final de avisos permanecem abertas.
 - A primeira etapa ainda incompleta continua sendo a prova real Windows da Tarefa 1. Nenhum checkbox do plano foi alterado: ainda falta executar o probe atualizado na máquina do usuário e, separadamente, usar o STL Sentinel localmente para slice sem imprimir, reabrir/revisar 3MF no Studio e confirmar os perfis. A Tarefa 3 exige o Sentinel no Windows; Tarefas 5–6 aguardam as interfaces comprovadas; QA do usuário e gates de licença/build seguem abertos.
 - Segurança/privacidade: nenhum STL/3MF, segredo, histórico local ou imagem privada foi enviado ao GitHub. Nenhuma chamada real à OpenAI ocorreu; as integrações de recomendação seguem mockadas e dependem de chave/consentimento por trabalho.
+
+
+## Build standalone verificado e encerramento do trabalho autônomo — 2026-10-30
+
+- Build do commit de código `de3592243df979ffde9534b9081b2f07eac5a3d2`, run `41137359619`, concluiu success no runner Windows Server 2025 às 22:48 UTC. Comandos observados no log:
+  - `uv sync --locked --extra build`
+  - `uv run --locked --extra build pyside6-deploy -c pysidedeploy.spec --force --mode standalone`
+  - `uv run --locked --extra build python tools/summarize_nuitka_report.py --license-report $licenseReport --compilation-report $compilationReport --lock-file uv.lock`
+  - `uv run --locked --extra build python tools/audit_standalone_bundle.py --bundle $bundle`
+- Saída do resumo de compilação: 28 distribuições; todas correspondem ao `uv.lock`; 0 metadados de licença ausentes. O bundle contém `THIRD_PARTY_NOTICES.rst` (104.724 bytes, SHA-256 `e1131d8a09f2ef0dddb532c8f9cf703b4a3f3ffca254c923a0a3b59615d35120`).
+- Auditoria do bundle: 923 arquivos, 209.614.597 bytes. `BambuPrep.exe`: 63.452.672 bytes, SHA-256 `c6e4b7f067a93d0129f80eb5a50bdb192d02c5f86289f6bbec19efca86ffb7b3`. Nenhuma extensão de STL/3MF/histórico/banco/log/credencial proibida, token OpenAI-like ou path de ferramentas de build/teste foi encontrado. GitHub Actions reportou `artifacts: []`; nenhum pacote foi anexado/publicado.
+- Atualização de evidência no plano: commit `7ea132d9d5c72efdd20e73bc238f51f151a8e4ca`. Atualização do checklist de release e marcação da verificação de ferramentas ausentes do runtime: commit `5803db6508488b553e2c6574de5c6be8e35f71b1`. Somente o gate técnico de exclusão de build tools foi marcado; revisão jurídica, escolha da licença própria e publicação permanecem abertas.
+- A suíte Windows do mesmo código já havia passado no run `41137359649`: `uv sync --locked --extra test`; `uv run --locked --extra test python -m pytest -v` — **215 passed, 1 warning esperado em 13.29s**. O runner Windows Server 2025 não substitui a instalação Windows do usuário.
+- Estado verificável: branch `codex/bambu-a1-mini-foundation-20261029`; nenhuma alteração em `main`, merge, release ou publicação. Plano e gates T1/T3/T5/T6 dependentes do usuário não foram marcados. Não houve chamada real à OpenAI nem uso de chave.
+- Restam apenas as seguintes dependências humanas para retomar a prova funcional:
+  1. Informar se o Windows do PC é Windows 10 22H2 x64 ou Windows 11 x64 e executar o probe do ZIP atual com Bambu Studio instalado; compartilhar o JSON sanitizado, principalmente versão, captura da ajuda e `profile_catalog`.
+  2. Ter o STL Sentinel Busts no PC, executar a prova local sem imprimir e abrir o 3MF resultante no Bambu Studio; confirmar máquina A1 mini, bico instalado, Generic PLA, Textured PEI, suportes e Preview. Não enviar STL/3MF ao GitHub.
+  3. Testar a interface no Windows suportado; decidir modelo/licença do BambuPrep e aprovar obrigações/licenças antes de qualquer distribuição futura.
+- A chamada OpenAI é opcional para essa prova: até uma chave ser configurada localmente e haver consentimento explícito novo por trabalho, a integração permanece apenas em mocks.
+- Esta rodada encerra o trabalho que podia ser feito sem o PC/decisões do usuário; a recorrência será desativada depois da revisão final deste branch.
