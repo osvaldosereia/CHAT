@@ -451,13 +451,14 @@ def test_windows_pseudoconsole_captures_direct_writeconsole_output(tmp_path):
         (
             "import ctypes; from ctypes import wintypes; "
             "k=ctypes.WinDLL('kernel32', use_last_error=True); "
-            "k.GetStdHandle.argtypes=[wintypes.DWORD]; "
-            "k.GetStdHandle.restype=wintypes.HANDLE; "
+            "k.CreateFileW.argtypes=[wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, "
+            "wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]; "
+            "k.CreateFileW.restype=wintypes.HANDLE; "
             "k.WriteConsoleW.argtypes=[wintypes.HANDLE, wintypes.LPCWSTR, "
             "wintypes.DWORD, ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]; "
             "k.WriteConsoleW.restype=wintypes.BOOL; "
-            "h=k.GetStdHandle(0xFFFFFFF5); n=wintypes.DWORD(); "
-            "message='BAMBU_CONSOLE_CAPTURE_SENTINEL\\r\\n'; "
+            "h=k.CreateFileW('CONOUT$', 0x40000000, 3, None, 3, 0, None); "
+            "n=wintypes.DWORD(); message='BAMBU_CONSOLE_CAPTURE_SENTINEL\\r\\n'; "
             "ok=k.WriteConsoleW(h, message, len(message), ctypes.byref(n), None); "
             "raise SystemExit(0 if ok and n.value == len(message) else 41)"
         ),
