@@ -278,8 +278,6 @@ def test_windows_metadata_reader_is_noop_off_windows(tmp_path, monkeypatch):
 def test_windows_version_resource_falls_back_to_product_version_string(tmp_path, monkeypatch):
     executable = tmp_path / "BambuStudio.exe"
     executable.write_bytes(b"stub")
-    fixed_info = discovery._VSFixedFileInfo()
-    fixed_info.dwSignature = 0
     translation = (ctypes.c_ushort * 2)(0x0409, 0x04B0)
     product_version = ctypes.create_unicode_buffer("02.08.02.61")
     queried = []
@@ -300,15 +298,11 @@ def test_windows_version_resource_falls_back_to_product_version_string(tmp_path,
 
     def query_value(_data, subblock, value_out, size_out):
         queried.append(subblock)
-        if subblock == "\\":
-            value_out._obj.value = ctypes.addressof(fixed_info)
-            size_out._obj.value = ctypes.sizeof(fixed_info)
-            return 1
-        if subblock == "\\VarFileInfo\\Translation":
+        if subblock == r"\VarFileInfo\Translation":
             value_out._obj.value = ctypes.addressof(translation)
             size_out._obj.value = ctypes.sizeof(translation)
             return 1
-        if subblock == "\\StringFileInfo\\040904B0\\ProductVersion":
+        if subblock == r"\StringFileInfo\040904B0\ProductVersion":
             value_out._obj.value = ctypes.addressof(product_version)
             size_out._obj.value = len("02.08.02.61") + 1
             return 1
@@ -324,7 +318,6 @@ def test_windows_version_resource_falls_back_to_product_version_string(tmp_path,
 
     assert discovery._windows_file_version(executable) == "02.08.02.61"
     assert queried == [
-        "\\",
-        "\\VarFileInfo\\Translation",
-        "\\StringFileInfo\\040904B0\\ProductVersion",
+        r"\VarFileInfo\Translation",
+        r"\StringFileInfo\040904B0\ProductVersion",
     ]
