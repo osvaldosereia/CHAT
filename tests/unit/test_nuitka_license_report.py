@@ -79,6 +79,47 @@ def test_summary_truncates_multiline_license_metadata_without_exposing_body(tmp_
     assert long_license not in json.dumps(summary)
 
 
+def test_summary_uses_license_expression_when_legacy_license_is_empty(tmp_path):
+    installed = _installed_distributions(
+        tmp_path,
+        {
+            "BambuPrep": ("0.1.0", ""),
+            "PySide6": ("6.12.0", "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"),
+        },
+        license_expressions={"BambuPrep": "MIT"},
+    )
+
+    summary = summarize_nuitka_reports(
+        COMPILATION_REPORT,
+        LOCK,
+        installed_distributions=installed,
+    )
+
+    assert summary["license_metadata_complete"] is True
+    assert summary["license_metadata_missing_count"] == 0
+    assert next(item for item in summary["distributions"] if item["name"] == "BambuPrep")["license"] == "MIT"
+
+
+def test_summary_reports_missing_license_metadata_explicitly(tmp_path):
+    installed = _installed_distributions(
+        tmp_path,
+        {
+            "BambuPrep": ("0.1.0", ""),
+            "PySide6": ("6.12.0", "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"),
+        },
+    )
+
+    summary = summarize_nuitka_reports(
+        COMPILATION_REPORT,
+        LOCK,
+        installed_distributions=installed,
+    )
+
+    assert summary["license_metadata_complete"] is False
+    assert summary["license_metadata_missing_count"] == 1
+    assert next(item for item in summary["distributions"] if item["name"] == "BambuPrep")["license"] == ""
+
+
 def test_summary_deduplicates_same_distribution_reported_twice(tmp_path):
     installed = _installed_distributions(
         tmp_path,
@@ -137,17 +178,27 @@ def test_summary_rejects_invalid_compilation_report_or_lock(compilation_report, 
         summarize_nuitka_reports(compilation_report, lock, installed_distributions=[])
 
 
-def _installed_distributions(root: Path, entries: dict[str, tuple[str, str]]):
+def _installed_distributions(
+    root: Path,
+    entries: dict[str, tuple[str, str]],
+    *,
+    license_expressions: dict[str, str] | None = None,
+):
+    license_expressions = license_expressions or {}
     for name, (version, license_text) in entries.items():
         directory = root / f"{name}-{version}.dist-info"
         directory.mkdir()
         lines = [
-            "Metadata-Version: 2.1",
+            "Metadata-Version: 2.4",
             f"Name: {name}",
             f"Version: {version}",
         ]
-        license_lines = license_text.splitlines() or [""]
-        lines.append(f"License: {license_lines[0]}")
-        lines.extend(f" {line}" for line in license_lines[1:])
+        if license_text:
+            license_lines = license_text.splitlines()
+            lines.append(f"License: {license_lines[0]}")
+            lines.extend(f" {line}" for line in license_lines[1:])
+        expression = license_expressions.get(name)
+        if expression:
+            lines.append(f"License-Expression: {expression}")
         (directory / "METADATA").write_text("\n".join(lines) + "\n\n", encoding="utf-8")
     return list(metadata.distributions(path=[str(root)]))

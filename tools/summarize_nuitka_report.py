@@ -62,10 +62,13 @@ def summarize_nuitka_reports(
             entry["license"] += "…"
         summarized.append(entry)
     summarized.sort(key=lambda entry: (_normalize_name(entry["name"]), entry["version"]))
+    missing_license_metadata = sum(not item["license"] for item in summarized)
     return {
         "compilation_report_valid": True,
         "distribution_count": len(summarized),
         "all_distributions_locked": all(item["lock_match"] for item in summarized),
+        "license_metadata_complete": missing_license_metadata == 0,
+        "license_metadata_missing_count": missing_license_metadata,
         "distributions": summarized,
     }
 
@@ -108,7 +111,9 @@ def _index_installed_licenses(
         version = distribution.version
         if not name or not version:
             continue
-        license_value = distribution.metadata.get("License", "")
+        license_value = distribution.metadata.get("License-Expression", "")
+        if not license_value:
+            license_value = distribution.metadata.get("License", "")
         if not license_value or license_value == "UNKNOWN":
             for classifier in distribution.metadata.get_all("Classifier", []):
                 parts = [part.strip() for part in classifier.split("::")]
