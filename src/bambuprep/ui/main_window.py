@@ -78,7 +78,7 @@ class BambuPrepMainWindow(QMainWindow):
         layout.addWidget(self.open_button)
 
         utility_buttons = QHBoxLayout()
-        self.settings_button = QPushButton("Configurações da chave…", central)
+        self.settings_button = QPushButton("Configurações locais…", central)
         self.settings_button.clicked.connect(self._open_settings)
         utility_buttons.addWidget(self.settings_button)
         self.delete_history_button = QPushButton("Apagar histórico local…", central)
