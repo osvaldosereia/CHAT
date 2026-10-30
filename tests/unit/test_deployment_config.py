@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 from pathlib import Path
+import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,3 +32,12 @@ def test_windows_build_check_does_not_publish_or_use_secrets():
     assert "permissions:\n  contents: read" in workflow
     assert "upload-artifact" not in workflow.lower()
     assert "${{ secrets." not in workflow
+
+
+def test_windows_build_installs_the_pinned_deployment_compiler():
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    build_dependencies = project["project"]["optional-dependencies"]["build"]
+    assert build_dependencies == ["Nuitka==4.3.1"]
+
+    workflow = (ROOT / ".github" / "workflows" / "windows-build.yml").read_text(encoding="utf-8")
+    assert 'python -m pip install -e ".[build]"' in workflow
