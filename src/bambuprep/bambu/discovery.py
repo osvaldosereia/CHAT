@@ -340,9 +340,10 @@ def _windows_pseudoconsole_run(
     close_handle.argtypes = [wintypes.HANDLE]
     close_handle.restype = wintypes.BOOL
 
-    def close_if_open(handle: wintypes.HANDLE | None) -> None:
-        if handle is not None and handle.value:
-            close_handle(handle)
+    def close_if_open(handle: wintypes.HANDLE | int | None) -> None:
+        value = handle if isinstance(handle, int) else handle.value if handle is not None else None
+        if value:
+            close_handle(wintypes.HANDLE(value))
 
     input_read = wintypes.HANDLE()
     input_write = wintypes.HANDLE()
@@ -817,12 +818,18 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 timeout=timeout_seconds,
             )
+        console_capture_error = None
         if not _combined_output(help_result) and sys.platform == "win32":
-            help_result = _windows_pseudoconsole_run(
-                [str(executable), "--help"],
-                timeout_seconds=timeout_seconds,
-                cwd=executable.parent,
-            )
+            try:
+                help_result = _windows_pseudoconsole_run(
+                    [str(executable), "--help"],
+                    timeout_seconds=timeout_seconds,
+                    cwd=executable.parent,
+                )
+            except OSError as exc:
+                # Preserve the precise empty-pipe diagnosis when ConPTY is missing
+                # or the executable cannot be started from this probe environment.
+                console_capture_error = type(exc).__name__
     except subprocess.TimeoutExpired:
         version = locals().get("version")
         version_from_metadata = locals().get("version_from_metadata", False)
@@ -856,7 +863,8 @@ def probe_studio(executable: Path, timeout_seconds: int = 20) -> StudioProbe:
         message = (
             f"Bambu Studio CLI returned no response in captured stdout/stderr to --help "
             f"(exit code {help_result.returncode}); it may have written help directly to the console."
-            f"{version_note}"
+            + (f" Windows pseudoconsole capture failed ({console_capture_error})." if console_capture_error else "")
+            + version_note
         )
     elif help_result.returncode != 0:
         message = "Bambu Studio CLI returned a non-zero exit code for --help." + version_note
