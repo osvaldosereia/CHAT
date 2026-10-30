@@ -694,3 +694,35 @@ Ambiente Linux x86_64, Python 3.12; Qt offscreen instalado pelo uv com dependên
 - Não resta implementação independente que possa validar o CLI, perfiles instalados, 3MF ou comportamento do desktop real sem a próxima execução no PC Windows. A chave/API/OpenAI é opcional e permanece sem teste real.
 - A automação `6ae425e42b808191bdaf4f892611b197` foi atualizada com `is_enabled=false`; a ferramenta confirmou sucesso, `next_run_time=null`. **A recorrência foi encerrada.** A retomada fica manual após o usuário compartilhar somente o JSON do probe atualizado.
 - Estado privado/segurança: nenhum STL/3MF, captura de tela, chave, histórico, chamada OpenAI ou impressão foi usado ou enviado ao repositório.
+
+
+
+## Retomada após evidência de ajuda no Studio e fallback de versão Windows — 2026-10-30
+
+- Continuação manual autorizada após o encerramento anterior da recorrência. A automação permanece desabilitada; este registro não a reativa.
+- Branch: `codex/bambu-a1-mini-foundation-20261029`. HEAD antes desta atualização documental: `9012c556f325b78f981c107b2cd15a0793d565af`.
+- Primeiro item incompleto continua sendo a execução do probe atualizado no Windows e o registro do catálogo de perfis locais (Tarefa 1). A saída direta da ajuda apresentada pelo usuário confirma somente que a invocação `--help` termina com exit code 0 e exibe sintaxes; não equivale a saída capturada pelo probe, catálogo, slice, exportação 3MF ou revisão no Studio. Itens de prova real permanecem desmarcados.
+- Código adicional desta retomada:
+  - `62da6e4d7d90088372ef368f9cb34178c853101e`: teste primeiro para ler versão do recurso de versão do executável Windows se `--version` não produzir texto.
+  - `7d46f3a030b359feda48e219293e8a4683678ded`: leitor de `VS_FIXEDFILEINFO`; obtém ProductVersion e recorre a FileVersion. O valor de metadados não implica CLI disponível.
+  - `970f4e1d614a6f9f584050b934a2a5b8582e492d`: teste simulado das chamadas Win32 e do caminho de consulta raiz.
+  - `d2377d6258d818d069fbf9693d41e891db4a16b4`: restringe a carga de `version.dll` ao diretório System32 com `LOAD_LIBRARY_SEARCH_SYSTEM32`; não infere capabilities nem fatiamento.
+  - `9012c556f325b78f981c107b2cd15a0793d565af`: corrige imports ausentes (`discovery`, `ctypes` e `SimpleNamespace`) nos testes Win32 após falha detectada na suíte.
+- Resultados Windows Actions observados:
+  - Run `41121470365`, código em `7d46f3a0`: **176 passed, 1 warning em 16.29s**. O aviso esperado vem do fixture negativo com nome ZIP duplicado. Esta execução antecede os testes de versão Win32 adicionados depois.
+  - Run `41121668998`, código em `d2377d62`: falhou com **176 passed e 2 falhas**; ambas eram `NameError: discovery is not defined` nos testes novos. A execução do teste terminou com falha em 16.18s. O código de produção não era a causa registrada.
+  - Run `41122287080`, commit `9012c556`: aguardando runner Windows no momento deste registro; não declarar a correção verificada antes do resultado.
+  - Build standalone `41121669025`, commit `d2377d62`: aguardando; outros builds anteriores também estavam pendentes/em andamento. Nenhum resultado/artifact novo de build pode ser declarado.
+- Verificação local simulada registrada na rodada: teste de biblioteca padrão com Windows API falsa confirmou leitura `2.8.2.61`, carregamento seguro de `version.dll` e que o status do CLI continua indisponível quando ajuda não é capturada. Não foi executado em Windows nem contra o Studio instalado. O runtime local não contém pytest e este ambiente não tem checkout Git do repositório.
+- Nenhuma chave, STL/3MF privado, imagem privada, API real da OpenAI ou impressão foi usada. Nenhuma compatibilidade funcional é declarada.
+
+### Próxima ação humana consolidada
+
+1. Baixar/atualizar o branch para incluir `9012c556` e os commits subsequentes de documentação; no PowerShell, a partir da pasta `tools`, executar:
+   ```powershell
+   $studio = Join-Path $env:ProgramFiles 'Bambu Studio\\bambu-studio.exe'
+   python .\\bambu_cli_probe.py --executable $studio
+   ```
+   Compartilhar apenas o JSON retornado. Ele não deve incluir caminhos de perfil pessoais, STL, chave ou histórico.
+2. Para liberar Tarefas 1/5: disponibilizar localmente o STL de referência (sem enviá-lo ao GitHub) e revisar com o usuário o resultado de slice/export 3MF sem imprimir, abrindo o projeto no Studio e confirmando máquina, bico, Generic PLA, Textured PEI, suportes e Preview.
+
